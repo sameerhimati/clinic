@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 

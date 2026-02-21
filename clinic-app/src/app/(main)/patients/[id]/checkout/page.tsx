@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "./checkout-form";
+import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,11 @@ export default async function CheckoutPage({
 }) {
   const { id } = await params;
   const patientId = parseInt(id);
+
+  const currentUser = await requireAuth();
+  if (!canSeePayments(currentUser.permissionLevel)) {
+    redirect(`/patients/${patientId}`);
+  }
 
   const patient = await prisma.patient.findUnique({
     where: { id: patientId },

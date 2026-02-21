@@ -123,6 +123,7 @@ model Doctor {
   assistedVisits    Visit[]                  @relation("AssistingDoctor")
   receiptsCreated   Receipt[]
   clinicalReports   ClinicalReport[]
+  uploadedFiles     PatientFile[]
 
   @@map("doctors")
 }
@@ -212,6 +213,7 @@ model Visit {
   updatedAt               DateTime         @updatedAt
   receipts                Receipt[]
   clinicalReports         ClinicalReport[]
+  files                   PatientFile[]
 
   @@map("visits")
 }
@@ -253,14 +255,18 @@ model ClinicalReport {
 }
 
 model PatientFile {
-  id          Int      @id @default(autoincrement())
-  patientId   Int
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  filePath    String
-  fileName    String?
-  description String?
-  fileType    String?
-  createdAt   DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  patientId     Int
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visitId       Int?
+  visit         Visit?   @relation(fields: [visitId], references: [id])
+  filePath      String
+  fileName      String?
+  description   String?
+  fileType      String?
+  uploadedById  Int?
+  uploadedBy    Doctor?  @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime @default(now())
 
   @@map("patient_files")
 }

@@ -1,16 +1,24 @@
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createReceipt } from "../actions";
+import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
 export default async function NewReceiptPage({
   searchParams,
 }: {
   searchParams: Promise<{ visitId?: string }>;
 }) {
+  const currentUser = await requireAuth();
+  if (!canSeePayments(currentUser.permissionLevel)) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
 
   const visits = await prisma.visit.findMany({

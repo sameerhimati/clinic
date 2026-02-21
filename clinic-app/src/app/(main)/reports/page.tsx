@@ -1,8 +1,15 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, AlertCircle } from "lucide-react";
+import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  const currentUser = await requireAuth();
+  if (!canSeePayments(currentUser.permissionLevel)) {
+    redirect("/dashboard");
+  }
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Reports</h2>

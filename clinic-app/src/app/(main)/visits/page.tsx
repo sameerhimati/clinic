@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function VisitsPage({
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string; page?: string }>;
 }) {
   const currentDoctor = await requireAuth();
+  const showPayments = canSeePayments(currentDoctor.permissionLevel);
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;
@@ -125,13 +127,15 @@ export default async function VisitsPage({
                   </div>
                   <div className="text-right">
                     <div>{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
-                    {balance > 0 ? (
-                      <Badge variant="destructive" className="text-xs">
-                        Due: {"\u20B9"}{balance.toLocaleString("en-IN")}
-                      </Badge>
-                    ) : billed > 0 ? (
-                      <Badge variant="secondary" className="text-xs">Paid</Badge>
-                    ) : null}
+                    {showPayments && (
+                      balance > 0 ? (
+                        <Badge variant="destructive" className="text-xs">
+                          Due: {"\u20B9"}{balance.toLocaleString("en-IN")}
+                        </Badge>
+                      ) : billed > 0 ? (
+                        <Badge variant="secondary" className="text-xs">Paid</Badge>
+                      ) : null
+                    )}
                   </div>
                 </Link>
               );

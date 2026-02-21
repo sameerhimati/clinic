@@ -534,6 +534,31 @@ async function main() {
     await prisma.clinicalReport.create({ data: cr });
   }
 
+  // ==========================================
+  // SAMPLE PATIENT FILES (file records — actual files won't exist on disk)
+  // ==========================================
+  const patientFiles = [
+    // Patient 10001 (id=1) — files linked to visit 1
+    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/xray-upper-left.jpg", fileName: "xray-upper-left.jpg", description: "Upper left molar X-ray", fileType: "jpg", uploadedById: kazim!.id },
+    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/opg-scan-feb2026.pdf", fileName: "opg-scan-feb2026.pdf", description: "Full mouth OPG scan", fileType: "pdf", uploadedById: kazim!.id },
+    // Patient 10001 — patient-level file (no visitId)
+    { patientId: 1, filePath: "/uploads/patients/1/consent-form-signed.pdf", fileName: "consent-form-signed.pdf", description: "Treatment consent form", fileType: "pdf", uploadedById: kazim!.id },
+    // Patient 10003 (id=3) — files linked to visit 3 (RCT)
+    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/clinical-photo-tooth36.png", fileName: "clinical-photo-tooth36.png", description: "Pre-op photo of tooth #36", fileType: "png", uploadedById: ramana!.id },
+    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/iopa-tooth36.jpg", fileName: "iopa-tooth36.jpg", description: "IOPA radiograph tooth #36", fileType: "jpg", uploadedById: ramana!.id },
+    { patientId: 3, filePath: "/uploads/patients/3/medical-history-form.pdf", fileName: "medical-history-form.pdf", description: "Medical history questionnaire", fileType: "pdf", uploadedById: kazim!.id },
+    // Patient 10006 (id=6) — files linked to visit 6 (CER CROWN)
+    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/crown-shade-photo.jpg", fileName: "crown-shade-photo.jpg", description: "Shade matching photo", fileType: "jpg", uploadedById: ramana!.id },
+    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/impression-scan.pdf", fileName: "impression-scan.pdf", description: "Digital impression report", fileType: "pdf", uploadedById: ramana!.id },
+    // Patient 10007 (id=7) — file linked to visit 7 (Bleaching)
+    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/before-bleaching.jpg", fileName: "before-bleaching.jpg", description: "Before bleaching photo", fileType: "jpg", uploadedById: anitha!.id },
+    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/after-bleaching.jpg", fileName: "after-bleaching.jpg", description: "After bleaching photo", fileType: "jpg", uploadedById: anitha!.id },
+  ];
+
+  for (const pf of patientFiles) {
+    await prisma.patientFile.create({ data: pf });
+  }
+
   console.log("✅ Database seeded successfully!");
   console.log("   - 2 designations");
   console.log("   - 18 diseases");
@@ -544,6 +569,7 @@ async function main() {
   console.log(`   - ${visits.length} visits`);
   console.log(`   - ${receipts.length} receipts`);
   console.log(`   - ${clinicalReports.length} clinical reports`);
+  console.log(`   - ${patientFiles.length} patient files`);
   console.log("   - 1 clinic settings");
 }
 

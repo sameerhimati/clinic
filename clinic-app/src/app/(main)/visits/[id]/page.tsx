@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { IndianRupee, FileText, ClipboardPlus } from "lucide-react";
+import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
+import { FileUpload } from "@/components/file-upload";
+import { FileGallery } from "@/components/file-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +19,8 @@ export default async function VisitDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const currentUser = await requireAuth();
+  const showPayments = canSeePayments(currentUser.permissionLevel);
   const { id } = await params;
   const visit = await prisma.visit.findUnique({
     where: { id: parseInt(id) },
@@ -30,6 +36,10 @@ export default async function VisitDetailPage({
         include: { doctor: { select: { name: true } } },
         orderBy: { reportDate: "desc" },
         take: 1,
+      },
+      files: {
+        include: { uploadedBy: true },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -72,7 +82,7 @@ export default async function VisitDetailPage({
               )}
             </Link>
           </Button>
-          {balance > 0 && (
+          {showPayments && balance > 0 && (
             <Button asChild>
               <Link href={`/patients/${visit.patientId}/checkout`}>
                 <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
@@ -83,7 +93,7 @@ export default async function VisitDetailPage({
       </div>
 
       {/* Billing Summary */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={`grid gap-4 ${showPayments ? "sm:grid-cols-3" : "sm:grid-cols-1"}`}>
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Billed</div>
@@ -95,20 +105,24 @@ export default async function VisitDetailPage({
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Paid</div>
-            <div className="text-2xl font-bold text-green-600">{"\u20B9"}{paid.toLocaleString("en-IN")}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Balance</div>
-            <div className={`text-2xl font-bold ${balance > 0 ? "text-destructive" : ""}`}>
-              {"\u20B9"}{balance.toLocaleString("en-IN")}
-            </div>
-          </CardContent>
-        </Card>
+        {showPayments && (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Paid</div>
+                <div className="text-2xl font-bold text-green-600">{"\u20B9"}{paid.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">Balance</div>
+                <div className={`text-2xl font-bold ${balance > 0 ? "text-destructive" : ""}`}>
+                  {"\u20B9"}{balance.toLocaleString("en-IN")}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Clinical Report */}
@@ -166,13 +180,13 @@ export default async function VisitDetailPage({
           <DetailRow label="Operation" value={visit.operation?.name} />
           <DetailRow label="Doctor" value={visit.doctor?.name} />
           {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
-          {visit.doctorCommissionPercent != null && (
+          {showPayments && visit.doctorCommissionPercent != null && (
             <DetailRow label="Commission %" value={`${visit.doctorCommissionPercent}%`} />
           )}
           <Separator />
           {visit.lab && <DetailRow label="Lab" value={visit.lab.name} />}
           {visit.labRate && <DetailRow label="Lab Item" value={visit.labRate.itemName} />}
-          {visit.labRateAmount > 0 && (
+          {showPayments && visit.labRateAmount > 0 && (
             <DetailRow label="Lab Rate" value={`₹${visit.labRateAmount.toLocaleString("en-IN")} × ${visit.labQuantity}`} />
           )}
           {visit.notes && (
@@ -187,49 +201,70 @@ export default async function VisitDetailPage({
         </CardContent>
       </Card>
 
-      {/* Receipts */}
+      {/* Files */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Receipts ({visit.receipts.length})</CardTitle>
-          {balance > 0 && (
-            <Button size="sm" variant="outline" asChild>
-              <Link href={`/patients/${visit.patientId}/checkout`}>
-                <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
-              </Link>
-            </Button>
-          )}
+          <CardTitle>Files ({visit.files.length})</CardTitle>
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/patients/${visit.patientId}?tab=files`}>
+              View all patient files
+            </Link>
+          </Button>
         </CardHeader>
-        <CardContent>
-          <div className="divide-y">
-            {visit.receipts.map((receipt) => (
-              <div key={receipt.id} className="flex items-center justify-between py-3">
-                <div>
-                  <div className="font-medium flex items-center gap-2">
-                    {receipt.receiptNo && (
-                      <span className="font-mono text-sm text-muted-foreground">
-                        Rcpt #{receipt.receiptNo}
-                      </span>
-                    )}
-                    {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{receipt.paymentMode}</Badge>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={`/receipts/${receipt.id}/print`}>Print</Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {visit.receipts.length === 0 && (
-              <div className="py-4 text-center text-muted-foreground">No payments yet</div>
-            )}
-          </div>
+        <CardContent className="space-y-4">
+          <FileUpload patientId={visit.patientId} visitId={visit.id} />
+          <FileGallery
+            files={visit.files}
+            canDelete={currentUser.permissionLevel <= 2}
+          />
         </CardContent>
       </Card>
+
+      {/* Receipts - only for payment-visible roles */}
+      {showPayments && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Receipts ({visit.receipts.length})</CardTitle>
+            {balance > 0 && (
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/patients/${visit.patientId}/checkout`}>
+                  <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
+                </Link>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {visit.receipts.map((receipt) => (
+                <div key={receipt.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="font-medium flex items-center gap-2">
+                      {receipt.receiptNo && (
+                        <span className="font-mono text-sm text-muted-foreground">
+                          Rcpt #{receipt.receiptNo}
+                        </span>
+                      )}
+                      {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{receipt.paymentMode}</Badge>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/receipts/${receipt.id}/print`}>Print</Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {visit.receipts.length === 0 && (
+                <div className="py-4 text-center text-muted-foreground">No payments yet</div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

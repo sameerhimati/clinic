@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware), Patient CRUD + search, Visits, Receipts (with auto-numbering), Patient Checkout (multi-visit allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam form, printable report, patient clinical history tab)**. Patient code is the primary identifier everywhere. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware), Patient CRUD + search, Visits, Receipts (with auto-numbering), Patient Checkout (multi-visit allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam form, printable report, patient clinical history tab)**, **Payment Gating (doctors see treatment pricing but not payments/receipts/commissions)**, **File Uploads (drag-and-drop, local storage, gallery view)**, **Clinical Summary Timeline (chronological treatment history, doctor's default view)**. Patient code is the primary identifier everywhere. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -55,6 +55,13 @@ Match legacy permission system:
 - [x] UI hides/disables actions based on role
 - [x] Different dashboard views per role (doctors see their patients, admin/reception see collections)
 - [x] Audit trail: `createdById` on receipts
+
+### P1-3: Payment Gating [DONE]
+- [x] `src/lib/permissions.ts` — canSeePayments(), canEditPatients(), canManageSystem()
+- [x] Doctors see treatment pricing (operation rate, discount) but not payments, receipts, commissions, collections
+- [x] Visit/patient/dashboard/visits list pages gated
+- [x] Checkout + Receipts + Reports pages redirect doctors away
+- [x] Clinical Summary timeline shows treatment pricing without payment tracking
 
 ---
 
@@ -116,11 +123,19 @@ Match legacy permission system:
 - [x] Printable clinical report
 - [x] Clinical notes shown on visit detail page
 
-### P5-2: Document/Image Management
-- [ ] File upload for patient documents (photos, X-rays, scanned reports)
-- [ ] Image viewer in patient detail page
-- [ ] File type filtering (images, PDFs)
-- [ ] Storage: local filesystem initially, Supabase Storage later
+### P5-2: Document/Image Management [DONE]
+- [x] File upload API (POST/DELETE) with type/size validation
+- [x] FileUpload component (drag & drop, description field)
+- [x] FileGallery component (thumbnail grid, PDF icon, delete for admin/reception only)
+- [x] Files tab on patient detail page
+- [x] Files section on visit detail page (filtered to that visit)
+- [x] Storage: local filesystem (`public/uploads/patients/{id}/`), Supabase Storage later
+
+### P5-3: Clinical Summary Timeline [DONE]
+- [x] Chronological treatment timeline on patient detail (doctor's default view)
+- [x] Patient header bar with medical conditions, age, blood group, visit stats
+- [x] Role-aware tab ordering (doctors → Clinical Summary first, admin → Info first)
+- [x] Clinical note attribution with edited indicator
 
 ---
 

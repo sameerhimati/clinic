@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
+import { requireAuth } from "@/lib/auth";
+import { canSeePayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,11 @@ export default async function ReceiptsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; page?: string }>;
 }) {
+  const currentUser = await requireAuth();
+  if (!canSeePayments(currentUser.permissionLevel)) {
+    redirect("/dashboard");
+  }
+
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;

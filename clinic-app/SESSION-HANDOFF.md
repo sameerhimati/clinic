@@ -1,44 +1,50 @@
 # Session Handoff
-> Last updated: 2026-02-21
+> Last updated: 2026-02-21 (Session 3)
 
 ## Completed This Session
-- [x] Cookie-based authentication system (login page, session cookie, requireAuth middleware)
-- [x] Auth context provider (useAuth hook for client components)
-- [x] Topbar shows logged-in doctor name + logout button
-- [x] Role-based sidebar filtering (doctors see fewer nav items than admin)
-- [x] Role-aware dashboard (doctor dashboard with "My Patients Today" vs admin stats dashboard)
-- [x] Clinical examination form (`/visits/[id]/examine`) with complaint chips, free-text fields
-- [x] Printable clinical report (`/visits/[id]/examine/print`) with clinic letterhead
-- [x] Clinical notes displayed on visit detail page with Edit/Add buttons
-- [x] "Clinical" tab on patient detail page showing all exam history
-- [x] Visits page defaults to doctor's own visits for permissionLevel 3
-- [x] `createdById` stamped on all new receipts (single + checkout flows)
-- [x] Seed data updated: 4 doctors with passwords, 4 clinical reports
+- [x] Payment/revenue gating by role — `src/lib/permissions.ts` with `canSeePayments()`, `canEditPatients()`, `canManageSystem()`
+- [x] Visit detail: hides paid/balance cards, commission %, lab costs, receipts for doctors; keeps operation rate + discount visible
+- [x] Patient detail: hides payment summary cards, receipts tab, checkout link for doctors; keeps rate/discount visible
+- [x] Dashboard: doctor view confirmed clean — no payment/collection amounts
+- [x] Sidebar: Reports + Receipts already hidden for doctors (minPermission: 2)
+- [x] Checkout + Receipts (list/new/print) + Reports (index/commission/outstanding) redirect doctors to dashboard
+- [x] File upload system — `POST /api/upload` + `DELETE /api/upload/[id]` with type/size validation
+- [x] PatientFile schema: added `uploadedById` (Doctor relation), `visitId` (Visit relation)
+- [x] FileUpload component (drag & drop, description, type/size validation)
+- [x] FileGallery component (thumbnail grid, PDF icon, delete for admin/reception only)
+- [x] Files & Images tab on patient detail page
+- [x] Files section on visit detail page (filtered to that visit)
+- [x] Clinical Summary tab — chronological treatment timeline (doctor's default view)
+- [x] Patient header bar with medical conditions (⚠ warning), calculated age, blood group, visit stats
+- [x] Clinical note attribution (Noted by Dr. X · date, edited indicator when updatedAt > createdAt + 60s)
+- [x] Role-aware tab ordering — doctors default to Clinical Summary, admin/reception default to Info
+- [x] Seed data: 10 sample PatientFile records with realistic dental filenames linked to visits/doctors
 
 ## Current State
 - **Branch:** main
-- **Last commit:** ad3f0e3 Make clinic app usable for daily billing workflow
-- **Build:** passing (22 routes, all clean)
-- **Uncommitted changes:** yes — 12 modified files + 4 new files (all Session 2 auth + clinical work)
+- **Last commit:** 9b0e244 Add auth system and clinical examination workflow
+- **Build:** passing (24 routes, zero errors)
+- **Uncommitted changes:** yes — 16 modified + 4 new files (Session 3 work)
 - **Blockers:** none
 
 ## Next Session Should
-1. **Commit Session 2 work** — all changes are uncommitted
-2. **CF-4: Legacy data import** — import real patient/visit/receipt data from CLINIC.SQL into SQLite/Postgres
-3. **Phase 2: Admin management** — Doctor CRUD with commission settings, Operation/Procedure management, Lab/Lab Rate management
-4. **Phase 3: Appointment scheduling** — calendar view, doctor-specific appointments
-5. **Phase 6: Production readiness** — when shipping as webapp: migrate to Supabase Auth (hashed passwords, JWT), PostgreSQL, Vercel deployment
+1. **Phase 2: Admin management** — Doctor CRUD (commission settings, active/inactive, password management), Operation/Procedure CRUD (grouped by category), Lab & Lab Rate management
+2. **CF-4: Legacy data import** — import real patient/visit/receipt data from CLINIC.SQL into SQLite, map legacy codes (P_CODE 1–40427, H_CASE_NO 1–80316, R_NO 1–20178)
+3. **Phase 3: Appointment scheduling** — calendar/day view, doctor-specific appointments, status tracking
+4. **Phase 4: Remaining reports** — Operations, Lab Details, Discount, Receipts, Doctor-Patient reports
 
 ## Context to Remember
-- **Auth is intentionally simple** — cookie stores plain doctor ID, passwords are plain text in DB. This matches the legacy system and is fine for a clinic LAN app. Must be replaced with Supabase Auth (hashed passwords, proper sessions) before deploying as a public webapp.
-- **Prisma AI safety gate** — `bunx prisma db push --force-reset` requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes` env var when run from Claude Code
-- **Login credentials for testing:** KAZIM/admin (admin), MURALIDHAR/admin (reception), SURENDER/doctor (doctor), RAMANA REDDY/doctor (doctor)
-- **Permission levels:** 0=SYSADM, 1=Admin, 2=Reception, 3=Doctor — lower number = more access
-- **Sidebar filtering uses `minPermission`** on nav items — the value is the max permissionLevel allowed to see that item
-- **Clinical reports use upsert** — one report per visit, findFirst + create/update pattern
-- **Complaint suggestions** are hardcoded in `examination-form.tsx`, not a DB table — by design for simplicity
-- **`useAuth()` throws** if used outside `AuthProvider` — safe since `(main)` layout always wraps with it
-- **Doctor dashboard greeting** says "Good morning" hardcoded — could be time-aware later
+- **`canSeePayments(permissionLevel)`** is the single gate for all payment/receipt/collection/commission visibility — returns true for levels 0-2, false for 3 (doctors)
+- **Treatment pricing IS visible to doctors** — operation rate, discount, estimate in clinical notes. Only payment tracking (receipts, collections, balances, commissions, lab costs) is hidden.
+- **File uploads stored at** `public/uploads/patients/{patientId}/` — served as Next.js static files
+- **`public/uploads/` is in .gitignore** — uploaded files are local only, not committed
+- **File deletion** restricted to permissionLevel ≤ 2 (admin/reception); all roles can upload
+- **Patient detail page is now role-aware** — tab order differs: doctors see Clinical Summary → Files → Info; admin sees Info → Visits → Clinical → Files → Receipts
+- **Patient header always shows** medical conditions from PatientDisease with ⚠ icon, calculated age (from DOB or estimated from ageAtRegistration + years since registration), blood group, visit count/dates
+- **Auth is still simple cookies** — plain text password in DB, session cookie stores doctor ID. Must replace before public deployment.
+- **Login credentials:** KAZIM/admin (level 1), MURALIDHAR/admin (level 2), SURENDER/doctor (level 3), RAMANA REDDY/doctor (level 3)
+- **Prisma AI safety gate** — `bunx prisma db push --force-reset` requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes`
+- **`formatDistanceToNow` imported but unused** in patient detail — imported during development, harmless but could be cleaned up
 
 ## Start Command
 ```
