@@ -1,0 +1,476 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  // ==========================================
+  // DESIGNATIONS
+  // ==========================================
+  await prisma.designation.createMany({
+    data: [
+      { id: 1, name: "DOCTOR" },
+      { id: 2, name: "RECEPTION" },
+    ],
+  });
+
+  // ==========================================
+  // DISEASES (18 medical conditions)
+  // ==========================================
+  const diseases = [
+    { code: "1", name: "Heart Disease" },
+    { code: "2", name: "High Blood Pressure" },
+    { code: "3", name: "Asthma" },
+    { code: "4", name: "Stroke, Seizures or Convulsions" },
+    { code: "5", name: "Psychiatric Treatment" },
+    { code: "6", name: "Blood Disorder or Bleeding tendency" },
+    { code: "7", name: "Stomach Ulcer" },
+    { code: "8", name: "Diabetes" },
+    { code: "9", name: "Thyroid" },
+    { code: "10", name: "Kidney problem" },
+    { code: "11", name: "Hepatitis" },
+    { code: "12", name: "Liver disease" },
+    { code: "13", name: "HIV Infection" },
+    { code: "14", name: "Tuberculosis" },
+    { code: "15", name: "Arthritis / Rheumatism" },
+    { code: "16", name: "Allergies" },
+    { code: "17", name: "Pregnant" },
+    { code: "18", name: "Birth Control Pills" },
+  ];
+  await prisma.disease.createMany({ data: diseases });
+
+  // ==========================================
+  // OPERATIONS (100+ dental procedures)
+  // ==========================================
+  const operations = [
+    { legacyCode: 1, name: "REG/CONS.", category: "Consultation", defaultMinFee: 100 },
+    { legacyCode: 3, name: "CURETTAGE", category: "Periodontics" },
+    { legacyCode: 4, name: "FLAP SURGERY", category: "Periodontics" },
+    { legacyCode: 6, name: "FRENECTOMY", category: "Periodontics" },
+    { legacyCode: 7, name: "SCALING", category: "Periodontics" },
+    { legacyCode: 8, name: "CURETTAGE", category: "Periodontics" },
+    { legacyCode: 9, name: "FLAP SURGERY", category: "Periodontics" },
+    { legacyCode: 10, name: "GINGIVECTOMY", category: "Periodontics" },
+    { legacyCode: 12, name: "EXTRACTION", category: "Oral Surgery" },
+    { legacyCode: 13, name: "IMPACTION", category: "Oral Surgery" },
+    { legacyCode: 14, name: "WIRING", category: "Oral Surgery" },
+    { legacyCode: 15, name: "RCT", category: "Endodontics" },
+    { legacyCode: 16, name: "FILLING", category: "Restorative" },
+    { legacyCode: 17, name: "COMP FILLING", category: "Restorative" },
+    { legacyCode: 18, name: "BLEACHING", category: "Cosmetic" },
+    { legacyCode: 19, name: "APICECTOMY", category: "Endodontics" },
+    { legacyCode: 20, name: "N.C. CROWN", category: "Prosthodontics" },
+    { legacyCode: 21, name: "N.C. BRIDGE", category: "Prosthodontics" },
+    { legacyCode: 22, name: "C.D.", category: "Prosthodontics" },
+    { legacyCode: 23, name: "R.P.D.", category: "Prosthodontics" },
+    { legacyCode: 24, name: "F.P.D.", category: "Prosthodontics" },
+    { legacyCode: 25, name: "C.P.D.", category: "Prosthodontics" },
+    { legacyCode: 26, name: "PULPOTOMY", category: "Endodontics" },
+    { legacyCode: 27, name: "PULPECTOMY (RCT)", category: "Endodontics" },
+    { legacyCode: 28, name: "DECIDUOUS EXTRACTION", category: "Oral Surgery" },
+    { legacyCode: 29, name: "SPACE MAINTAINER", category: "Orthodontics" },
+    { legacyCode: 30, name: "S.S. CROWN", category: "Prosthodontics" },
+    { legacyCode: 31, name: "I.O.P.A.", category: "Radiology", defaultMinFee: 50 },
+    { legacyCode: 32, name: "BEGGS", category: "Orthodontics" },
+    { legacyCode: 33, name: "ST. WIRE", category: "Orthodontics" },
+    { legacyCode: 34, name: "ORTHO", category: "Orthodontics" },
+    { legacyCode: 35, name: "CONS. (CGHS)", category: "Consultation", defaultMinFee: 35 },
+    { legacyCode: 36, name: "I.O.P.A (BSNL)", category: "Radiology", defaultMinFee: 70 },
+    { legacyCode: 37, name: "CONS & X-RAY", category: "Consultation", defaultMinFee: 150 },
+    { legacyCode: 38, name: "APPLIANCE", category: "Orthodontics" },
+    { legacyCode: 39, name: "APPLIANCE REMOVAL", category: "Orthodontics" },
+    { legacyCode: 40, name: "CONS.", category: "Consultation", defaultMinFee: 100 },
+    { legacyCode: 41, name: "CHECKUP", category: "Consultation" },
+    { legacyCode: 42, name: "ALVEOLOPLASTY", category: "Oral Surgery" },
+    { legacyCode: 44, name: "FILLINGS", category: "Restorative" },
+    { legacyCode: 45, name: "X-RAY", category: "Radiology" },
+    { legacyCode: 47, name: "ORTHO (REMOVABLE)", category: "Orthodontics" },
+    { legacyCode: 48, name: "CONS. (BSNL)", category: "Consultation" },
+    { legacyCode: 49, name: "COMPOSITES", category: "Restorative" },
+    { legacyCode: 50, name: "BIOPSY", category: "Oral Surgery" },
+    { legacyCode: 51, name: "T.T. INJ & CLEANING", category: "Other" },
+    { legacyCode: 52, name: "NICKEL BRIDGE", category: "Prosthodontics" },
+    { legacyCode: 53, name: "ABSCESS INCISION", category: "Oral Surgery" },
+    { legacyCode: 54, name: "FIXATION", category: "Oral Surgery" },
+    { legacyCode: 55, name: "TEMPORARY", category: "Prosthodontics" },
+    { legacyCode: 56, name: "N.C.", category: "Prosthodontics" },
+    { legacyCode: 58, name: "CER CROWN", category: "Prosthodontics" },
+    { legacyCode: 59, name: "CER FAC CROWN", category: "Prosthodontics" },
+    { legacyCode: 60, name: "CER BRIDGE", category: "Prosthodontics" },
+    { legacyCode: 61, name: "CER FAC BRIDGE", category: "Prosthodontics" },
+    { legacyCode: 62, name: "FLAP", category: "Periodontics" },
+    { legacyCode: 63, name: "APPLIANCE BREAKAGE", category: "Orthodontics" },
+    { legacyCode: 64, name: "ACRYLIC CROWN", category: "Prosthodontics" },
+    { legacyCode: 65, name: "SUTURING", category: "Oral Surgery" },
+    { legacyCode: 66, name: "RPD REPAIR", category: "Prosthodontics" },
+    { legacyCode: 67, name: "RETAINER", category: "Orthodontics" },
+    { legacyCode: 68, name: "CORONOPLASTY", category: "Restorative" },
+    { legacyCode: 70, name: "CONS. (UNI)", category: "Consultation" },
+    { legacyCode: 71, name: "SPLINTING", category: "Other" },
+    { legacyCode: 72, name: "CROWN (S.S.)", category: "Prosthodontics" },
+    { legacyCode: 73, name: "CROWN CEMENTING", category: "Prosthodontics" },
+    { legacyCode: 74, name: "APPLIANCE REPAIR", category: "Orthodontics" },
+    { legacyCode: 75, name: "INCISION DRAINAGE", category: "Oral Surgery" },
+    { legacyCode: 76, name: "CD REPAIR", category: "Prosthodontics" },
+    { legacyCode: 77, name: "L/CD", category: "Prosthodontics" },
+    { legacyCode: 78, name: "U/CD", category: "Prosthodontics" },
+    { legacyCode: 79, name: "DENTURE CORRECTION", category: "Prosthodontics" },
+    { legacyCode: 80, name: "COMPOSITE REPAIR", category: "Restorative" },
+    { legacyCode: 81, name: "SKYCE", category: "Cosmetic" },
+    { legacyCode: 82, name: "POLISHING", category: "Cosmetic" },
+    { legacyCode: 83, name: "I.O.P.A (CGHS)", category: "Radiology" },
+    { legacyCode: 84, name: "SURGICAL EXCISION", category: "Oral Surgery" },
+    { legacyCode: 85, name: "TEMP FILLING", category: "Restorative" },
+    { legacyCode: 86, name: "SPLINT", category: "Other" },
+    { legacyCode: 87, name: "CROWN LENGTHENING", category: "Periodontics" },
+    { legacyCode: 88, name: "NIGHT GUARD", category: "Other" },
+    { legacyCode: 89, name: "NEURECTOMY", category: "Oral Surgery" },
+    { legacyCode: 90, name: "ALL CERAMIC", category: "Prosthodontics" },
+    { legacyCode: 91, name: "OPERCULECTOMY", category: "Oral Surgery" },
+    { legacyCode: 92, name: "MAXILLARY TEMPLATE", category: "Prosthodontics" },
+    { legacyCode: 93, name: "MODEL ANALYSIS", category: "Orthodontics" },
+    { legacyCode: 94, name: "IMPLANT", category: "Other" },
+    { legacyCode: 95, name: "CROWN REMOVAL", category: "Prosthodontics" },
+    { legacyCode: 96, name: "RPD VALPLAST", category: "Prosthodontics" },
+    { legacyCode: 97, name: "GOLD CROWN", category: "Prosthodontics" },
+    { legacyCode: 98, name: "SEMI PRECIOUS CROWN", category: "Prosthodontics" },
+    { legacyCode: 99, name: "TOOTH MOUSSE", category: "Other" },
+    { legacyCode: 100, name: "LAMINATES", category: "Cosmetic" },
+    { legacyCode: 101, name: "DRESSING", category: "Other" },
+    { legacyCode: 102, name: "MINI SCREWS", category: "Orthodontics" },
+    { legacyCode: 103, name: "FLUORIDE APPLICATION", category: "Other" },
+    { legacyCode: 104, name: "SURGERY", category: "Oral Surgery" },
+    { legacyCode: 105, name: "B.P.S. DENTURE", category: "Prosthodontics" },
+    { legacyCode: 106, name: "FILLER", category: "Cosmetic" },
+    { legacyCode: 107, name: "SILICON ROD", category: "Cosmetic" },
+    { legacyCode: 108, name: "POST CORE BUILD UP", category: "Endodontics" },
+    { legacyCode: 109, name: "COMPOSITE CROWNS", category: "Restorative" },
+    { legacyCode: 110, name: "BLEPHAROPLASTY", category: "Cosmetic" },
+    { legacyCode: 111, name: "PTOSIS CORRECTION", category: "Cosmetic" },
+    { legacyCode: 112, name: "G.A. TREATMENT", category: "Other" },
+    { legacyCode: 113, name: "LASER FLAP SURGERY", category: "Periodontics" },
+    { legacyCode: 114, name: "LASER CURETTAGE", category: "Periodontics" },
+  ];
+  await prisma.operation.createMany({ data: operations });
+
+  // ==========================================
+  // LABS (28 dental laboratories)
+  // ==========================================
+  const labs = [
+    { legacyCode: 1, name: "MURALI DENTAL LAB" },
+    { legacyCode: 2, name: "VIJAYA LAB" },
+    { legacyCode: 3, name: "UZHAIR LAB" },
+    { legacyCode: 4, name: "TOOTH SHADES" },
+    { legacyCode: 5, name: "MAHENDRANATH REDDY" },
+    { legacyCode: 6, name: "M.M. ALI" },
+    { legacyCode: 7, name: "SAI DENTAL LAB" },
+    { legacyCode: 8, name: "DENTAL AVENUE" },
+    { legacyCode: 9, name: "GLOBAL ESTHETICS" },
+    { legacyCode: 10, name: "MAJID LAB" },
+    { legacyCode: 11, name: "VENKAT LAB" },
+    { legacyCode: 12, name: "ESHWAR (ORTHO) DENTAL LAB" },
+    { legacyCode: 13, name: "ADVANTAGE / ARTISAN DENTAL LAB" },
+    { legacyCode: 14, name: "KATARA DENTAL (Pune & Hyd)" },
+    { legacyCode: 15, name: "VENKAIAH DENTAL LAB" },
+    { legacyCode: 16, name: "VITALIUM LAB" },
+    { legacyCode: 17, name: "KNACK DENTAL LAB" },
+    { legacyCode: 18, name: "SHIVAM DANTAKALA" },
+    { legacyCode: 19, name: "SOUTHMAN DENTAL LAB" },
+    { legacyCode: 20, name: "SUDHA DENTAL LAB" },
+    { legacyCode: 21, name: "K.L. DENTAL LAB" },
+    { legacyCode: 22, name: "INDIAN DENTAL LAB" },
+    { legacyCode: 23, name: "DIVYA DENTAL LAB" },
+    { legacyCode: 24, name: "K.P. DENTAL LAB" },
+    { legacyCode: 25, name: "LAKSHMI DENTAL LAB" },
+    { legacyCode: 26, name: "AL-ZUBAIDI DENTAL LAB" },
+    { legacyCode: 27, name: "DENTCARE DENTAL LAB" },
+    { legacyCode: 28, name: "CONFIDENCE DENTAL LAB" },
+  ];
+  await prisma.lab.createMany({ data: labs });
+
+  // ==========================================
+  // DOCTORS (selected active doctors from legacy)
+  // ==========================================
+  const doctors = [
+    { legacyCode: 0, name: "NONE", commissionPercent: 0, designationId: 1, permissionLevel: 2 },
+    { legacyCode: 1, name: "KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 1, password: "admin" },
+    { legacyCode: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1 },
+    { legacyCode: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1 },
+    { legacyCode: 5, name: "ANITHA", commissionPercent: 70, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 6, name: "BABU RAM", commissionPercent: 50, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 7, name: "TAUFIQ", commissionPercent: 0, designationId: 1 },
+    { legacyCode: 9, name: "SHEETAL", commissionPercent: 45, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 10, name: "HEMANTH", commissionPercent: 50, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 16, name: "VIVEK", commissionPercent: 60, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 17, name: "RATHIKA RAI", commissionPercent: 25, tdsPercent: 5.15, designationId: 1 },
+    { legacyCode: 21, name: "GIRISH KADRI", commissionPercent: 45, tdsPercent: 5.1, designationId: 1 },
+    { legacyCode: 28, name: "GAUTAM", commissionPercent: 50, tdsPercent: 11.33, designationId: 1 },
+    { legacyCode: 31, name: "MADHU", commissionPercent: 50, tdsPercent: 11.33, mobile: "9849553445", designationId: 1 },
+    { legacyCode: 35, name: "BHADRA RAO", commissionPercent: 0, commissionRate: 750, tdsPercent: 11.33, designationId: 1 },
+    { legacyCode: 44, name: "BHARANI KUMAR REDDY", commissionPercent: 0, tdsPercent: 5.15, designationId: 1 },
+    { legacyCode: 48, name: "RAJESH REDDY", commissionPercent: 0, tdsPercent: 11.33, mobile: "9177563555", designationId: 1 },
+    { legacyCode: 60, name: "ANIL", commissionPercent: 0, tdsPercent: 11.33, designationId: 1 },
+    { legacyCode: 87, name: "MURALIDHAR", commissionPercent: 0, designationId: 2, permissionLevel: 1 },
+  ];
+  await prisma.doctor.createMany({ data: doctors });
+
+  // ==========================================
+  // CLINIC SETTINGS
+  // ==========================================
+  await prisma.clinicSettings.create({
+    data: {
+      name: "Secunderabad Dental Hospital",
+      addressLine1: "Centre for Advanced Dental Care",
+      addressLine2: "1-2-261/4-6, S.D. Road",
+      addressLine3: "Opp: Minerva Complex",
+      city: "Secunderabad",
+      state: "Telangana",
+      pincode: "500003",
+      phone: "27844043, 66339096",
+      email: "secdentl@gmail.com",
+      appVersion: "2.0",
+    },
+  });
+
+  // ==========================================
+  // SAMPLE PATIENTS (50 patients for demo)
+  // ==========================================
+  const patients = [
+    { legacyCode: 10001, salutation: "Mr", name: "RAMCHANDER", fatherHusbandName: "A. SRIRAMULU", addressLine1: "5-9-912, Gunfoundry", addressLine2: "Hyderabad-1", gender: "M", ageAtRegistration: 42, occupation: "Business", phone: "23297900" },
+    { legacyCode: 10002, salutation: "Mrs", name: "ABUWALA B.", fatherHusbandName: "HUSSAIN", addressLine1: "30-22-A, A.P.R.T.C Colony", addressLine2: "Sale Mension, Sec-bad-15", gender: "F", ageAtRegistration: 70, occupation: "H.W", phone: "27993122" },
+    { legacyCode: 10003, salutation: "Mr", name: "SRINIVAS NARRA", fatherHusbandName: "KRISHNA RAO NARRA", addressLine1: "F.No:204, Mythily Apts", addressLine2: "V.V.K.N Colony, Kukatpally", gender: "M", ageAtRegistration: 22, occupation: "S/W Prog.", bloodGroup: "O+", phone: "23065482" },
+    { legacyCode: 10004, salutation: "Mr", name: "BUCHI RAJU", addressLine1: "Venugopal C/O Lufthansa Cargo", addressLine2: "Begumpet, Hyderabad", gender: "M", ageAtRegistration: 19, occupation: "Student", mobile: "9849028482" },
+    { legacyCode: 10005, salutation: "Ms", name: "DIVYA MULANI", fatherHusbandName: "VIJAY MULANI", addressLine1: "P.No:7, Krishna Nagar Colony", addressLine2: "P.G. Road, Sec-bad", gender: "F", ageAtRegistration: 6, occupation: "Student", phone: "27840647" },
+    { legacyCode: 10006, salutation: "Master", name: "CALVIN", fatherHusbandName: "JOHNSON", addressLine1: "1-8-811/A, Prakash Nagar", addressLine2: "Begumpet, Hyd-16", gender: "M", ageAtRegistration: 4, occupation: "Student", bloodGroup: "B+", phone: "27768025" },
+    { legacyCode: 10007, salutation: "Ms", name: "ANJALI SHEKHAR", fatherHusbandName: "M.K. CHANDRA SHEKHAR", addressLine1: "37-93/371/1, Madhura Nagar Colony", addressLine2: "Neridmet, Sainik Puri", addressLine3: "Secunderabad-94", gender: "F", ageAtRegistration: 15, occupation: "Student", phone: "27112506" },
+    { legacyCode: 10008, salutation: "Mrs", name: "M.S. SHIREEN", fatherHusbandName: "ABDUL KHADER", addressLine1: "Flat No.7, Nisha Towers", addressLine2: "Opp: Football Ground", addressLine3: "Tirmulgery, Secunderabad-15", gender: "F", ageAtRegistration: 15, occupation: "Student", phone: "27790938" },
+    { legacyCode: 10009, salutation: "Master", name: "SURYA TEJA", fatherHusbandName: "TRILOK KUMAR", addressLine1: "# 8-3-119, 2nd Bazar", addressLine2: "Secunderabad", gender: "M", ageAtRegistration: 6, occupation: "Student", phone: "27710223" },
+    { legacyCode: 10010, salutation: "Mr", name: "MAHENDER SAI", fatherHusbandName: "G.V.S. PRASAD", addressLine1: "17-16/1/1, Jyoti Nagar", addressLine2: "Malkajgiri, Sec-bad-17", gender: "M", ageAtRegistration: 6, occupation: "Student", phone: "27054934" },
+    { legacyCode: 10011, salutation: "Ms", name: "TAMARA ISAAC", fatherHusbandName: "SAJJAN ISAAC", addressLine1: "25, Sectar A, AWHO Colony", addressLine2: "Secunderabad-09", gender: "F", ageAtRegistration: 6, occupation: "Student", phone: "27893283" },
+    { legacyCode: 10012, salutation: "Mr", name: "HARI DAS", fatherHusbandName: "SRISHAH", addressLine1: "11/2, Shiva Arun Colony", addressLine2: "West Maredpally, Sec-bad-26", gender: "M", occupation: "Student", phone: "7805928" },
+    { legacyCode: 10013, salutation: "Mrs", name: "MADHURI V.", fatherHusbandName: "V.C.H. SANDYASAYYA", addressLine1: "12-12-102, Ravindra Nagar", addressLine2: "Seetaphal Mandi, Sec-bad-61", gender: "F", ageAtRegistration: 26, phone: "27095923" },
+    { legacyCode: 10014, salutation: "Mrs", name: "DEEPA SADAGOPAN", fatherHusbandName: "SADDAGOPAN RAJARAM", addressLine1: "12-13-783, St. No.1", addressLine2: "Tarnaka, Sec-bad-17", gender: "F", ageAtRegistration: 21, occupation: "Student", bloodGroup: "A+", phone: "27019348" },
+    { legacyCode: 10015, salutation: "Mr", name: "MURARI GUPTA", fatherHusbandName: "BABULAL", addressLine1: "10-3-131, East Maredpally", addressLine2: "Secunderabad 500026", gender: "M", ageAtRegistration: 51, occupation: "Business", phone: "55909193" },
+    { legacyCode: 10016, salutation: "Mrs", name: "MEHER LAKSHMI", gender: "F" },
+    { legacyCode: 10017, salutation: "Ms", name: "NEHA SARDANA", fatherHusbandName: "S.K. SARDANA", addressLine1: "16, S.P. Road", addressLine2: "Opp. C.T.O., Secunderabad", gender: "F", phone: "27801250" },
+    { legacyCode: 10018, salutation: "Mr", name: "RAVI KUMAR", addressLine1: "H.No 5-4-187", addressLine2: "Rani Gunj, Secunderabad", gender: "M", ageAtRegistration: 35, occupation: "Engineer", mobile: "9876543210" },
+    { legacyCode: 10019, salutation: "Mrs", name: "PADMA REDDY", fatherHusbandName: "KRISHNA REDDY", addressLine1: "12-2-823, Mehdipatnam", addressLine2: "Hyderabad-28", gender: "F", ageAtRegistration: 45, occupation: "Teacher", mobile: "9123456789" },
+    { legacyCode: 10020, salutation: "Mr", name: "AHMED KHAN", addressLine1: "3-6-234, Himayatnagar", addressLine2: "Hyderabad", gender: "M", ageAtRegistration: 55, occupation: "Retired", mobile: "8765432109", bloodGroup: "B+" },
+    { legacyCode: 10021, salutation: "Mrs", name: "SUNITHA DEVI", fatherHusbandName: "RAMESH", addressLine1: "H.No 8-3-169, Yousufguda", addressLine2: "Hyderabad", gender: "F", ageAtRegistration: 38, occupation: "Homemaker", mobile: "9988776655" },
+    { legacyCode: 10022, salutation: "Mr", name: "VENKAT RAO", addressLine1: "Plot 45, Jubilee Hills", addressLine2: "Hyderabad-34", gender: "M", ageAtRegistration: 62, occupation: "Businessman", mobile: "9876512345", bloodGroup: "A+" },
+    { legacyCode: 10023, salutation: "Baby", name: "AARAV SHARMA", fatherHusbandName: "RAJESH SHARMA", addressLine1: "Flat 302, Sri Sai Apts", addressLine2: "AS Rao Nagar, Sec-bad", gender: "M", ageAtRegistration: 3, mobile: "9944332211" },
+    { legacyCode: 10024, salutation: "Dr", name: "PRIYA MENON", addressLine1: "4-7-53, Bank Street", addressLine2: "Koti, Hyderabad", gender: "F", ageAtRegistration: 40, occupation: "Doctor", mobile: "9012345678", bloodGroup: "O-" },
+    { legacyCode: 10025, salutation: "Mr", name: "SYED IBRAHIM", addressLine1: "1-7-234, Musheerabad", addressLine2: "Hyderabad", gender: "M", ageAtRegistration: 28, occupation: "Software Engineer", mobile: "7654321098" },
+    { legacyCode: 10026, salutation: "Mrs", name: "LAKSHMI BAI", fatherHusbandName: "NARAYAN RAO", addressLine1: "H.No 2-2-647, Amberpet", addressLine2: "Hyderabad-13", gender: "F", ageAtRegistration: 58, occupation: "Retired Teacher", phone: "27423098" },
+    { legacyCode: 10027, salutation: "Mr", name: "RAJENDRA PRASAD", addressLine1: "16-11-511, Dilsukhnagar", addressLine2: "Hyderabad-60", gender: "M", ageAtRegistration: 48, occupation: "Govt Employee", mobile: "8899001122" },
+    { legacyCode: 10028, salutation: "Ms", name: "KAVITHA REDDY", addressLine1: "Plot 78, Banjara Hills", addressLine2: "Hyderabad-34", gender: "F", ageAtRegistration: 30, occupation: "IT Professional", mobile: "9876789012" },
+    { legacyCode: 10029, salutation: "Mr", name: "GANESH KUMAR", addressLine1: "5-9-22/1, Basheerbagh", addressLine2: "Hyderabad-1", gender: "M", ageAtRegistration: 44, occupation: "Merchant", mobile: "9567890123", bloodGroup: "AB+" },
+    { legacyCode: 10030, salutation: "Mrs", name: "FATIMA BEGUM", fatherHusbandName: "MOHAMMED ALI", addressLine1: "Old City, Charminar", addressLine2: "Hyderabad-2", gender: "F", ageAtRegistration: 50, occupation: "Homemaker", mobile: "9234567890" },
+    { legacyCode: 10031, salutation: "Mr", name: "SURESH BABU", addressLine1: "H.No 4-1-132, Tilak Nagar", addressLine2: "Hyderabad", gender: "M", ageAtRegistration: 33, occupation: "Bank Employee", mobile: "8012345678" },
+    { legacyCode: 10032, salutation: "Ms", name: "ANITHA KUMARI", addressLine1: "Flat 501, Rainbow Apts", addressLine2: "Kukatpally, Hyderabad", gender: "F", ageAtRegistration: 25, occupation: "Student", mobile: "7890123456" },
+    { legacyCode: 10033, salutation: "Mr", name: "PRAKASH RAO", addressLine1: "3-4-567, Kachiguda", addressLine2: "Hyderabad-27", gender: "M", ageAtRegistration: 60, occupation: "Retired", phone: "27654321", bloodGroup: "B-" },
+    { legacyCode: 10034, salutation: "Mrs", name: "SAROJINI DEVI", fatherHusbandName: "PRAKASH RAO", addressLine1: "3-4-567, Kachiguda", addressLine2: "Hyderabad-27", gender: "F", ageAtRegistration: 55, occupation: "Homemaker", phone: "27654321" },
+    { legacyCode: 10035, salutation: "Mr", name: "KISHORE REDDY", addressLine1: "12-5-149, Tarnaka", addressLine2: "Secunderabad-17", gender: "M", ageAtRegistration: 37, occupation: "Architect", mobile: "9345678901", bloodGroup: "O+" },
+    { legacyCode: 10036, salutation: "Mrs", name: "JAYA LAKSHMI", fatherHusbandName: "KISHORE REDDY", addressLine1: "12-5-149, Tarnaka", addressLine2: "Secunderabad-17", gender: "F", ageAtRegistration: 34, occupation: "Interior Designer", mobile: "9456789012" },
+    { legacyCode: 10037, salutation: "Master", name: "ARJUN REDDY", fatherHusbandName: "KISHORE REDDY", addressLine1: "12-5-149, Tarnaka", addressLine2: "Secunderabad-17", gender: "M", ageAtRegistration: 8, occupation: "Student" },
+    { legacyCode: 10038, salutation: "Mr", name: "DEVENDER GOUD", addressLine1: "H.No 6-3-248, Panjagutta", addressLine2: "Hyderabad-82", gender: "M", ageAtRegistration: 52, occupation: "Politician", mobile: "9876543201" },
+    { legacyCode: 10039, salutation: "Mrs", name: "NOOR JAHAN", fatherHusbandName: "NAWAB KHAN", addressLine1: "22-3-789, Malakpet", addressLine2: "Hyderabad-36", gender: "F", ageAtRegistration: 65, occupation: "Homemaker", mobile: "8765432198" },
+    { legacyCode: 10040, salutation: "Mr", name: "RAGHUVEER SINGH", addressLine1: "1-10-72, Ashok Nagar", addressLine2: "Hyderabad-20", gender: "M", ageAtRegistration: 41, occupation: "Police Officer", mobile: "9012398765", bloodGroup: "A-" },
+    { legacyCode: 10041, salutation: "Ms", name: "POOJA GUPTA", addressLine1: "Flat 203, Sai Enclave", addressLine2: "Ameerpet, Hyderabad", gender: "F", ageAtRegistration: 22, occupation: "Student", mobile: "7654398012" },
+    { legacyCode: 10042, salutation: "Mr", name: "BALARAM NAIK", addressLine1: "5-8-92, Nallakunta", addressLine2: "Hyderabad-44", gender: "M", ageAtRegistration: 57, occupation: "Shopkeeper", mobile: "9123098765" },
+    { legacyCode: 10043, salutation: "Mrs", name: "VIJAYA LAKSHMI", fatherHusbandName: "BALARAM NAIK", addressLine1: "5-8-92, Nallakunta", addressLine2: "Hyderabad-44", gender: "F", ageAtRegistration: 52, occupation: "Homemaker", mobile: "9234098765" },
+    { legacyCode: 10044, salutation: "Mr", name: "ASHOK KUMAR", addressLine1: "H.No 11-3-56, Marredpally", addressLine2: "Secunderabad-26", gender: "M", ageAtRegistration: 39, occupation: "Manager", mobile: "8901234567", bloodGroup: "AB-" },
+    { legacyCode: 10045, salutation: "Mrs", name: "REKHA SHARMA", fatherHusbandName: "ASHOK KUMAR", addressLine1: "H.No 11-3-56, Marredpally", addressLine2: "Secunderabad-26", gender: "F", ageAtRegistration: 36, occupation: "Homemaker", mobile: "8012398765" },
+    { legacyCode: 10046, salutation: "Mr", name: "NARASIMHA RAO", addressLine1: "4-4-21, Sultan Bazar", addressLine2: "Hyderabad-95", gender: "M", ageAtRegistration: 70, occupation: "Retired Judge", phone: "24567890", bloodGroup: "O+" },
+    { legacyCode: 10047, salutation: "Ms", name: "SWATHI REDDY", addressLine1: "Plot 12, Film Nagar", addressLine2: "Hyderabad-33", gender: "F", ageAtRegistration: 27, occupation: "Journalist", mobile: "9876012345" },
+    { legacyCode: 10048, salutation: "Mr", name: "MOHAMMAD RAFI", addressLine1: "7-1-64, Ameerpet", addressLine2: "Hyderabad-16", gender: "M", ageAtRegistration: 43, occupation: "Auto Driver", mobile: "9321456789" },
+    { legacyCode: 10049, salutation: "Mrs", name: "SALEHA BEGUM", fatherHusbandName: "MOHAMMAD RAFI", addressLine1: "7-1-64, Ameerpet", addressLine2: "Hyderabad-16", gender: "F", ageAtRegistration: 38, occupation: "Tailor", mobile: "9432567890" },
+    { legacyCode: 10050, salutation: "Mr", name: "CHANDRA SEKHAR", addressLine1: "2-3-670, Amberpet", addressLine2: "Hyderabad-13", gender: "M", ageAtRegistration: 46, occupation: "Electrician", mobile: "8765012345" },
+  ];
+  await prisma.patient.createMany({ data: patients });
+
+  // ==========================================
+  // SAMPLE VISITS (demonstrating various procedures)
+  // ==========================================
+  // Get doctor and operation IDs
+  const kazim = await prisma.doctor.findFirst({ where: { name: "KAZIM" } });
+  const surender = await prisma.doctor.findFirst({ where: { name: "SURENDER" } });
+  const ramana = await prisma.doctor.findFirst({ where: { name: "RAMANA REDDY" } });
+  const anitha = await prisma.doctor.findFirst({ where: { name: "ANITHA" } });
+  const bhadra = await prisma.doctor.findFirst({ where: { name: "BHADRA RAO" } });
+
+  const regCons = await prisma.operation.findFirst({ where: { legacyCode: 1 } });
+  const scaling = await prisma.operation.findFirst({ where: { legacyCode: 7 } });
+  const rct = await prisma.operation.findFirst({ where: { legacyCode: 15 } });
+  const filling = await prisma.operation.findFirst({ where: { legacyCode: 16 } });
+  const extraction = await prisma.operation.findFirst({ where: { legacyCode: 12 } });
+  const cerCrown = await prisma.operation.findFirst({ where: { legacyCode: 58 } });
+  const bleaching = await prisma.operation.findFirst({ where: { legacyCode: 18 } });
+  const implant = await prisma.operation.findFirst({ where: { legacyCode: 94 } });
+  const xray = await prisma.operation.findFirst({ where: { legacyCode: 31 } });
+  const flap = await prisma.operation.findFirst({ where: { legacyCode: 4 } });
+
+  const lab7 = await prisma.lab.findFirst({ where: { legacyCode: 7 } });
+
+  const today = new Date();
+  const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000);
+
+  const visits = [
+    // Today's visits
+    { legacyCaseNo: 80001, patientId: 1, visitDate: today, operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { legacyCaseNo: 80002, patientId: 2, visitDate: today, operationId: scaling!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { legacyCaseNo: 80003, patientId: 3, visitDate: today, operationId: rct!.id, operationRate: 5000, doctorId: ramana!.id, doctorCommissionPercent: 75, discount: 500 },
+    // Yesterday
+    { legacyCaseNo: 80004, patientId: 4, visitDate: daysAgo(1), operationId: filling!.id, operationRate: 800, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { legacyCaseNo: 80005, patientId: 5, visitDate: daysAgo(1), operationId: extraction!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    // This week
+    { legacyCaseNo: 80006, patientId: 6, visitDate: daysAgo(2), operationId: cerCrown!.id, operationRate: 8000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550 },
+    { legacyCaseNo: 80007, patientId: 7, visitDate: daysAgo(3), operationId: bleaching!.id, operationRate: 3000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { legacyCaseNo: 80008, patientId: 8, visitDate: daysAgo(3), operationId: implant!.id, operationRate: 25000, doctorId: bhadra!.id, commissionRate: 750, labRateAmount: 3000 },
+    { legacyCaseNo: 80009, patientId: 9, visitDate: daysAgo(4), operationId: xray!.id, operationRate: 50, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { legacyCaseNo: 80010, patientId: 10, visitDate: daysAgo(5), operationId: flap!.id, operationRate: 6000, doctorId: surender!.id, doctorCommissionPercent: 50, discount: 1000 },
+    // Last week
+    { legacyCaseNo: 80011, patientId: 11, visitDate: daysAgo(7), operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { legacyCaseNo: 80012, patientId: 12, visitDate: daysAgo(7), operationId: rct!.id, operationRate: 4500, doctorId: ramana!.id, doctorCommissionPercent: 75 },
+    { legacyCaseNo: 80013, patientId: 13, visitDate: daysAgo(8), operationId: cerCrown!.id, operationRate: 7500, doctorId: anitha!.id, doctorCommissionPercent: 70, labId: lab7!.id, labRateAmount: 550, labQuantity: 2 },
+    { legacyCaseNo: 80014, patientId: 14, visitDate: daysAgo(9), operationId: scaling!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { legacyCaseNo: 80015, patientId: 15, visitDate: daysAgo(10), operationId: filling!.id, operationRate: 600, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    // Older visits with outstanding balances
+    { legacyCaseNo: 80016, patientId: 16, visitDate: daysAgo(15), operationId: implant!.id, operationRate: 30000, doctorId: bhadra!.id, labRateAmount: 5000 },
+    { legacyCaseNo: 80017, patientId: 17, visitDate: daysAgo(20), operationId: cerCrown!.id, operationRate: 12000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550, labQuantity: 3 },
+    { legacyCaseNo: 80018, patientId: 18, visitDate: daysAgo(25), operationId: rct!.id, operationRate: 5000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { legacyCaseNo: 80019, patientId: 19, visitDate: daysAgo(30), operationId: extraction!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { legacyCaseNo: 80020, patientId: 20, visitDate: daysAgo(35), operationId: bleaching!.id, operationRate: 4000, doctorId: ramana!.id, doctorCommissionPercent: 75 },
+  ];
+
+  for (const v of visits) {
+    const { commissionRate, ...visitData } = v as typeof v & { commissionRate?: number };
+    await prisma.visit.create({ data: visitData });
+  }
+
+  // ==========================================
+  // SAMPLE RECEIPTS
+  // ==========================================
+  const receipts = [
+    // Fully paid visits
+    { visitId: 1, receiptDate: today, amount: 100, paymentMode: "Cash" },
+    { visitId: 2, receiptDate: today, amount: 1500, paymentMode: "UPI" },
+    { visitId: 3, receiptDate: today, amount: 3000, paymentMode: "Card" }, // partial payment (4500 billed)
+    { visitId: 4, receiptDate: daysAgo(1), amount: 800, paymentMode: "Cash" },
+    { visitId: 5, receiptDate: daysAgo(1), amount: 1200, paymentMode: "NEFT" },
+    { visitId: 6, receiptDate: daysAgo(2), amount: 5000, paymentMode: "Card" }, // partial (8000 billed)
+    { visitId: 7, receiptDate: daysAgo(3), amount: 3000, paymentMode: "UPI" },
+    { visitId: 8, receiptDate: daysAgo(3), amount: 10000, paymentMode: "Card" }, // partial (25000 billed)
+    { visitId: 9, receiptDate: daysAgo(4), amount: 50, paymentMode: "Cash" },
+    { visitId: 10, receiptDate: daysAgo(5), amount: 5000, paymentMode: "UPI" }, // fully paid (6000-1000 discount)
+    { visitId: 11, receiptDate: daysAgo(7), amount: 100, paymentMode: "Cash" },
+    { visitId: 12, receiptDate: daysAgo(7), amount: 4500, paymentMode: "Cheque" },
+    { visitId: 13, receiptDate: daysAgo(8), amount: 4000, paymentMode: "Card" }, // partial (7500 billed)
+    { visitId: 14, receiptDate: daysAgo(9), amount: 1200, paymentMode: "Cash" },
+    { visitId: 15, receiptDate: daysAgo(10), amount: 600, paymentMode: "Cash" },
+    // Outstanding visits - partial payments
+    { visitId: 16, receiptDate: daysAgo(15), amount: 15000, paymentMode: "Card" }, // 15000 outstanding
+    { visitId: 17, receiptDate: daysAgo(20), amount: 5000, paymentMode: "NEFT" }, // 7000 outstanding
+    { visitId: 18, receiptDate: daysAgo(25), amount: 2000, paymentMode: "Cash" }, // 3000 outstanding
+    // No receipts for visits 19 and 20 — fully outstanding
+  ];
+
+  await prisma.receipt.createMany({ data: receipts });
+
+  // ==========================================
+  // PATIENT DISEASES (medical history for some patients)
+  // ==========================================
+  const patientDiseases = [
+    { patientId: 1, diseaseId: 8 }, // Diabetes
+    { patientId: 2, diseaseId: 2 }, // High BP
+    { patientId: 2, diseaseId: 1 }, // Heart Disease
+    { patientId: 15, diseaseId: 8 }, // Diabetes
+    { patientId: 15, diseaseId: 2 }, // High BP
+    { patientId: 20, diseaseId: 2 }, // High BP
+    { patientId: 22, diseaseId: 8 }, // Diabetes
+    { patientId: 22, diseaseId: 15 }, // Arthritis
+    { patientId: 30, diseaseId: 16 }, // Allergies
+    { patientId: 39, diseaseId: 1 }, // Heart Disease
+    { patientId: 39, diseaseId: 2 }, // High BP
+    { patientId: 46, diseaseId: 8 }, // Diabetes
+  ];
+  await prisma.patientDisease.createMany({ data: patientDiseases });
+
+  // ==========================================
+  // DOCTOR COMMISSION HISTORY
+  // ==========================================
+  const commHistory = [
+    { doctorId: 3, periodFrom: new Date("2002-11-01"), periodTo: new Date("2004-08-31"), commissionPercent: 45 },
+    { doctorId: 3, periodFrom: new Date("2004-09-01"), periodTo: new Date("2099-12-31"), commissionPercent: 50 },
+    { doctorId: 5, periodFrom: new Date("2001-06-01"), periodTo: new Date("2099-12-31"), commissionPercent: 70 },
+    { doctorId: 6, periodFrom: new Date("2002-11-01"), periodTo: new Date("2099-12-31"), commissionPercent: 50 },
+    { doctorId: 16, periodFrom: new Date("2003-01-01"), periodTo: new Date("2099-12-31"), commissionPercent: 60 },
+  ];
+  await prisma.doctorCommissionHistory.createMany({ data: commHistory });
+
+  // ==========================================
+  // LAB RATES (sample for SAI DENTAL LAB - lab 7)
+  // ==========================================
+  const labRates = [
+    { labId: 7, itemCode: 1, itemName: "CER CROWN", rate: 550 },
+    { labId: 7, itemCode: 2, itemName: "N.C CROWN", rate: 160 },
+    { labId: 7, itemCode: 3, itemName: "CER BRIDGE", rate: 550 },
+    { labId: 7, itemCode: 4, itemName: "CER FACING", rate: 400 },
+    { labId: 7, itemCode: 6, itemName: "TEMPORARY", rate: 40 },
+    { labId: 7, itemCode: 7, itemName: "BLEACHING TRAY", rate: 500 },
+    { labId: 7, itemCode: 8, itemName: "C.D.", rate: 0 },
+    { labId: 7, itemCode: 9, itemName: "RPD", rate: 0 },
+    { labId: 7, itemCode: 10, itemName: "SPLINT", rate: 0 },
+    { labId: 7, itemCode: 11, itemName: "3D CERAMIC", rate: 800 },
+    { labId: 7, itemCode: 12, itemName: "REPAIR", rate: 0 },
+    { labId: 7, itemCode: 13, itemName: "NIGHT GUARD", rate: 0 },
+    { labId: 7, itemCode: 14, itemName: "ALL CERAMIC", rate: 0 },
+    { labId: 7, itemCode: 15, itemName: "APPLIANCE", rate: 0 },
+    { labId: 7, itemCode: 16, itemName: "3D DESIGN CERAMIC", rate: 900 },
+    { labId: 7, itemCode: 17, itemName: "VALPLAST", rate: 0 },
+    { labId: 7, itemCode: 18, itemName: "F.P.D.", rate: 0 },
+    { labId: 7, itemCode: 19, itemName: "LAMINATES", rate: 0 },
+    { labId: 7, itemCode: 20, itemName: "COPING", rate: 0 },
+    // A few for other labs
+    { labId: 2, itemCode: 1, itemName: "CER CROWN", rate: 600 },
+    { labId: 2, itemCode: 2, itemName: "N.C CROWN", rate: 160 },
+    { labId: 2, itemCode: 3, itemName: "CER FACING", rate: 430 },
+    { labId: 2, itemCode: 4, itemName: "CER BRIDGE", rate: 600 },
+    { labId: 6, itemCode: 1, itemName: "CER CROWN", rate: 500 },
+    { labId: 6, itemCode: 2, itemName: "CER FACING", rate: 400 },
+    { labId: 6, itemCode: 3, itemName: "CER BRIDGE", rate: 500 },
+    { labId: 6, itemCode: 4, itemName: "N.C CROWN", rate: 150 },
+    { labId: 9, itemCode: 1, itemName: "CER CROWN", rate: 600 },
+    { labId: 9, itemCode: 2, itemName: "CER BRIDGE", rate: 600 },
+    { labId: 9, itemCode: 3, itemName: "CER FACING", rate: 400 },
+  ];
+  // Lab IDs are auto-incremented, need to map legacyCode to actual IDs
+  for (const lr of labRates) {
+    const lab = await prisma.lab.findFirst({ where: { legacyCode: lr.labId } });
+    if (lab) {
+      await prisma.labRate.create({
+        data: { ...lr, labId: lab.id },
+      });
+    }
+  }
+
+  console.log("✅ Database seeded successfully!");
+  console.log("   - 2 designations");
+  console.log("   - 18 diseases");
+  console.log(`   - ${operations.length} operations`);
+  console.log(`   - ${labs.length} labs`);
+  console.log(`   - ${doctors.length} doctors`);
+  console.log(`   - ${patients.length} patients`);
+  console.log(`   - ${visits.length} visits`);
+  console.log(`   - ${receipts.length} receipts`);
+  console.log("   - 1 clinic settings");
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

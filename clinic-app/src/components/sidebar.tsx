@@ -1,0 +1,108 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Users,
+  Stethoscope,
+  Receipt,
+  UserCog,
+  BarChart3,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/patients", label: "Patients", icon: Users },
+  { href: "/visits", label: "Visits", icon: Stethoscope },
+  { href: "/receipts", label: "Receipts", icon: Receipt },
+  { href: "/doctors", label: "Doctors", icon: UserCog },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+function NavItems({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const pathname = usePathname();
+
+  return (
+    <nav className="flex flex-col gap-1 p-2">
+      {navItems.map((item) => {
+        const isActive = pathname.startsWith(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <item.icon className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>{item.label}</span>}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <>
+      {/* Mobile sidebar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-3 left-3 z-50">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="flex h-14 items-center border-b px-4">
+            <h2 className="text-lg font-semibold">SDH Clinic</h2>
+          </div>
+          <NavItems collapsed={false} />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col border-r bg-card transition-all duration-300 h-screen sticky top-0",
+          collapsed ? "w-16" : "w-60"
+        )}
+      >
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          {!collapsed && (
+            <h2 className="text-lg font-semibold truncate">SDH Clinic</h2>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <NavItems collapsed={collapsed} />
+      </aside>
+    </>
+  );
+}

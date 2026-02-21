@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// LOOKUP TABLES
+// ============================================
+
+model Disease {
+  id        Int              @id @default(autoincrement())
+  code      String           @unique // legacy DI_CODE
+  name      String
+  createdAt DateTime         @default(now())
+  patients  PatientDisease[]
+
+  @@map("diseases")
+}
+
+model Operation {
+  id            Int      @id @default(autoincrement())
+  legacyCode    Int?     @unique
+  name          String
+  category      String?
+  defaultMinFee Float?
+  defaultMaxFee Float?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  visits        Visit[]
+
+  @@map("operations")
+}
+
+model Lab {
+  id           Int       @id @default(autoincrement())
+  legacyCode   Int?      @unique
+  name         String
+  contactPhone String?
+  contactEmail String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  rates        LabRate[]
+  visits       Visit[]
+
+  @@map("labs")
+}
+
+model LabRate {
+  id        Int      @id @default(autoincrement())
+  labId     Int
+  lab       Lab      @relation(fields: [labId], references: [id])
+  itemCode  Int // legacy LR_CODE within lab
+  itemName  String
+  rate      Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  visits    Visit[]
+
+  @@unique([labId, itemCode])
+  @@map("lab_rates")
+}
+
+model Designation {
+  id        Int       @id @default(autoincrement())
+  name      String
+  createdAt DateTime  @default(now())
+  doctors   Doctor[]
+
+  @@map("designations")
+}
+
+// ============================================
+// CORE TABLES
+// ============================================
+
+model ClinicSettings {
+  id           Int      @id @default(autoincrement())
+  name         String
+  addressLine1 String?
+  addressLine2 String?
+  addressLine3 String?
+  city         String?
+  state        String?
+  pincode      String?
+  phone        String?
+  fax          String?
+  email        String?
+  gstNumber    String?
+  scanFolder   String?
+  appVersion   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("clinic_settings")
+}
+
+model Doctor {
+  id                Int                      @id @default(autoincrement())
+  legacyCode        Int?                     @unique
+  name              String
+  mobile            String?
+  email             String?
+  designationId     Int?
+  designation       Designation?             @relation(fields: [designationId], references: [id])
+  commissionPercent Float                    @default(0)
+  commissionRate    Float?
+  tdsPercent        Float                    @default(0)
+  tdsNew            Float?
+  tdsDate           DateTime?
+  permissionLevel   Int                      @default(3)
+  password          String?
+  isActive          Boolean                  @default(true)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  commissionHistory DoctorCommissionHistory[]
+  visits            Visit[]                  @relation("PrimaryDoctor")
+  assistedVisits    Visit[]                  @relation("AssistingDoctor")
+  receiptsCreated   Receipt[]
+  clinicalReports   ClinicalReport[]
+
+  @@map("doctors")
+}
+
+model DoctorCommissionHistory {
+  id                Int      @id @default(autoincrement())
+  doctorId          Int
+  doctor            Doctor   @relation(fields: [doctorId], references: [id])
+  periodFrom        DateTime
+  periodTo          DateTime
+  commissionPercent Float?
+  commissionRate    Float?
+  createdAt         DateTime @default(now())
+
+  @@map("doctor_commission_history")
+}
+
+model Patient {
+  id                  Int              @id @default(autoincrement())
+  legacyCode          Int?             @unique
+  salutation          String?
+  name                String
+  fatherHusbandName   String?
+  dateOfBirth         DateTime?
+  ageAtRegistration   Int?
+  gender              String?
+  bloodGroup          String?
+  occupation          String?
+  phone               String?
+  mobile              String?
+  email               String?
+  addressLine1        String?
+  addressLine2        String?
+  addressLine3        String?
+  city                String?
+  pincode             String?
+  referringPhysician  String?
+  physicianPhone      String?
+  remarks             String?
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  diseases            PatientDisease[]
+  visits              Visit[]
+  files               PatientFile[]
+
+  @@map("patients")
+}
+
+model PatientDisease {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diseaseId Int
+  disease   Disease  @relation(fields: [diseaseId], references: [id])
+  notedDate DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([patientId, diseaseId])
+  @@map("patient_diseases")
+}
+
+model Visit {
+  id                      Int              @id @default(autoincrement())
+  legacyCaseNo            Int?             @unique
+  patientId               Int
+  patient                 Patient          @relation(fields: [patientId], references: [id])
+  visitDate               DateTime
+  operationId             Int?
+  operation               Operation?       @relation(fields: [operationId], references: [id])
+  operationRate           Float?
+  discount                Float            @default(0)
+  doctorId                Int?
+  doctor                  Doctor?          @relation("PrimaryDoctor", fields: [doctorId], references: [id])
+  assistingDoctorId       Int?
+  assistingDoctor         Doctor?          @relation("AssistingDoctor", fields: [assistingDoctorId], references: [id])
+  doctorCommissionPercent Float?
+  doctorCommissionAmount  Float?
+  labId                   Int?
+  lab                     Lab?             @relation(fields: [labId], references: [id])
+  labRateId               Int?
+  labRate                 LabRate?         @relation(fields: [labRateId], references: [id])
+  labRateAmount           Float            @default(0)
+  labQuantity             Float            @default(1)
+  notes                   String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  receipts                Receipt[]
+  clinicalReports         ClinicalReport[]
+
+  @@map("visits")
+}
+
+model Receipt {
+  id              Int      @id @default(autoincrement())
+  legacyReceiptNo Int?
+  visitId         Int
+  visit           Visit    @relation(fields: [visitId], references: [id])
+  receiptDate     DateTime
+  amount          Float
+  paymentMode     String   @default("Cash") // Cash, Card, Cheque, NEFT, UPI
+  isDuplicate     Boolean  @default(false)
+  notes           String?
+  createdById     Int?
+  createdBy       Doctor?  @relation(fields: [createdById], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@map("receipts")
+}
+
+model ClinicalReport {
+  id             Int      @id @default(autoincrement())
+  visitId        Int
+  visit          Visit    @relation(fields: [visitId], references: [id])
+  reportDate     DateTime
+  doctorId       Int
+  doctor         Doctor   @relation(fields: [doctorId], references: [id])
+  complaint      String?
+  examination    String?
+  diagnosis      String?
+  treatmentNotes String?
+  estimate       String?
+  medication     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("clinical_reports")
+}
+
+model PatientFile {
+  id          Int      @id @default(autoincrement())
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  filePath    String
+  fileName    String?
+  description String?
+  fileType    String?
+  createdAt   DateTime @default(now())
+
+  @@map("patient_files")
+}
