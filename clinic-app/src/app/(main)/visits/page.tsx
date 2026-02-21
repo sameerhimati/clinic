@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
+import { requireAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,18 @@ export default async function VisitsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string; page?: string }>;
 }) {
+  const currentDoctor = await requireAuth();
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;
+
+  // For doctors (permissionLevel 3), default to their own visits unless they explicitly clear it
+  const effectiveDoctorId =
+    params.doctorId !== undefined
+      ? params.doctorId
+      : currentDoctor.permissionLevel === 3
+        ? String(currentDoctor.id)
+        : "";
 
   const where: Record<string, unknown> = {};
   if (params.from || params.to) {
@@ -24,8 +34,8 @@ export default async function VisitsPage({
     if (params.from) (where.visitDate as Record<string, unknown>).gte = new Date(params.from);
     if (params.to) (where.visitDate as Record<string, unknown>).lte = new Date(params.to + "T23:59:59");
   }
-  if (params.doctorId) {
-    where.doctorId = parseInt(params.doctorId);
+  if (effectiveDoctorId) {
+    where.doctorId = parseInt(effectiveDoctorId);
   }
 
   const [visits, total, doctors] = await Promise.all([
@@ -65,7 +75,7 @@ export default async function VisitsPage({
         <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
         <select
           name="doctorId"
-          defaultValue={params.doctorId || ""}
+          defaultValue={effectiveDoctorId}
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">All Doctors</option>
@@ -137,7 +147,7 @@ export default async function VisitsPage({
         <div className="flex items-center justify-center gap-2">
           {page > 1 && (
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/visits?from=${params.from || ""}&to=${params.to || ""}&doctorId=${params.doctorId || ""}&page=${page - 1}`}>
+              <Link href={`/visits?from=${params.from || ""}&to=${params.to || ""}&doctorId=${effectiveDoctorId}&page=${page - 1}`}>
                 Previous
               </Link>
             </Button>
@@ -145,7 +155,7 @@ export default async function VisitsPage({
           <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
           {page < totalPages && (
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/visits?from=${params.from || ""}&to=${params.to || ""}&doctorId=${params.doctorId || ""}&page=${page + 1}`}>
+              <Link href={`/visits?from=${params.from || ""}&to=${params.to || ""}&doctorId=${effectiveDoctorId}&page=${page + 1}`}>
                 Next
               </Link>
             </Button>

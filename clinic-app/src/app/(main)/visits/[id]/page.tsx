@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,11 @@ export default async function VisitDetailPage({
       lab: true,
       labRate: true,
       receipts: { orderBy: { receiptDate: "desc" } },
+      clinicalReports: {
+        include: { doctor: { select: { name: true } } },
+        orderBy: { reportDate: "desc" },
+        take: 1,
+      },
     },
   });
 
@@ -34,6 +39,7 @@ export default async function VisitDetailPage({
   const billed = (visit.operationRate || 0) - visit.discount;
   const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
   const balance = billed - paid;
+  const clinicalReport = visit.clinicalReports[0] || null;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -50,13 +56,30 @@ export default async function VisitDetailPage({
             {format(new Date(visit.visitDate), "MMMM d, yyyy")}
           </p>
         </div>
-        {balance > 0 && (
-          <Button asChild>
-            <Link href={`/patients/${visit.patientId}/checkout`}>
-              <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
+        <div className="flex gap-2">
+          <Button variant={clinicalReport ? "outline" : "default"} asChild>
+            <Link href={`/visits/${visit.id}/examine`}>
+              {clinicalReport ? (
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Edit Notes
+                </>
+              ) : (
+                <>
+                  <ClipboardPlus className="mr-2 h-4 w-4" />
+                  Add Clinical Notes
+                </>
+              )}
             </Link>
           </Button>
-        )}
+          {balance > 0 && (
+            <Button asChild>
+              <Link href={`/patients/${visit.patientId}/checkout`}>
+                <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Billing Summary */}
@@ -87,6 +110,52 @@ export default async function VisitDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Clinical Report */}
+      {clinicalReport && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Clinical Notes</CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/visits/${visit.id}/examine/print`}>Print</Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/visits/${visit.id}/examine`}>Edit</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {clinicalReport.complaint && (
+              <div>
+                <div className="text-muted-foreground font-medium">Complaint</div>
+                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.complaint}</div>
+              </div>
+            )}
+            {clinicalReport.diagnosis && (
+              <div>
+                <div className="text-muted-foreground font-medium">Diagnosis</div>
+                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.diagnosis}</div>
+              </div>
+            )}
+            {clinicalReport.treatmentNotes && (
+              <div>
+                <div className="text-muted-foreground font-medium">Treatment Plan</div>
+                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.treatmentNotes}</div>
+              </div>
+            )}
+            {clinicalReport.medication && (
+              <div>
+                <div className="text-muted-foreground font-medium">Medication</div>
+                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.medication}</div>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground pt-1">
+              By Dr. {clinicalReport.doctor.name} · {format(new Date(clinicalReport.reportDate), "MMM d, yyyy")}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Visit Details */}
       <Card>

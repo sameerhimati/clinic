@@ -1,109 +1,46 @@
-# Session Handoff — Clinic App
+# Session Handoff
+> Last updated: 2026-02-21
 
-## Last Session: Session 1 — Make the App Actually Usable
-**Date:** 2026-02-21
-**Focus:** Renamed legacy fields, made patient code the primary identifier, built multi-visit checkout page, wired up navigation.
+## Completed This Session
+- [x] Cookie-based authentication system (login page, session cookie, requireAuth middleware)
+- [x] Auth context provider (useAuth hook for client components)
+- [x] Topbar shows logged-in doctor name + logout button
+- [x] Role-based sidebar filtering (doctors see fewer nav items than admin)
+- [x] Role-aware dashboard (doctor dashboard with "My Patients Today" vs admin stats dashboard)
+- [x] Clinical examination form (`/visits/[id]/examine`) with complaint chips, free-text fields
+- [x] Printable clinical report (`/visits/[id]/examine/print`) with clinic letterhead
+- [x] Clinical notes displayed on visit detail page with Edit/Add buttons
+- [x] "Clinical" tab on patient detail page showing all exam history
+- [x] Visits page defaults to doctor's own visits for permissionLevel 3
+- [x] `createdById` stamped on all new receipts (single + checkout flows)
+- [x] Seed data updated: 4 doctors with passwords, 4 clinical reports
 
----
+## Current State
+- **Branch:** main
+- **Last commit:** ad3f0e3 Make clinic app usable for daily billing workflow
+- **Build:** passing (22 routes, all clean)
+- **Uncommitted changes:** yes — 12 modified files + 4 new files (all Session 2 auth + clinical work)
+- **Blockers:** none
 
-## What's Built
+## Next Session Should
+1. **Commit Session 2 work** — all changes are uncommitted
+2. **CF-4: Legacy data import** — import real patient/visit/receipt data from CLINIC.SQL into SQLite/Postgres
+3. **Phase 2: Admin management** — Doctor CRUD with commission settings, Operation/Procedure management, Lab/Lab Rate management
+4. **Phase 3: Appointment scheduling** — calendar view, doctor-specific appointments
+5. **Phase 6: Production readiness** — when shipping as webapp: migrate to Supabase Auth (hashed passwords, JWT), PostgreSQL, Vercel deployment
 
-**Stack:** Next.js 16 (App Router), bun, Tailwind CSS 4, shadcn/ui, Prisma 6 + SQLite
+## Context to Remember
+- **Auth is intentionally simple** — cookie stores plain doctor ID, passwords are plain text in DB. This matches the legacy system and is fine for a clinic LAN app. Must be replaced with Supabase Auth (hashed passwords, proper sessions) before deploying as a public webapp.
+- **Prisma AI safety gate** — `bunx prisma db push --force-reset` requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes` env var when run from Claude Code
+- **Login credentials for testing:** KAZIM/admin (admin), MURALIDHAR/admin (reception), SURENDER/doctor (doctor), RAMANA REDDY/doctor (doctor)
+- **Permission levels:** 0=SYSADM, 1=Admin, 2=Reception, 3=Doctor — lower number = more access
+- **Sidebar filtering uses `minPermission`** on nav items — the value is the max permissionLevel allowed to see that item
+- **Clinical reports use upsert** — one report per visit, findFirst + create/update pattern
+- **Complaint suggestions** are hardcoded in `examination-form.tsx`, not a DB table — by design for simplicity
+- **`useAuth()` throws** if used outside `AuthProvider` — safe since `(main)` layout always wraps with it
+- **Doctor dashboard greeting** says "Good morning" hardcoded — could be time-aware later
 
-**Working Features (19 routes):**
-- Dashboard with today's stats, quick actions, recent visits with patient codes + "Pay" links
-- Patient CRUD with search (name, mobile, code — exact code match prioritized), medical history, pagination
-- Patient code shown prominently everywhere as `#10001` — the primary identifier
-- Visit/treatment entry with operation selection (107 procedures), doctor assignment, lab details
-- **Patient Checkout page** (`/patients/[id]/checkout`) — multi-visit payment allocation with:
-  - Outstanding visit list with per-visit allocation inputs
-  - Auto-allocate button (FIFO oldest-first)
-  - Atomic multi-receipt creation via `prisma.$transaction()`
-  - Real-time validation (allocation must match payment amount)
-- Billing & receipts with auto-generated sequential receipt numbers (`receiptNo`)
-- Printable receipts with patient code, receipt number, Indian amount-in-words
-- Doctor commission report (percentage + fixed-rate, TDS) — verified correct with multi-receipt scenarios
-- Outstanding dues report with "Pay" links to checkout
-- Doctor list, Settings page with DB stats
-- "Collect Payment" button on patient detail, visit detail, dashboard, and outstanding report
-
-**All 19 routes build and serve. Dev server: `bun run dev` on port 3000.**
-
----
-
-## Session 1 Changes
-
-### Schema Renames (Breaking)
-| Old Field | New Field | Model |
-|-----------|-----------|-------|
-| `legacyCode` | `code` | Patient, Doctor, Operation, Lab |
-| `legacyCaseNo` | `caseNo` | Visit |
-| `legacyReceiptNo` | `receiptNo` | Receipt |
-
-All 13+ source files updated. Old migration SQL still references old names (harmless).
-
-### New Files
-| File | Purpose |
-|------|---------|
-| `src/app/(main)/patients/[id]/checkout/page.tsx` | Checkout server component |
-| `src/app/(main)/patients/[id]/checkout/checkout-form.tsx` | Interactive checkout client component |
-| `src/app/(main)/patients/[id]/checkout/actions.ts` | `recordCheckoutPayment` server action |
-
-### Key Behavior Changes
-- Receipt creation now auto-generates `receiptNo` as `MAX(receiptNo) + 1`
-- Patient creation auto-generates `code` as `MAX(code) + 1` (was already there, just renamed)
-- Visit "Add Payment" buttons now redirect to patient checkout (not single-receipt form)
-- Single-receipt form (`/receipts/new`) still works as fallback
-- Seed data includes multi-receipt checkout scenarios + sequential receipt numbers
-
----
-
-## Seed Data (Demo Only)
-Current seed data is **demo/placeholder** — not real patient data:
-- 50 patients (codes 10001–10050), 20 doctors, 107 operations, 28 labs
-- 22 visits (cases 80001–80022), 21 receipts (receipt #1–21)
-- Multi-receipt checkout scenarios for patients 18 and 20
-- **When real data is imported**, receipt numbers and patient codes will need to start from the correct sequence (after legacy max values: ~40,427 patients, ~20,178 receipts)
-
----
-
-## Key Files to Know
-
-| File | Purpose |
-|------|---------|
-| `prisma/schema.prisma` | Full database schema (all models) |
-| `prisma/seed.ts` | Demo seed data |
-| `src/lib/db.ts` | Prisma client singleton |
-| `src/lib/commission.ts` | Doctor commission calc (matches legacy exactly) |
-| `src/lib/amount-in-words.ts` | Indian rupee amount-to-words |
-| `src/components/sidebar.tsx` | Main navigation |
-| `src/components/patient-form.tsx` | Shared patient registration/edit form |
-| `src/components/visit-form.tsx` | Visit creation with operation/doctor/lab selection |
-| `src/app/(main)/patients/[id]/checkout/` | Multi-visit checkout flow (3 files) |
-
-**Reference docs:**
-| File | Purpose |
-|------|---------|
-| `/Users/sameer/Desktop/Code/clinic/BLUEPRINT.md` | Full reverse-engineered spec of legacy system |
-| `/Users/sameer/Desktop/Code/clinic/clinic-legacy/Archive/ctd21/CLINIC.SQL` | Legacy SQL data dump |
-| `/Users/sameer/Desktop/Code/clinic/clinic-legacy/Archive/ctd21/Clinic1.apt` | Legacy Centura source (business logic) |
-
----
-
-## Technical Notes
-
-- **Prisma 6** (not 7) — Prisma 7 had module resolution issues with bun. Import from `@prisma/client`.
-- **bun** must be on PATH: `PATH="$HOME/.bun/bin:$PATH"`
-- **Database** is SQLite at `prisma/dev.db`. Reset with `bunx prisma db push --force-reset && bun run prisma/seed.ts`
-- **Server actions** pattern: each route group has an `actions.ts` file
-- Patient codes, case numbers, and receipt numbers are all auto-generated as MAX+1 in server actions
-- Commission logic verified against exact `fnCommission` algorithm from legacy `Clinic1.apt`
-- **Git repo**: `github.com/sameerhimati/clinic` (private)
-
----
-
-## What to Do Next
-Follow `ROADMAP.md` in order:
-1. **CF-3**: Legacy data import (migrate real patient/visit/receipt data from CLINIC.SQL)
-2. **Phase 1**: Auth & role-based access control
-3. Continue through phases as prioritized in ROADMAP.md
+## Start Command
+```
+cd /Users/sameer/Desktop/Code/clinic/clinic-app && PATH="$HOME/.bun/bin:$PATH" bun run dev
+```

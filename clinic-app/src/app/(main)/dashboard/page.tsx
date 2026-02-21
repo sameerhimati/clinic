@@ -10,13 +10,15 @@ import {
   UserPlus,
   Plus,
   Receipt,
+  ClipboardPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { requireAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-async function getDashboardData() {
+async function getAdminDashboardData() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -59,7 +61,6 @@ async function getDashboardData() {
     }),
   ]);
 
-  // Calculate outstanding
   let totalOutstanding = 0;
   let outstandingCount = 0;
   for (const visit of outstandingVisits) {
@@ -83,8 +84,54 @@ async function getDashboardData() {
   };
 }
 
+async function getDoctorDashboardData(doctorId: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [todayPatients, recentReports] = await Promise.all([
+    prisma.visit.findMany({
+      where: {
+        doctorId,
+        visitDate: { gte: today, lt: tomorrow },
+      },
+      include: {
+        patient: { select: { id: true, name: true, code: true } },
+        operation: { select: { name: true } },
+        clinicalReports: { select: { id: true }, take: 1 },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.clinicalReport.findMany({
+      where: { doctorId },
+      take: 5,
+      orderBy: { reportDate: "desc" },
+      include: {
+        visit: {
+          include: {
+            patient: { select: { code: true, name: true } },
+            operation: { select: { name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  return { todayPatients, recentReports };
+}
+
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const doctor = await requireAuth();
+  const isDoctor = doctor.permissionLevel === 3;
+
+  if (isDoctor) {
+    const data = await getDoctorDashboardData(doctor.id);
+    return <DoctorDashboard doctorName={doctor.name} data={data} />;
+  }
+
+  const data = await getAdminDashboardData();
+  const showOutstanding = doctor.permissionLevel <= 1;
 
   return (
     <div className="space-y-6">
@@ -120,7 +167,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${showOutstanding ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
@@ -164,20 +211,22 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {data.outstandingCount} case(s)
-            </p>
-          </CardContent>
-        </Card>
+        {showOutstanding && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {data.outstandingCount} case(s)
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Recent Activity */}
@@ -249,6 +298,137 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function DoctorDashboard({
+  doctorName,
+  data,
+}: {
+  doctorName: string;
+  data: Awaited<ReturnType<typeof getDoctorDashboardData>>;
+}) {
+  const pendingExams = data.todayPatients.filter((v) => v.clinicalReports.length === 0);
+  const completedExams = data.todayPatients.filter((v) => v.clinicalReports.length > 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Good morning, Dr. {doctorName}</h2>
+          <p className="text-muted-foreground">
+            {format(new Date(), "EEEE, MMMM d, yyyy")}
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" asChild>
+          <Link href="/visits/new">
+            <Plus className="mr-2 h-4 w-4" />
+            New Visit
+          </Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/patients">
+            <Users className="mr-2 h-4 w-4" />
+            Search Patient
+          </Link>
+        </Button>
+      </div>
+
+      {/* My Patients Today */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            My Patients Today
+            {data.todayPatients.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {pendingExams.length} pending
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y">
+            {data.todayPatients.map((visit) => {
+              const hasReport = visit.clinicalReports.length > 0;
+              return (
+                <div
+                  key={visit.id}
+                  className="flex items-center justify-between py-3"
+                >
+                  <div>
+                    <Link
+                      href={`/patients/${visit.patient.id}`}
+                      className="font-medium hover:underline flex items-center gap-2"
+                    >
+                      <span className="font-mono text-sm text-muted-foreground">
+                        #{visit.patient.code}
+                      </span>
+                      {visit.patient.name}
+                    </Link>
+                    <div className="text-sm text-muted-foreground">
+                      {visit.operation?.name || "Visit"}
+                      {hasReport && " — notes complete"}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={hasReport ? "outline" : "default"}
+                    asChild
+                  >
+                    <Link href={`/visits/${visit.id}/examine`}>
+                      <ClipboardPlus className="mr-2 h-4 w-4" />
+                      {hasReport ? "Edit Notes" : "Examine"}
+                    </Link>
+                  </Button>
+                </div>
+              );
+            })}
+            {data.todayPatients.length === 0 && (
+              <div className="py-4 text-center text-muted-foreground">
+                No patients assigned to you today
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Clinical Notes */}
+      {data.recentReports.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Clinical Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {data.recentReports.map((report) => (
+                <Link
+                  key={report.id}
+                  href={`/visits/${report.visitId}/examine`}
+                  className="block py-3 hover:bg-accent -mx-4 px-4 rounded transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">
+                      {format(new Date(report.reportDate), "MMM d")} —{" "}
+                      <span className="font-mono">#{report.visit.patient.code}</span>{" "}
+                      {report.visit.patient.name} — {report.visit.operation?.name || "Visit"}
+                    </div>
+                  </div>
+                  {report.diagnosis && (
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      Dx: {report.diagnosis.length > 80 ? report.diagnosis.substring(0, 80) + "..." : report.diagnosis}
+                    </div>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

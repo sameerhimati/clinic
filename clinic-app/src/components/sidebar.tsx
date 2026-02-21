@@ -18,23 +18,42 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useAuth } from "@/lib/auth-context";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  minPermission?: number; // max permissionLevel allowed (lower = more access)
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/patients", label: "Patients", icon: Users },
   { href: "/visits", label: "Visits", icon: Stethoscope },
-  { href: "/receipts", label: "Receipts", icon: Receipt },
-  { href: "/doctors", label: "Doctors", icon: UserCog },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
+  { href: "/doctors", label: "Doctors", icon: UserCog, minPermission: 1 },
+  { href: "/reports", label: "Reports", icon: BarChart3, minPermission: 2 },
+  { href: "/settings", label: "Settings", icon: Settings, minPermission: 1 },
 ];
 
-function NavItems({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function NavItems({
+  collapsed,
+  onNavigate,
+  permissionLevel,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+  permissionLevel: number;
+}) {
   const pathname = usePathname();
+  const filtered = navItems.filter(
+    (item) => !item.minPermission || permissionLevel <= item.minPermission
+  );
 
   return (
     <nav className="flex flex-col gap-1 p-2">
-      {navItems.map((item) => {
+      {filtered.map((item) => {
         const isActive = pathname.startsWith(item.href);
         return (
           <Link
@@ -59,6 +78,7 @@ function NavItems({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: 
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const { doctor } = useAuth();
 
   return (
     <>
@@ -73,7 +93,7 @@ export function Sidebar() {
           <div className="flex h-14 items-center border-b px-4">
             <h2 className="text-lg font-semibold">SDH Clinic</h2>
           </div>
-          <NavItems collapsed={false} />
+          <NavItems collapsed={false} permissionLevel={doctor.permissionLevel} />
         </SheetContent>
       </Sheet>
 
@@ -101,7 +121,7 @@ export function Sidebar() {
             )}
           </Button>
         </div>
-        <NavItems collapsed={collapsed} />
+        <NavItems collapsed={collapsed} permissionLevel={doctor.permissionLevel} />
       </aside>
     </>
   );

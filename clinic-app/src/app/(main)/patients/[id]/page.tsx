@@ -32,6 +32,18 @@ export default async function PatientDetailPage({
           operation: { select: { name: true } },
           doctor: { select: { name: true } },
           receipts: { select: { id: true, receiptNo: true, amount: true, paymentMode: true, receiptDate: true } },
+          clinicalReports: {
+            select: {
+              id: true,
+              complaint: true,
+              diagnosis: true,
+              treatmentNotes: true,
+              medication: true,
+              reportDate: true,
+              doctor: { select: { name: true } },
+            },
+            take: 1,
+          },
         },
       },
       files: { orderBy: { createdAt: "desc" } },
@@ -48,6 +60,16 @@ export default async function PatientDetailPage({
     totalPaid += visit.receipts.reduce((s, r) => s + r.amount, 0);
   }
   const totalBalance = totalBilled - totalPaid;
+
+  // Gather clinical reports
+  const clinicalReports = patient.visits
+    .filter((v) => v.clinicalReports.length > 0)
+    .map((v) => ({
+      visitId: v.id,
+      caseNo: v.caseNo,
+      operationName: v.operation?.name || "Visit",
+      report: v.clinicalReports[0],
+    }));
 
   return (
     <div className="space-y-6">
@@ -118,6 +140,7 @@ export default async function PatientDetailPage({
       <Tabs defaultValue="visits">
         <TabsList>
           <TabsTrigger value="visits">Visits ({patient.visits.length})</TabsTrigger>
+          <TabsTrigger value="clinical">Clinical ({clinicalReports.length})</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
           <TabsTrigger value="medical">Medical History</TabsTrigger>
@@ -149,6 +172,9 @@ export default async function PatientDetailPage({
                             #{visit.caseNo}
                           </span>
                           {visit.operation?.name || "Visit"}
+                          {visit.clinicalReports.length > 0 && (
+                            <Badge variant="outline" className="text-xs">Notes</Badge>
+                          )}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {format(new Date(visit.visitDate), "MMM d, yyyy")}
@@ -173,6 +199,58 @@ export default async function PatientDetailPage({
                 {patient.visits.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">
                     No visits recorded
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clinical" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {clinicalReports.map((cr) => (
+                  <div key={cr.report.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium text-sm">
+                        {format(new Date(cr.report.reportDate), "MMM d, yyyy")} — Case #{cr.caseNo} ({cr.operationName}) — Dr. {cr.report.doctor.name}
+                      </div>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/visits/${cr.visitId}/examine`}>View Full</Link>
+                      </Button>
+                    </div>
+                    {cr.report.complaint && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Complaint: </span>
+                        {cr.report.complaint}
+                      </div>
+                    )}
+                    {cr.report.diagnosis && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Diagnosis: </span>
+                        {cr.report.diagnosis}
+                      </div>
+                    )}
+                    {cr.report.treatmentNotes && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Treatment Plan: </span>
+                        {cr.report.treatmentNotes.length > 100
+                          ? cr.report.treatmentNotes.substring(0, 100) + "..."
+                          : cr.report.treatmentNotes}
+                      </div>
+                    )}
+                    {cr.report.medication && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Rx: </span>
+                        {cr.report.medication}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {clinicalReports.length === 0 && (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No clinical records
                   </div>
                 )}
               </div>

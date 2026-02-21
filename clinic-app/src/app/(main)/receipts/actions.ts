@@ -3,8 +3,10 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 
 export async function createReceipt(formData: FormData) {
+  const currentDoctor = await requireAuth();
   const visitId = parseInt(formData.get("visitId") as string);
   const amount = parseFloat(formData.get("amount") as string);
   const paymentMode = formData.get("paymentMode") as string || "Cash";
@@ -29,6 +31,7 @@ export async function createReceipt(formData: FormData) {
       receiptDate,
       receiptNo: nextReceiptNo,
       notes,
+      createdById: currentDoctor.id,
     },
   });
 

@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard, Patient CRUD + search, Visits, Receipts (with auto-numbering), Patient Checkout (multi-visit allocation), Doctor Commission Report, Outstanding Dues Report. Patient code is the primary identifier everywhere. No auth. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware), Patient CRUD + search, Visits, Receipts (with auto-numbering), Patient Checkout (multi-visit allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam form, printable report, patient clinical history tab)**. Patient code is the primary identifier everywhere. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -36,13 +36,13 @@ When ready to go live with real data:
 
 ## Phase 1: Auth & Roles
 
-### P1-1: Authentication System
-- [ ] Simple session-based auth (cookie + server-side)
-- [ ] Login page (`/login`) with doctor name + password
-- [ ] Session middleware protecting all `(main)` routes
-- [ ] "Logged in as Dr. X" in topbar with logout
+### P1-1: Authentication System [DONE]
+- [x] Simple session-based auth (cookie + server-side)
+- [x] Login page (`/login`) with doctor name + password
+- [x] Session middleware protecting all `(main)` routes
+- [x] "Logged in as Dr. X" in topbar with logout
 
-### P1-2: Role-Based Access Control
+### P1-2: Role-Based Access Control [DONE]
 Match legacy permission system:
 | Level | Role | Access |
 |-------|------|--------|
@@ -51,10 +51,10 @@ Match legacy permission system:
 | 2 | Reception | Patient form (read/write), receipts, appointments |
 | 3 | Doctor | Read patients/visits, write reports, no patient edit/delete |
 
-- [ ] Middleware checks `permissionLevel` on protected routes
-- [ ] UI hides/disables actions based on role
-- [ ] Different dashboard views per role (reception sees today's appointments, doctors see their patients)
-- [ ] Audit trail: `createdById` on receipts, visits
+- [x] Sidebar filters nav items based on `permissionLevel`
+- [x] UI hides/disables actions based on role
+- [x] Different dashboard views per role (doctors see their patients, admin/reception see collections)
+- [x] Audit trail: `createdById` on receipts
 
 ---
 
@@ -109,10 +109,12 @@ Match legacy permission system:
 
 ## Phase 5: Clinical Features
 
-### P5-1: Clinical Examination (DR_REPORT)
-- [ ] Clinical report form per visit (complaint, examination, diagnosis, treatment, medication)
-- [ ] View clinical history per patient
-- [ ] Complaint and treatment lookups
+### P5-1: Clinical Examination (DR_REPORT) [DONE]
+- [x] Clinical report form per visit (complaint, examination, diagnosis, treatment, medication, estimate)
+- [x] View clinical history per patient (Clinical tab on patient detail)
+- [x] Complaint suggestions (hardcoded chips, free text field)
+- [x] Printable clinical report
+- [x] Clinical notes shown on visit detail page
 
 ### P5-2: Document/Image Management
 - [ ] File upload for patient documents (photos, X-rays, scanned reports)

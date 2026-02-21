@@ -193,8 +193,8 @@ async function main() {
   const doctors = [
     { code: 0, name: "NONE", commissionPercent: 0, designationId: 1, permissionLevel: 2 },
     { code: 1, name: "KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 1, password: "admin" },
-    { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1 },
-    { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1 },
+    { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, permissionLevel: 3, password: "doctor" },
+    { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1, permissionLevel: 3, password: "doctor" },
     { code: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1 },
     { code: 5, name: "ANITHA", commissionPercent: 70, tdsPercent: 5.1, designationId: 1 },
     { code: 6, name: "BABU RAM", commissionPercent: 50, tdsPercent: 5.1, designationId: 1 },
@@ -210,7 +210,7 @@ async function main() {
     { code: 44, name: "BHARANI KUMAR REDDY", commissionPercent: 0, tdsPercent: 5.15, designationId: 1 },
     { code: 48, name: "RAJESH REDDY", commissionPercent: 0, tdsPercent: 11.33, mobile: "9177563555", designationId: 1 },
     { code: 60, name: "ANIL", commissionPercent: 0, tdsPercent: 11.33, designationId: 1 },
-    { code: 87, name: "MURALIDHAR", commissionPercent: 0, designationId: 2, permissionLevel: 1 },
+    { code: 87, name: "MURALIDHAR", commissionPercent: 0, designationId: 2, permissionLevel: 2, password: "admin" },
   ];
   await prisma.doctor.createMany({ data: doctors });
 
@@ -480,6 +480,60 @@ async function main() {
     }
   }
 
+  // ==========================================
+  // CLINICAL REPORTS (sample examination data)
+  // ==========================================
+  const clinicalReports = [
+    {
+      visitId: 1, // REG/CONS for patient 10001
+      doctorId: kazim!.id,
+      reportDate: today,
+      complaint: "REGULAR CHECKUP",
+      examination: "Generalized calculus deposits, mild gingivitis. Caries noted in 36 (mesial), 46 (occlusal). Missing 18, 28.",
+      diagnosis: "Generalized chronic gingivitis, dental caries 36, 46",
+      treatmentNotes: "1. Scaling and polishing\n2. Composite filling 36, 46\n3. Review after 6 months",
+      estimate: "Scaling: ₹1,500\nFillings: ₹800 x 2 = ₹1,600\nTotal: ₹3,100",
+      medication: null,
+    },
+    {
+      visitId: 3, // RCT for patient 10003
+      doctorId: ramana!.id,
+      reportDate: today,
+      complaint: "PAIN, SENSITIVITY",
+      examination: "Deep caries in 36, tender on percussion, periapical radiolucency on IOPA. Vitality test negative. No swelling or sinus tract.",
+      diagnosis: "Irreversible pulpitis with periapical abscess — 36",
+      treatmentNotes: "1. RCT for 36 (3 visits)\n2. Ceramic crown after RCT completion\n3. Scaling for generalized calculus",
+      estimate: "RCT: ₹5,000\nCeramic Crown: ₹8,000\nScaling: ₹1,500\nTotal estimate: ₹14,500",
+      medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS for pain\nCap Omeprazole 20mg OD x 5 days",
+    },
+    {
+      visitId: 6, // CER CROWN for patient 10006
+      doctorId: ramana!.id,
+      reportDate: daysAgo(2),
+      complaint: "FOLLOW UP",
+      examination: "Post-RCT 46 — satisfactory obturation on IOPA. Tooth prepared for crown. Impression taken.",
+      diagnosis: "Post-RCT 46 — ready for crown",
+      treatmentNotes: "1. Crown cementation scheduled in 5 days\n2. Temporary crown placed\n3. Avoid hard foods on left side",
+      estimate: "Ceramic crown: ₹8,000 (included in treatment plan)",
+      medication: null,
+    },
+    {
+      visitId: 7, // Bleaching for patient 10007
+      doctorId: anitha!.id,
+      reportDate: daysAgo(3),
+      complaint: "DISCOLORATION",
+      examination: "Generalized mild to moderate tooth discoloration. No active caries. Good oral hygiene. Mild calculus in lower anteriors.",
+      diagnosis: "Extrinsic tooth staining",
+      treatmentNotes: "1. In-office bleaching performed today (Zoom whitening)\n2. Home bleaching kit provided for 2 weeks\n3. Avoid tea, coffee, colored foods for 48 hours\n4. Follow-up in 2 weeks",
+      estimate: null,
+      medication: "Desensitizing toothpaste (Sensodyne) for 2 weeks if sensitivity occurs",
+    },
+  ];
+
+  for (const cr of clinicalReports) {
+    await prisma.clinicalReport.create({ data: cr });
+  }
+
   console.log("✅ Database seeded successfully!");
   console.log("   - 2 designations");
   console.log("   - 18 diseases");
@@ -489,6 +543,7 @@ async function main() {
   console.log(`   - ${patients.length} patients`);
   console.log(`   - ${visits.length} visits`);
   console.log(`   - ${receipts.length} receipts`);
+  console.log(`   - ${clinicalReports.length} clinical reports`);
   console.log("   - 1 clinic settings");
 }
 

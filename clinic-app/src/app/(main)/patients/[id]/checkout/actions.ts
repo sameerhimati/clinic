@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 
 export async function recordCheckoutPayment(data: {
   patientId: number;
@@ -11,6 +12,7 @@ export async function recordCheckoutPayment(data: {
   allocations: { visitId: number; amount: number }[];
   notes?: string;
 }) {
+  const currentDoctor = await requireAuth();
   const { patientId, paymentMode, paymentDate, allocations, notes } = data;
 
   // Validate
@@ -54,6 +56,7 @@ export async function recordCheckoutPayment(data: {
           receiptDate: new Date(paymentDate),
           receiptNo: nextReceiptNo,
           notes: notes || null,
+          createdById: currentDoctor.id,
         },
       });
       nextReceiptNo++;
