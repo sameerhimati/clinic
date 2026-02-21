@@ -17,12 +17,17 @@ export async function createReceipt(formData: FormData) {
     throw new Error("Visit and amount are required");
   }
 
+  // Auto-generate receipt number
+  const maxReceiptNo = await prisma.receipt.aggregate({ _max: { receiptNo: true } });
+  const nextReceiptNo = (maxReceiptNo._max.receiptNo || 0) + 1;
+
   const receipt = await prisma.receipt.create({
     data: {
       visitId,
       amount,
       paymentMode,
       receiptDate,
+      receiptNo: nextReceiptNo,
       notes,
     },
   });
@@ -36,5 +41,5 @@ export async function createReceipt(formData: FormData) {
   revalidatePath(`/visits/${visitId}`);
   revalidatePath("/dashboard");
   if (visit) revalidatePath(`/patients/${visit.patientId}`);
-  redirect(`/visits/${visitId}`);
+  redirect(`/receipts/${receipt.id}/print`);
 }

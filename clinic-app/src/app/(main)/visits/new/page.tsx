@@ -12,7 +12,7 @@ export default async function NewVisitPage({
   const [patients, operations, doctors, labs] = await Promise.all([
     prisma.patient.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, legacyCode: true },
+      select: { id: true, name: true, code: true },
     }),
     prisma.operation.findMany({
       where: { isActive: true },

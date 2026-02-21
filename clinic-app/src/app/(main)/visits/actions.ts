@@ -15,8 +15,8 @@ export async function createVisit(formData: FormData) {
   if (!patientId) throw new Error("Patient is required");
 
   // Auto-generate case number
-  const maxCase = await prisma.visit.aggregate({ _max: { legacyCaseNo: true } });
-  const nextCaseNo = (maxCase._max.legacyCaseNo || 80000) + 1;
+  const maxCase = await prisma.visit.aggregate({ _max: { caseNo: true } });
+  const nextCaseNo = (maxCase._max.caseNo || 80000) + 1;
 
   // Get doctor commission percent
   let commPercent: number | null = null;
@@ -27,7 +27,7 @@ export async function createVisit(formData: FormData) {
 
   const visit = await prisma.visit.create({
     data: {
-      legacyCaseNo: nextCaseNo,
+      caseNo: nextCaseNo,
       patientId,
       visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
       operationId,

@@ -34,7 +34,7 @@ export default async function ReceiptsPage({
       include: {
         visit: {
           include: {
-            patient: { select: { name: true } },
+            patient: { select: { name: true, code: true } },
             operation: { select: { name: true } },
           },
         },
@@ -78,11 +78,23 @@ export default async function ReceiptsPage({
             {receipts.map((receipt) => (
               <Link
                 key={receipt.id}
-                href={`/visits/${receipt.visitId}`}
+                href={`/receipts/${receipt.id}/print`}
                 className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
               >
                 <div>
-                  <div className="font-medium">{receipt.visit.patient.name}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    {receipt.receiptNo && (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        #{receipt.receiptNo}
+                      </span>
+                    )}
+                    {receipt.visit.patient.code && (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        P#{receipt.visit.patient.code}
+                      </span>
+                    )}
+                    {receipt.visit.patient.name}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {receipt.visit.operation?.name || "Visit"} ·{" "}
                     {format(new Date(receipt.receiptDate), "MMM d, yyyy")}

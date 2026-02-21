@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -44,7 +43,7 @@ export default async function OutstandingReportPage({
       operationRate: { gt: 0 },
     },
     include: {
-      patient: { select: { id: true, name: true, legacyCode: true, mobile: true } },
+      patient: { select: { id: true, name: true, code: true, mobile: true } },
       operation: { select: { name: true } },
       doctor: { select: { name: true } },
       receipts: { select: { amount: true } },
@@ -115,19 +114,20 @@ export default async function OutstandingReportPage({
                   <TableHead className="text-right">Billed</TableHead>
                   <TableHead className="text-right">Paid</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {outstanding.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{format(new Date(row.visitDate), "dd/MM/yy")}</TableCell>
-                    <TableCell>{row.legacyCaseNo || row.id}</TableCell>
+                    <TableCell>{row.caseNo || row.id}</TableCell>
                     <TableCell>
                       <Link
                         href={`/patients/${row.patient.id}`}
                         className="hover:underline font-medium"
                       >
-                        {row.patient.name}
+                        #{row.patient.code} {row.patient.name}
                       </Link>
                     </TableCell>
                     <TableCell>{row.patient.mobile || "-"}</TableCell>
@@ -137,6 +137,11 @@ export default async function OutstandingReportPage({
                     <TableCell className="text-right">{row.paid.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right font-medium text-destructive">
                       {row.balance.toLocaleString("en-IN")}
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/patients/${row.patient.id}/checkout`}>Pay</Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
+import { IndianRupee } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +39,12 @@ export default async function VisitDetailPage({
     <div className="max-w-3xl space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold">
-            Case #{visit.legacyCaseNo || visit.id}
+          <h2 className="text-2xl font-bold flex items-center gap-3">
+            Case #{visit.caseNo || visit.id}
           </h2>
           <p className="text-muted-foreground">
-            <Link href={`/patients/${visit.patientId}`} className="hover:underline">
-              {visit.patient.name}
+            <Link href={`/patients/${visit.patientId}`} className="hover:underline font-medium">
+              #{visit.patient.code} {visit.patient.salutation && `${visit.patient.salutation}. `}{visit.patient.name}
             </Link>
             {" · "}
             {format(new Date(visit.visitDate), "MMMM d, yyyy")}
@@ -52,8 +52,8 @@ export default async function VisitDetailPage({
         </div>
         {balance > 0 && (
           <Button asChild>
-            <Link href={`/receipts/new?visitId=${visit.id}`}>
-              <Plus className="mr-2 h-4 w-4" /> Add Payment
+            <Link href={`/patients/${visit.patientId}/checkout`}>
+              <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
             </Link>
           </Button>
         )}
@@ -124,8 +124,8 @@ export default async function VisitDetailPage({
           <CardTitle>Receipts ({visit.receipts.length})</CardTitle>
           {balance > 0 && (
             <Button size="sm" variant="outline" asChild>
-              <Link href={`/receipts/new?visitId=${visit.id}`}>
-                <Plus className="mr-2 h-4 w-4" /> Add
+              <Link href={`/patients/${visit.patientId}/checkout`}>
+                <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
               </Link>
             </Button>
           )}
@@ -135,7 +135,14 @@ export default async function VisitDetailPage({
             {visit.receipts.map((receipt) => (
               <div key={receipt.id} className="flex items-center justify-between py-3">
                 <div>
-                  <div className="font-medium">{"\u20B9"}{receipt.amount.toLocaleString("en-IN")}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    {receipt.receiptNo && (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        Rcpt #{receipt.receiptNo}
+                      </span>
+                    )}
+                    {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
                   </div>

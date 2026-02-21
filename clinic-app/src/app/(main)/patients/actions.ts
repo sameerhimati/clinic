@@ -31,12 +31,12 @@ export async function createPatient(formData: FormData) {
     throw new Error("Patient name is required");
   }
 
-  // Auto-generate legacy code
-  const maxCode = await prisma.patient.aggregate({ _max: { legacyCode: true } });
-  const nextCode = (maxCode._max.legacyCode || 10000) + 1;
+  // Auto-generate patient code (next in sequence)
+  const maxCode = await prisma.patient.aggregate({ _max: { code: true } });
+  const nextCode = (maxCode._max.code || 10000) + 1;
 
   const patient = await prisma.patient.create({
-    data: { ...data, legacyCode: nextCode },
+    data: { ...data, code: nextCode },
   });
 
   // Handle diseases

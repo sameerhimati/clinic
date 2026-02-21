@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Edit, Trash2, Plus } from "lucide-react";
+import { Edit, Plus, IndianRupee } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function PatientDetailPage({
         include: {
           operation: { select: { name: true } },
           doctor: { select: { name: true } },
-          receipts: { select: { amount: true, paymentMode: true, receiptDate: true } },
+          receipts: { select: { id: true, receiptNo: true, amount: true, paymentMode: true, receiptDate: true } },
         },
       },
       files: { orderBy: { createdAt: "desc" } },
@@ -53,19 +53,33 @@ export default async function PatientDetailPage({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">
-            {patient.salutation && `${patient.salutation}. `}
-            {patient.name}
-          </h2>
-          <p className="text-muted-foreground">
-            Patient #{patient.legacyCode || patient.id}
-            {patient.gender && ` · ${patient.gender === "M" ? "Male" : "Female"}`}
-            {patient.ageAtRegistration && ` · ${patient.ageAtRegistration} yrs`}
-            {patient.bloodGroup && ` · ${patient.bloodGroup}`}
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-center">
+            <div className="text-xs uppercase tracking-wide opacity-80">Patient</div>
+            <div className="text-2xl font-bold font-mono">#{patient.code}</div>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">
+              {patient.salutation && `${patient.salutation}. `}
+              {patient.name}
+            </h2>
+            <p className="text-muted-foreground">
+              {patient.gender && `${patient.gender === "M" ? "Male" : "Female"}`}
+              {patient.ageAtRegistration && ` · ${patient.ageAtRegistration} yrs`}
+              {patient.bloodGroup && ` · ${patient.bloodGroup}`}
+              {patient.mobile && ` · ${patient.mobile}`}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
+          {totalBalance > 0 && (
+            <Button asChild>
+              <Link href={`/patients/${patient.id}/checkout`}>
+                <IndianRupee className="mr-2 h-4 w-4" />
+                Collect Payment
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <Link href={`/patients/${patient.id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />
@@ -101,62 +115,13 @@ export default async function PatientDetailPage({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="info">
+      <Tabs defaultValue="visits">
         <TabsList>
-          <TabsTrigger value="info">Info</TabsTrigger>
-          <TabsTrigger value="medical">Medical History</TabsTrigger>
           <TabsTrigger value="visits">Visits ({patient.visits.length})</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
+          <TabsTrigger value="info">Info</TabsTrigger>
+          <TabsTrigger value="medical">Medical History</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="info" className="mt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
-                <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "MMM d, yyyy") : null} />
-                <InfoRow label="Occupation" value={patient.occupation} />
-                <InfoRow label="Mobile" value={patient.mobile} />
-                <InfoRow label="Phone" value={patient.phone} />
-                <InfoRow label="Email" value={patient.email} />
-                <Separator className="sm:col-span-2" />
-                <InfoRow label="Address" value={[patient.addressLine1, patient.addressLine2, patient.addressLine3].filter(Boolean).join(", ")} />
-                <InfoRow label="City" value={patient.city} />
-                <InfoRow label="Pincode" value={patient.pincode} />
-                <Separator className="sm:col-span-2" />
-                <InfoRow label="Referring Physician" value={patient.referringPhysician} />
-                <InfoRow label="Physician Phone" value={patient.physicianPhone} />
-                {patient.remarks && (
-                  <div className="sm:col-span-2">
-                    <div className="text-sm text-muted-foreground">Remarks</div>
-                    <div className="mt-1 whitespace-pre-wrap">{patient.remarks}</div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="medical" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Medical History Checklist</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {patient.diseases.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {patient.diseases.map((pd) => (
-                    <Badge key={pd.id} variant="destructive">
-                      {pd.disease.name}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">No medical conditions recorded</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="visits" className="mt-4 space-y-4">
           <Button size="sm" asChild>
@@ -179,11 +144,11 @@ export default async function PatientDetailPage({
                       className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
                     >
                       <div>
-                        <div className="font-medium">
-                          {visit.operation?.name || "Visit"}{" "}
-                          <span className="text-muted-foreground font-normal">
-                            #{visit.legacyCaseNo || visit.id}
+                        <div className="font-medium flex items-center gap-2">
+                          <span className="font-mono text-sm text-muted-foreground">
+                            #{visit.caseNo}
                           </span>
+                          {visit.operation?.name || "Visit"}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {format(new Date(visit.visitDate), "MMM d, yyyy")}
@@ -220,20 +185,28 @@ export default async function PatientDetailPage({
             <CardContent className="p-0">
               <div className="divide-y">
                 {patient.visits.flatMap((visit) =>
-                  visit.receipts.map((receipt, i) => (
+                  visit.receipts.map((receipt) => (
                     <div
-                      key={`${visit.id}-${i}`}
+                      key={receipt.id}
                       className="flex items-center justify-between p-4"
                     >
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium flex items-center gap-2">
+                          {receipt.receiptNo && (
+                            <span className="font-mono text-sm text-muted-foreground">
+                              Rcpt #{receipt.receiptNo}
+                            </span>
+                          )}
                           {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {format(new Date(receipt.receiptDate), "MMM d, yyyy")} ·{" "}
-                          {visit.operation?.name || "Visit"} · {receipt.paymentMode}
+                          Case #{visit.caseNo} · {visit.operation?.name || "Visit"} · {receipt.paymentMode}
                         </div>
                       </div>
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/receipts/${receipt.id}/print`}>Print</Link>
+                      </Button>
                     </div>
                   ))
                 )}
@@ -243,6 +216,56 @@ export default async function PatientDetailPage({
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="info" className="mt-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
+                <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
+                <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "MMM d, yyyy") : null} />
+                <InfoRow label="Occupation" value={patient.occupation} />
+                <InfoRow label="Mobile" value={patient.mobile} />
+                <InfoRow label="Phone" value={patient.phone} />
+                <InfoRow label="Email" value={patient.email} />
+                <Separator className="sm:col-span-2" />
+                <InfoRow label="Address" value={[patient.addressLine1, patient.addressLine2, patient.addressLine3].filter(Boolean).join(", ")} />
+                <InfoRow label="City" value={patient.city} />
+                <InfoRow label="Pincode" value={patient.pincode} />
+                <Separator className="sm:col-span-2" />
+                <InfoRow label="Referring Physician" value={patient.referringPhysician} />
+                <InfoRow label="Physician Phone" value={patient.physicianPhone} />
+                {patient.remarks && (
+                  <div className="sm:col-span-2">
+                    <div className="text-sm text-muted-foreground">Remarks</div>
+                    <div className="mt-0.5">{patient.remarks}</div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="medical" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Medical History Checklist</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {patient.diseases.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {patient.diseases.map((pd) => (
+                    <Badge key={pd.id} variant="destructive">
+                      {pd.disease.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No medical conditions recorded</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,26 +1,36 @@
 # Clinic App — Roadmap
 
-## Current State (MVP)
-Built: Dashboard, Patient CRUD + search, Visits, Receipts, Doctor Commission Report, Outstanding Dues Report. No auth. SQLite local dev.
+## Current State
+Built: Dashboard, Patient CRUD + search, Visits, Receipts (with auto-numbering), Patient Checkout (multi-visit allocation), Doctor Commission Report, Outstanding Dues Report. Patient code is the primary identifier everywhere. No auth. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
 ## Critical Fixes (Do First)
 
-### CF-1: Patient Code as Primary Identifier
-The clinic uses the patient code (SDH number like `10001`, `30427`) as THE identifier — it's what staff types in, prints on receipts, and references in conversation. Currently it's called `legacyCode` and treated as secondary.
+### CF-1: Patient Code as Primary Identifier [DONE]
+- [x] Rename `legacyCode` → `code` throughout (schema, UI, search)
+- [x] Make patient code the prominent display everywhere (list, detail, search results, receipts, visit forms)
+- [x] Search box prioritizes exact code match
+- [x] Patient code visible in print receipts as the primary ID
+- [x] Auto-generate patient code on new patient registration (MAX+1)
 
-- [ ] Rename `legacyCode` → `code` throughout (schema, UI, search)
-- [ ] Make patient code the prominent display everywhere (list, detail, search results, receipts, visit forms)
-- [ ] Search box should prioritize exact code match (typing `10045` should jump to that patient)
-- [ ] Show patient code prominently in visit and receipt forms
-- [ ] Patient code should be visible in print receipts as the primary ID
+### CF-2: Receipt Number System [DONE]
+- [x] Auto-generated sequential `receiptNo` (MAX+1)
+- [x] Display receipt number on print page, receipt lists, visit detail, patient detail
 
-### CF-2: Receipt Number System
-Legacy system has a separate receipt number sequence (`R_NO`, 1-20178). Currently receipts only use auto-increment ID.
+### CF-3: Patient Checkout Flow [DONE]
+- [x] Multi-visit payment allocation page (`/patients/[id]/checkout`)
+- [x] Auto-allocate (FIFO oldest-first) + manual override
+- [x] Atomic multi-receipt creation via transaction
+- [x] "Collect Payment" wired into patient detail, visit detail, dashboard, outstanding report
 
-- [ ] Add `receiptNo` field (auto-generated sequential)
-- [ ] Display receipt number on print page and receipt lists
+### CF-4: Legacy Data Import
+When ready to go live with real data:
+- [ ] Import script for legacy CLINIC.SQL → SQLite/Postgres
+- [ ] Map legacy patient codes (P_CODE 1–40427), case numbers (H_CASE_NO 1–80316), receipt numbers (R_NO 1–20178)
+- [ ] Ensure auto-generated sequences start AFTER legacy max values
+- [ ] Validate data integrity (foreign keys, orphaned records, date issues)
+- [ ] Handle 3-year data gap (Oct 2020 — Sep 2023) — decide how to backfill or flag
 
 ---
 
@@ -48,7 +58,7 @@ Match legacy permission system:
 
 ---
 
-## Phase 2: Admin Management (P1 Features)
+## Phase 2: Admin Management
 
 ### P2-1: Doctor Management
 - [ ] Doctor list with CRUD
@@ -70,7 +80,7 @@ Match legacy permission system:
 
 ---
 
-## Phase 3: Appointment Scheduling (P1)
+## Phase 3: Appointment Scheduling
 
 - [ ] Appointment creation (standalone or linked to visit)
 - [ ] Calendar/day view of appointments
@@ -80,7 +90,7 @@ Match legacy permission system:
 
 ---
 
-## Phase 4: Remaining Reports (P2)
+## Phase 4: Remaining Reports
 
 ### P4-1: Core Reports
 - [ ] Operations Report (all procedures by date range, doctor, operation type)
@@ -97,7 +107,7 @@ Match legacy permission system:
 
 ---
 
-## Phase 5: Clinical Features (P2)
+## Phase 5: Clinical Features
 
 ### P5-1: Clinical Examination (DR_REPORT)
 - [ ] Clinical report form per visit (complaint, examination, diagnosis, treatment, medication)
@@ -135,7 +145,7 @@ Match legacy permission system:
 
 ---
 
-## Phase 7: Nice-to-Haves (P3)
+## Phase 7: Nice-to-Haves
 
 - [ ] SMS/WhatsApp integration (appointment reminders, birthday wishes)
 - [ ] Tooth chart / dental diagram (visual tooth selection)

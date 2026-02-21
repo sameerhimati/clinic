@@ -35,7 +35,7 @@ export default async function VisitsPage({
       take: pageSize,
       skip: (page - 1) * pageSize,
       include: {
-        patient: { select: { name: true, legacyCode: true } },
+        patient: { select: { name: true, code: true } },
         operation: { select: { name: true } },
         doctor: { select: { name: true } },
         receipts: { select: { amount: true } },
@@ -96,10 +96,15 @@ export default async function VisitsPage({
                   className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
                 >
                   <div>
-                    <div className="font-medium">
-                      {visit.patient.name}{" "}
-                      <span className="text-muted-foreground font-normal">
-                        Case #{visit.legacyCaseNo || visit.id}
+                    <div className="font-medium flex items-center gap-2">
+                      {visit.patient.code && (
+                        <span className="font-mono text-sm text-muted-foreground">
+                          #{visit.patient.code}
+                        </span>
+                      )}
+                      {visit.patient.name}
+                      <span className="text-muted-foreground font-normal text-sm">
+                        Case #{visit.caseNo || visit.id}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">

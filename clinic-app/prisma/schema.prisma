@@ -23,7 +23,7 @@ model Disease {
 
 model Operation {
   id            Int      @id @default(autoincrement())
-  legacyCode    Int?     @unique
+  code          Int?     @unique
   name          String
   category      String?
   defaultMinFee Float?
@@ -38,7 +38,7 @@ model Operation {
 
 model Lab {
   id           Int       @id @default(autoincrement())
-  legacyCode   Int?      @unique
+  code         Int?      @unique
   name         String
   contactPhone String?
   contactEmail String?
@@ -102,7 +102,7 @@ model ClinicSettings {
 
 model Doctor {
   id                Int                      @id @default(autoincrement())
-  legacyCode        Int?                     @unique
+  code              Int?                     @unique
   name              String
   mobile            String?
   email             String?
@@ -142,7 +142,7 @@ model DoctorCommissionHistory {
 
 model Patient {
   id                  Int              @id @default(autoincrement())
-  legacyCode          Int?             @unique
+  code                Int?             @unique
   salutation          String?
   name                String
   fatherHusbandName   String?
@@ -187,7 +187,7 @@ model PatientDisease {
 
 model Visit {
   id                      Int              @id @default(autoincrement())
-  legacyCaseNo            Int?             @unique
+  caseNo                  Int?             @unique
   patientId               Int
   patient                 Patient          @relation(fields: [patientId], references: [id])
   visitDate               DateTime
@@ -218,7 +218,7 @@ model Visit {
 
 model Receipt {
   id              Int      @id @default(autoincrement())
-  legacyReceiptNo Int?
+  receiptNo       Int?
   visitId         Int
   visit           Visit    @relation(fields: [visitId], references: [id])
   receiptDate     DateTime

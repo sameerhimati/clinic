@@ -51,7 +51,7 @@ export default async function CommissionReportPage({
     include: {
       visit: {
         include: {
-          patient: { select: { name: true, legacyCode: true } },
+          patient: { select: { name: true, code: true } },
           operation: { select: { name: true } },
           doctor: true,
           receipts: {
@@ -92,7 +92,7 @@ export default async function CommissionReportPage({
   for (const receipt of filteredReceipts) {
     const visit = receipt.visit;
     const doctor = visit.doctor;
-    if (!doctor || doctor.legacyCode === 0) continue; // skip NONE doctor
+    if (!doctor || doctor.code === 0) continue; // skip NONE doctor
 
     const previousPayments = visit.receipts.reduce((s, r) => s + r.amount, 0);
     const labRate = visit.labRateAmount * visit.labQuantity;
@@ -109,7 +109,7 @@ export default async function CommissionReportPage({
     rows.push({
       receiptId: receipt.id,
       receiptDate: receipt.receiptDate,
-      caseNo: visit.legacyCaseNo,
+      caseNo: visit.caseNo,
       patientName: visit.patient.name,
       operationName: visit.operation?.name || "N/A",
       doctorName: doctor.name,

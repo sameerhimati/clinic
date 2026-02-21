@@ -42,7 +42,7 @@ async function getDashboardData() {
       take: 10,
       orderBy: { createdAt: "desc" },
       include: {
-        patient: { select: { name: true, legacyCode: true } },
+        patient: { select: { id: true, name: true, code: true } },
         operation: { select: { name: true } },
         doctor: { select: { name: true } },
         receipts: { select: { amount: true } },
@@ -199,8 +199,13 @@ export default async function DashboardPage() {
                   <div className="flex flex-col gap-0.5">
                     <Link
                       href={`/patients/${visit.patientId}`}
-                      className="font-medium hover:underline"
+                      className="font-medium hover:underline flex items-center gap-2"
                     >
+                      {visit.patient.code && (
+                        <span className="font-mono text-sm text-muted-foreground">
+                          #{visit.patient.code}
+                        </span>
+                      )}
                       {visit.patient.name}
                     </Link>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -215,18 +220,27 @@ export default async function DashboardPage() {
                       <span>{format(new Date(visit.visitDate), "MMM d")}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-medium">
-                      {"\u20B9"}{billed.toLocaleString("en-IN")}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-medium">
+                        {"\u20B9"}{billed.toLocaleString("en-IN")}
+                      </div>
+                      {balance > 0 ? (
+                        <Badge variant="destructive" className="text-xs">
+                          Due: {"\u20B9"}{balance.toLocaleString("en-IN")}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Paid
+                        </Badge>
+                      )}
                     </div>
-                    {balance > 0 ? (
-                      <Badge variant="destructive" className="text-xs">
-                        Due: {"\u20B9"}{balance.toLocaleString("en-IN")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">
-                        Paid
-                      </Badge>
+                    {balance > 0 && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/patients/${visit.patient.id}/checkout`}>
+                          Pay
+                        </Link>
+                      </Button>
                     )}
                   </div>
                 </div>

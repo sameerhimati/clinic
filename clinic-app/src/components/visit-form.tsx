@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
 
-type Patient = { id: number; name: string; legacyCode: number | null };
+type Patient = { id: number; name: string; code: number | null };
 type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
 type Doctor = { id: number; name: string; commissionPercent: number };
 type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
@@ -60,7 +60,7 @@ export function VisitForm({
               <option value="">Select patient...</option>
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} {p.legacyCode ? `(#${p.legacyCode})` : ""}
+                  {p.name} {p.code ? `(#${p.code})` : ""}
                 </option>
               ))}
             </select>

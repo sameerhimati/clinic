@@ -58,7 +58,7 @@ export default async function ReceiptPrintPage({
         <div className="grid grid-cols-2 gap-2 text-sm mb-4">
           <div>
             <span className="text-muted-foreground">Receipt No:</span>{" "}
-            <span className="font-medium">{receipt.id}</span>
+            <span className="font-bold text-base">{receipt.receiptNo || receipt.id}</span>
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Date:</span>{" "}
@@ -66,7 +66,7 @@ export default async function ReceiptPrintPage({
           </div>
           <div>
             <span className="text-muted-foreground">Case No:</span>{" "}
-            <span className="font-medium">{receipt.visit.legacyCaseNo || receipt.visit.id}</span>
+            <span className="font-medium">{receipt.visit.caseNo || receipt.visit.id}</span>
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Mode:</span>{" "}
@@ -77,13 +77,11 @@ export default async function ReceiptPrintPage({
         <div className="border-t border-b py-3 mb-4 text-sm space-y-1">
           <div>
             <span className="text-muted-foreground">Patient:</span>{" "}
+            <span className="font-bold">#{receipt.visit.patient.code}</span>{" "}
             <span className="font-medium">
               {receipt.visit.patient.salutation && `${receipt.visit.patient.salutation}. `}
               {receipt.visit.patient.name}
             </span>
-            {receipt.visit.patient.legacyCode && (
-              <span className="text-muted-foreground ml-2">#{receipt.visit.patient.legacyCode}</span>
-            )}
           </div>
           <div>
             <span className="text-muted-foreground">Treatment:</span>{" "}

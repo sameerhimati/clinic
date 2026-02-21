@@ -17,7 +17,7 @@ export default async function NewReceiptPage({
     orderBy: { visitDate: "desc" },
     take: 100,
     include: {
-      patient: { select: { name: true } },
+      patient: { select: { name: true, code: true } },
       operation: { select: { name: true } },
       receipts: { select: { amount: true } },
     },
@@ -53,7 +53,7 @@ export default async function NewReceiptPage({
                 <option value="">Select visit...</option>
                 {visitsWithBalance.map((v) => (
                   <option key={v.id} value={v.id}>
-                    #{v.legacyCaseNo || v.id} - {v.patient.name} - {v.operation?.name || "Visit"}
+                    #{v.caseNo || v.id} - #{v.patient.code} {v.patient.name} - {v.operation?.name || "Visit"}
                     {v.balance > 0 ? ` (Due: ₹${v.balance.toLocaleString("en-IN")})` : " (Paid)"}
                   </option>
                 ))}

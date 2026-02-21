@@ -1,36 +1,69 @@
 # Session Handoff — Clinic App
 
-## What Was Built (MVP - P0)
-A full working dental clinic management app rebuilt from legacy Centura/SQLBase system.
-
-**Stack:** Next.js 15 (App Router), bun, Tailwind CSS 4, shadcn/ui, Prisma 6 + SQLite
-
-**Working Features:**
-- Dashboard with today's stats, quick actions, recent activity
-- Patient CRUD with search (name, mobile, code), medical history, pagination
-- Visit/treatment entry with operation selection (107 procedures), doctor assignment, lab details
-- Billing & receipts with payment modes (Cash/Card/UPI/NEFT/Cheque)
-- Printable receipts with Indian amount-in-words (Crore/Lakh format)
-- Doctor commission report (percentage + fixed-rate, TDS deduction) — matches legacy `fnCommission` exactly
-- Outstanding dues report with filters
-- Doctor list (read-only), Settings page with DB stats
-- Seed data: 50 patients, 20 doctors, 107 operations, 28 labs, 18 diseases, sample visits/receipts
-
-**All 18 routes build and serve. Dev server: `bun run dev` on port 3000.**
+## Last Session: Session 1 — Make the App Actually Usable
+**Date:** 2026-02-21
+**Focus:** Renamed legacy fields, made patient code the primary identifier, built multi-visit checkout page, wired up navigation.
 
 ---
 
-## Critical User Feedback
+## What's Built
 
-### 1. Patient Code is THE Identifier (Highest Priority)
-The clinic uses the patient code (SDH number like `10001`, `30427`) as THE identifier — staff types it, prints it on receipts, references it in conversation. Currently it's stored as `legacyCode` and treated as secondary. This needs to become the primary, prominent identifier everywhere. See ROADMAP.md CF-1.
+**Stack:** Next.js 16 (App Router), bun, Tailwind CSS 4, shadcn/ui, Prisma 6 + SQLite
 
-### 2. Role-Based Views Needed
-Currently there's only one view (admin). The app needs different experiences for:
-- **Admin/SYSADM** — Full access (current view)
-- **Reception** — Patient forms, receipts, appointments
-- **Doctor** — Read patients/visits, write reports, no edit/delete
-See ROADMAP.md Phase 1 (P1-1, P1-2).
+**Working Features (19 routes):**
+- Dashboard with today's stats, quick actions, recent visits with patient codes + "Pay" links
+- Patient CRUD with search (name, mobile, code — exact code match prioritized), medical history, pagination
+- Patient code shown prominently everywhere as `#10001` — the primary identifier
+- Visit/treatment entry with operation selection (107 procedures), doctor assignment, lab details
+- **Patient Checkout page** (`/patients/[id]/checkout`) — multi-visit payment allocation with:
+  - Outstanding visit list with per-visit allocation inputs
+  - Auto-allocate button (FIFO oldest-first)
+  - Atomic multi-receipt creation via `prisma.$transaction()`
+  - Real-time validation (allocation must match payment amount)
+- Billing & receipts with auto-generated sequential receipt numbers (`receiptNo`)
+- Printable receipts with patient code, receipt number, Indian amount-in-words
+- Doctor commission report (percentage + fixed-rate, TDS) — verified correct with multi-receipt scenarios
+- Outstanding dues report with "Pay" links to checkout
+- Doctor list, Settings page with DB stats
+- "Collect Payment" button on patient detail, visit detail, dashboard, and outstanding report
+
+**All 19 routes build and serve. Dev server: `bun run dev` on port 3000.**
+
+---
+
+## Session 1 Changes
+
+### Schema Renames (Breaking)
+| Old Field | New Field | Model |
+|-----------|-----------|-------|
+| `legacyCode` | `code` | Patient, Doctor, Operation, Lab |
+| `legacyCaseNo` | `caseNo` | Visit |
+| `legacyReceiptNo` | `receiptNo` | Receipt |
+
+All 13+ source files updated. Old migration SQL still references old names (harmless).
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `src/app/(main)/patients/[id]/checkout/page.tsx` | Checkout server component |
+| `src/app/(main)/patients/[id]/checkout/checkout-form.tsx` | Interactive checkout client component |
+| `src/app/(main)/patients/[id]/checkout/actions.ts` | `recordCheckoutPayment` server action |
+
+### Key Behavior Changes
+- Receipt creation now auto-generates `receiptNo` as `MAX(receiptNo) + 1`
+- Patient creation auto-generates `code` as `MAX(code) + 1` (was already there, just renamed)
+- Visit "Add Payment" buttons now redirect to patient checkout (not single-receipt form)
+- Single-receipt form (`/receipts/new`) still works as fallback
+- Seed data includes multi-receipt checkout scenarios + sequential receipt numbers
+
+---
+
+## Seed Data (Demo Only)
+Current seed data is **demo/placeholder** — not real patient data:
+- 50 patients (codes 10001–10050), 20 doctors, 107 operations, 28 labs
+- 22 visits (cases 80001–80022), 21 receipts (receipt #1–21)
+- Multi-receipt checkout scenarios for patients 18 and 20
+- **When real data is imported**, receipt numbers and patient codes will need to start from the correct sequence (after legacy max values: ~40,427 patients, ~20,178 receipts)
 
 ---
 
@@ -39,15 +72,14 @@ See ROADMAP.md Phase 1 (P1-1, P1-2).
 | File | Purpose |
 |------|---------|
 | `prisma/schema.prisma` | Full database schema (all models) |
-| `prisma/seed.ts` | Seed data from legacy SQL dump |
+| `prisma/seed.ts` | Demo seed data |
 | `src/lib/db.ts` | Prisma client singleton |
 | `src/lib/commission.ts` | Doctor commission calc (matches legacy exactly) |
 | `src/lib/amount-in-words.ts` | Indian rupee amount-to-words |
 | `src/components/sidebar.tsx` | Main navigation |
 | `src/components/patient-form.tsx` | Shared patient registration/edit form |
 | `src/components/visit-form.tsx` | Visit creation with operation/doctor/lab selection |
-| `src/app/(main)/layout.tsx` | Main layout (sidebar + topbar + content) |
-| `ROADMAP.md` | Full roadmap with phases CF through P7 |
+| `src/app/(main)/patients/[id]/checkout/` | Multi-visit checkout flow (3 files) |
 
 **Reference docs:**
 | File | Purpose |
@@ -64,14 +96,14 @@ See ROADMAP.md Phase 1 (P1-1, P1-2).
 - **bun** must be on PATH: `PATH="$HOME/.bun/bin:$PATH"`
 - **Database** is SQLite at `prisma/dev.db`. Reset with `bunx prisma db push --force-reset && bun run prisma/seed.ts`
 - **Server actions** pattern: each route group has an `actions.ts` file
-- **Legacy case numbers** and patient codes are auto-generated as MAX+1 in server actions
-- Commission logic in `src/lib/commission.ts` was verified against the exact `fnCommission` algorithm from `Clinic1.apt`
+- Patient codes, case numbers, and receipt numbers are all auto-generated as MAX+1 in server actions
+- Commission logic verified against exact `fnCommission` algorithm from legacy `Clinic1.apt`
+- **Git repo**: `github.com/sameerhimati/clinic` (private)
 
 ---
 
 ## What to Do Next
 Follow `ROADMAP.md` in order:
-1. **CF-1**: Make patient code the primary identifier (rename `legacyCode` → `code`, update search, display, forms, receipts)
-2. **CF-2**: Add receipt number system
-3. **Phase 1**: Auth & role-based access control
-4. Continue through phases as prioritized in ROADMAP.md
+1. **CF-3**: Legacy data import (migrate real patient/visit/receipt data from CLINIC.SQL)
+2. **Phase 1**: Auth & role-based access control
+3. Continue through phases as prioritized in ROADMAP.md
