@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canSeePayments } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
@@ -41,6 +41,16 @@ export default async function VisitDetailPage({
         include: { uploadedBy: true },
         orderBy: { createdAt: "desc" },
       },
+      parentVisit: {
+        include: { operation: { select: { name: true } } },
+      },
+      followUps: {
+        orderBy: { visitDate: "asc" },
+        include: {
+          operation: { select: { name: true } },
+          doctor: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -51,12 +61,20 @@ export default async function VisitDetailPage({
   const balance = billed - paid;
   const clinicalReport = visit.clinicalReports[0] || null;
 
+  // Visit type badge color
+  const typeBadge = {
+    NEW: { label: "New", variant: "secondary" as const },
+    FOLLOWUP: { label: "Follow-up", variant: "outline" as const },
+    REVIEW: { label: "Review", variant: "outline" as const },
+  }[visit.visitType] || { label: visit.visitType, variant: "secondary" as const };
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-3">
             Case #{visit.caseNo || visit.id}
+            <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
           </h2>
           <p className="text-muted-foreground">
             <Link href={`/patients/${visit.patientId}`} className="hover:underline font-medium">
@@ -65,32 +83,65 @@ export default async function VisitDetailPage({
             {" · "}
             {format(new Date(visit.visitDate), "MMMM d, yyyy")}
           </p>
+          {/* Parent visit link */}
+          {visit.parentVisit && (
+            <p className="text-sm mt-1">
+              <GitBranch className="h-3.5 w-3.5 inline mr-1" />
+              Follow-up of{" "}
+              <Link href={`/visits/${visit.parentVisit.id}`} className="hover:underline text-primary">
+                Case #{visit.parentVisit.caseNo} — {visit.parentVisit.operation?.name || "Visit"}
+              </Link>
+            </p>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button variant={clinicalReport ? "outline" : "default"} asChild>
+        <div className="flex gap-2 flex-wrap justify-end">
+          {/* Schedule Follow-up */}
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/visits/new?followUp=${visit.id}&patientId=${visit.patientId}`}>
+              F/U ↗
+            </Link>
+          </Button>
+          <Button variant={clinicalReport ? "outline" : "default"} size="sm" asChild>
             <Link href={`/visits/${visit.id}/examine`}>
               {clinicalReport ? (
-                <>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Edit Notes
-                </>
+                <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
               ) : (
-                <>
-                  <ClipboardPlus className="mr-2 h-4 w-4" />
-                  Add Clinical Notes
-                </>
+                <><ClipboardPlus className="mr-2 h-4 w-4" />Add Notes</>
               )}
             </Link>
           </Button>
           {showPayments && balance > 0 && (
-            <Button asChild>
+            <Button size="sm" asChild>
               <Link href={`/patients/${visit.patientId}/checkout`}>
-                <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
+                <IndianRupee className="mr-2 h-4 w-4" /> Collect
               </Link>
             </Button>
           )}
         </div>
       </div>
+
+      {/* Follow-ups list */}
+      {visit.followUps.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Follow-up Visits</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {visit.followUps.map((fu, i) => (
+                <Link key={fu.id} href={`/visits/${fu.id}`} className="flex items-center justify-between p-3 hover:bg-accent transition-colors">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">{i === visit.followUps.length - 1 ? "└──" : "├──"}</span>
+                    <span>{format(new Date(fu.visitDate), "MMM d, yyyy")}</span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="font-medium">{fu.operation?.name || "Visit"}</span>
+                    {fu.doctor && <span className="text-muted-foreground">· Dr. {fu.doctor.name}</span>}
+                  </div>
+                  <Badge variant="outline" className="text-xs">View</Badge>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Billing Summary */}
       <div className={`grid gap-4 ${showPayments ? "sm:grid-cols-3" : "sm:grid-cols-1"}`}>
@@ -141,28 +192,16 @@ export default async function VisitDetailPage({
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {clinicalReport.complaint && (
-              <div>
-                <div className="text-muted-foreground font-medium">Complaint</div>
-                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.complaint}</div>
-              </div>
+              <div><div className="text-muted-foreground font-medium">Complaint</div><div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.complaint}</div></div>
             )}
             {clinicalReport.diagnosis && (
-              <div>
-                <div className="text-muted-foreground font-medium">Diagnosis</div>
-                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.diagnosis}</div>
-              </div>
+              <div><div className="text-muted-foreground font-medium">Diagnosis</div><div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.diagnosis}</div></div>
             )}
             {clinicalReport.treatmentNotes && (
-              <div>
-                <div className="text-muted-foreground font-medium">Treatment Plan</div>
-                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.treatmentNotes}</div>
-              </div>
+              <div><div className="text-muted-foreground font-medium">Treatment Plan</div><div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.treatmentNotes}</div></div>
             )}
             {clinicalReport.medication && (
-              <div>
-                <div className="text-muted-foreground font-medium">Medication</div>
-                <div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.medication}</div>
-              </div>
+              <div><div className="text-muted-foreground font-medium">Medication</div><div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.medication}</div></div>
             )}
             <div className="text-xs text-muted-foreground pt-1">
               By Dr. {clinicalReport.doctor.name} · {format(new Date(clinicalReport.reportDate), "MMM d, yyyy")}
@@ -173,9 +212,7 @@ export default async function VisitDetailPage({
 
       {/* Visit Details */}
       <Card>
-        <CardHeader>
-          <CardTitle>Visit Details</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Visit Details</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <DetailRow label="Operation" value={visit.operation?.name} />
           <DetailRow label="Doctor" value={visit.doctor?.name} />
@@ -205,22 +242,14 @@ export default async function VisitDetailPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Files ({visit.files.length})</CardTitle>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={`/patients/${visit.patientId}?tab=files`}>
-              View all patient files
-            </Link>
-          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <FileUpload patientId={visit.patientId} visitId={visit.id} />
-          <FileGallery
-            files={visit.files}
-            canDelete={currentUser.permissionLevel <= 2}
-          />
+          <FileGallery files={visit.files} canDelete={currentUser.permissionLevel <= 2} />
         </CardContent>
       </Card>
 
-      {/* Receipts - only for payment-visible roles */}
+      {/* Receipts */}
       {showPayments && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -228,7 +257,7 @@ export default async function VisitDetailPage({
             {balance > 0 && (
               <Button size="sm" variant="outline" asChild>
                 <Link href={`/patients/${visit.patientId}/checkout`}>
-                  <IndianRupee className="mr-2 h-4 w-4" /> Collect Payment
+                  <IndianRupee className="mr-2 h-4 w-4" /> Collect
                 </Link>
               </Button>
             )}
@@ -239,16 +268,10 @@ export default async function VisitDetailPage({
                 <div key={receipt.id} className="flex items-center justify-between py-3">
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      {receipt.receiptNo && (
-                        <span className="font-mono text-sm text-muted-foreground">
-                          Rcpt #{receipt.receiptNo}
-                        </span>
-                      )}
+                      {receipt.receiptNo && <span className="font-mono text-sm text-muted-foreground">Rcpt #{receipt.receiptNo}</span>}
                       {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{format(new Date(receipt.receiptDate), "MMM d, yyyy")}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{receipt.paymentMode}</Badge>

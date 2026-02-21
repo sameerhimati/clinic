@@ -5,12 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
 type Patient = { id: number; name: string; code: number | null };
 type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
 type Doctor = { id: number; name: string; commissionPercent: number };
 type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
+
+type ParentVisit = {
+  id: number;
+  caseNo: number | null;
+  patientId: number;
+  operationId: number | null;
+  operationName: string | null;
+  doctorId: number | null;
+  doctorName: string | null;
+};
 
 export function VisitForm({
   patients,
@@ -19,6 +30,8 @@ export function VisitForm({
   labs,
   defaultPatientId,
   action,
+  mode = "new",
+  parentVisit,
 }: {
   patients: Patient[];
   operations: Operation[];
@@ -26,9 +39,17 @@ export function VisitForm({
   labs: Lab[];
   defaultPatientId?: number;
   action: (formData: FormData) => Promise<void>;
+  mode?: "new" | "followup";
+  parentVisit?: ParentVisit | null;
 }) {
+  const isFollowUp = mode === "followup" && parentVisit;
+
+  const defaultOperationId = isFollowUp ? parentVisit.operationId : undefined;
+  const defaultDoctorId = isFollowUp ? parentVisit.doctorId : undefined;
+  const resolvedPatientId = isFollowUp ? parentVisit.patientId : defaultPatientId;
+
   const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
-  const [operationRate, setOperationRate] = useState("");
+  const [operationRate, setOperationRate] = useState(isFollowUp ? "0" : "");
 
   const selectedLab = labs.find((l) => l.id === selectedLabId);
 
@@ -42,6 +63,31 @@ export function VisitForm({
 
   return (
     <form action={action} className="space-y-6">
+      {/* Hidden fields for follow-up */}
+      {isFollowUp && (
+        <>
+          <input type="hidden" name="visitType" value="FOLLOWUP" />
+          <input type="hidden" name="parentVisitId" value={parentVisit.id} />
+        </>
+      )}
+      {!isFollowUp && <input type="hidden" name="visitType" value="NEW" />}
+
+      {/* Follow-up banner */}
+      {isFollowUp && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900">Follow-up</Badge>
+            <span className="text-sm font-medium">
+              Case #{parentVisit.caseNo} — {parentVisit.operationName || "Visit"}
+              {parentVisit.doctorName && ` · Dr. ${parentVisit.doctorName}`}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Rate defaults to 0 for follow-ups (included in original price). Change if this step is billed separately.
+          </p>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Visit Details</CardTitle>
@@ -54,8 +100,9 @@ export function VisitForm({
             <select
               name="patientId"
               required
-              defaultValue={defaultPatientId || ""}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              defaultValue={resolvedPatientId || ""}
+              disabled={!!isFollowUp}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm disabled:opacity-60"
             >
               <option value="">Select patient...</option>
               {patients.map((p) => (
@@ -64,6 +111,9 @@ export function VisitForm({
                 </option>
               ))}
             </select>
+            {isFollowUp && (
+              <input type="hidden" name="patientId" value={parentVisit.patientId} />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -79,10 +129,13 @@ export function VisitForm({
             <Label htmlFor="operationId">Operation/Procedure</Label>
             <select
               name="operationId"
+              defaultValue={defaultOperationId || ""}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
               onChange={(e) => {
-                const op = operations.find((o) => o.id === parseInt(e.target.value));
-                if (op?.defaultMinFee) setOperationRate(op.defaultMinFee.toString());
+                if (!isFollowUp) {
+                  const op = operations.find((o) => o.id === parseInt(e.target.value));
+                  if (op?.defaultMinFee) setOperationRate(op.defaultMinFee.toString());
+                }
               }}
             >
               <option value="">Select procedure...</option>
@@ -127,6 +180,7 @@ export function VisitForm({
             <Label htmlFor="doctorId">Doctor</Label>
             <select
               name="doctorId"
+              defaultValue={defaultDoctorId || ""}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
             >
               <option value="">Select doctor...</option>
@@ -227,7 +281,7 @@ export function VisitForm({
         </CardContent>
       </Card>
 
-      <Button type="submit">Create Visit</Button>
+      <Button type="submit">{isFollowUp ? "Create Follow-up Visit" : "Create Visit"}</Button>
     </form>
   );
 }

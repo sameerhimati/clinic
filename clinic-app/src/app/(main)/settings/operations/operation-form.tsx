@@ -1,0 +1,64 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus } from "lucide-react";
+import { createOperation } from "./actions";
+import { useState } from "react";
+
+export function OperationCreateForm({ categories }: { categories: string[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        <Plus className="mr-2 h-4 w-4" />Add Operation
+      </Button>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>New Operation</CardTitle></CardHeader>
+      <CardContent>
+        <form
+          action={async (formData) => {
+            await createOperation(formData);
+            setOpen(false);
+          }}
+          className="grid gap-4 sm:grid-cols-2"
+        >
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
+            <Input name="name" required placeholder="e.g., VENEER" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Input name="category" list="categories" placeholder="e.g., Cosmetic" />
+            <datalist id="categories">
+              {categories.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="defaultMinFee">Default Min Fee (₹)</Label>
+            <Input name="defaultMinFee" type="number" step="0.01" min="0" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="defaultMaxFee">Default Max Fee (₹)</Label>
+            <Input name="defaultMaxFee" type="number" step="0.01" min="0" />
+          </div>
+
+          <div className="sm:col-span-2 flex gap-2">
+            <Button type="submit">Create</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}

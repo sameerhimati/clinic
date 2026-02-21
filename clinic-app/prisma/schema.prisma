@@ -192,6 +192,10 @@ model Visit {
   patientId               Int
   patient                 Patient          @relation(fields: [patientId], references: [id])
   visitDate               DateTime
+  visitType               String           @default("NEW") // "NEW", "FOLLOWUP", "REVIEW"
+  parentVisitId           Int?
+  parentVisit             Visit?           @relation("FollowUps", fields: [parentVisitId], references: [id])
+  followUps               Visit[]          @relation("FollowUps")
   operationId             Int?
   operation               Operation?       @relation(fields: [operationId], references: [id])
   operationRate           Float?

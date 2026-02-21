@@ -315,32 +315,36 @@ async function main() {
   const today = new Date();
   const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000);
 
+  // Also look up BMP operation for follow-up seed
+  const compFilling = await prisma.operation.findFirst({ where: { code: 17 } });
+  const ortho = await prisma.operation.findFirst({ where: { code: 34 } });
+
   const visits = [
     // Today's visits
-    { caseNo: 80001, patientId: 1, visitDate: today, operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
-    { caseNo: 80002, patientId: 2, visitDate: today, operationId: scaling!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
-    { caseNo: 80003, patientId: 3, visitDate: today, operationId: rct!.id, operationRate: 5000, doctorId: ramana!.id, doctorCommissionPercent: 75, discount: 500 },
+    { caseNo: 80001, patientId: 1, visitDate: today, visitType: "NEW", operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { caseNo: 80002, patientId: 2, visitDate: today, visitType: "NEW", operationId: scaling!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { caseNo: 80003, patientId: 3, visitDate: today, visitType: "NEW", operationId: rct!.id, operationRate: 5000, doctorId: ramana!.id, doctorCommissionPercent: 75, discount: 500 },
     // Yesterday
-    { caseNo: 80004, patientId: 4, visitDate: daysAgo(1), operationId: filling!.id, operationRate: 800, doctorId: anitha!.id, doctorCommissionPercent: 70 },
-    { caseNo: 80005, patientId: 5, visitDate: daysAgo(1), operationId: extraction!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { caseNo: 80004, patientId: 4, visitDate: daysAgo(1), visitType: "NEW", operationId: filling!.id, operationRate: 800, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { caseNo: 80005, patientId: 5, visitDate: daysAgo(1), visitType: "NEW", operationId: extraction!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
     // This week
-    { caseNo: 80006, patientId: 6, visitDate: daysAgo(2), operationId: cerCrown!.id, operationRate: 8000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550 },
-    { caseNo: 80007, patientId: 7, visitDate: daysAgo(3), operationId: bleaching!.id, operationRate: 3000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
-    { caseNo: 80008, patientId: 8, visitDate: daysAgo(3), operationId: implant!.id, operationRate: 25000, doctorId: bhadra!.id, commissionRate: 750, labRateAmount: 3000 },
-    { caseNo: 80009, patientId: 9, visitDate: daysAgo(4), operationId: xray!.id, operationRate: 50, doctorId: kazim!.id, doctorCommissionPercent: 0 },
-    { caseNo: 80010, patientId: 10, visitDate: daysAgo(5), operationId: flap!.id, operationRate: 6000, doctorId: surender!.id, doctorCommissionPercent: 50, discount: 1000 },
+    { caseNo: 80006, patientId: 6, visitDate: daysAgo(2), visitType: "NEW", operationId: cerCrown!.id, operationRate: 8000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550 },
+    { caseNo: 80007, patientId: 7, visitDate: daysAgo(3), visitType: "NEW", operationId: bleaching!.id, operationRate: 3000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { caseNo: 80008, patientId: 8, visitDate: daysAgo(3), visitType: "NEW", operationId: implant!.id, operationRate: 25000, doctorId: bhadra!.id, commissionRate: 750, labRateAmount: 3000 },
+    { caseNo: 80009, patientId: 9, visitDate: daysAgo(4), visitType: "NEW", operationId: xray!.id, operationRate: 50, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { caseNo: 80010, patientId: 10, visitDate: daysAgo(5), visitType: "NEW", operationId: flap!.id, operationRate: 6000, doctorId: surender!.id, doctorCommissionPercent: 50, discount: 1000 },
     // Last week
-    { caseNo: 80011, patientId: 11, visitDate: daysAgo(7), operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
-    { caseNo: 80012, patientId: 12, visitDate: daysAgo(7), operationId: rct!.id, operationRate: 4500, doctorId: ramana!.id, doctorCommissionPercent: 75 },
-    { caseNo: 80013, patientId: 13, visitDate: daysAgo(8), operationId: cerCrown!.id, operationRate: 7500, doctorId: anitha!.id, doctorCommissionPercent: 70, labId: lab7!.id, labRateAmount: 550, labQuantity: 2 },
-    { caseNo: 80014, patientId: 14, visitDate: daysAgo(9), operationId: scaling!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
-    { caseNo: 80015, patientId: 15, visitDate: daysAgo(10), operationId: filling!.id, operationRate: 600, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { caseNo: 80011, patientId: 11, visitDate: daysAgo(7), visitType: "NEW", operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
+    { caseNo: 80012, patientId: 12, visitDate: daysAgo(7), visitType: "NEW", operationId: rct!.id, operationRate: 4500, doctorId: ramana!.id, doctorCommissionPercent: 75 },
+    { caseNo: 80013, patientId: 13, visitDate: daysAgo(8), visitType: "NEW", operationId: cerCrown!.id, operationRate: 7500, doctorId: anitha!.id, doctorCommissionPercent: 70, labId: lab7!.id, labRateAmount: 550, labQuantity: 2 },
+    { caseNo: 80014, patientId: 14, visitDate: daysAgo(9), visitType: "NEW", operationId: scaling!.id, operationRate: 1200, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { caseNo: 80015, patientId: 15, visitDate: daysAgo(10), visitType: "NEW", operationId: filling!.id, operationRate: 600, doctorId: kazim!.id, doctorCommissionPercent: 0 },
     // Older visits with outstanding balances
-    { caseNo: 80016, patientId: 16, visitDate: daysAgo(15), operationId: implant!.id, operationRate: 30000, doctorId: bhadra!.id, labRateAmount: 5000 },
-    { caseNo: 80017, patientId: 17, visitDate: daysAgo(20), operationId: cerCrown!.id, operationRate: 12000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550, labQuantity: 3 },
-    { caseNo: 80018, patientId: 18, visitDate: daysAgo(25), operationId: rct!.id, operationRate: 5000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
-    { caseNo: 80019, patientId: 19, visitDate: daysAgo(30), operationId: extraction!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
-    { caseNo: 80020, patientId: 20, visitDate: daysAgo(35), operationId: bleaching!.id, operationRate: 4000, doctorId: ramana!.id, doctorCommissionPercent: 75 },
+    { caseNo: 80016, patientId: 16, visitDate: daysAgo(15), visitType: "NEW", operationId: implant!.id, operationRate: 30000, doctorId: bhadra!.id, labRateAmount: 5000 },
+    { caseNo: 80017, patientId: 17, visitDate: daysAgo(20), visitType: "NEW", operationId: cerCrown!.id, operationRate: 12000, doctorId: ramana!.id, doctorCommissionPercent: 75, labId: lab7!.id, labRateAmount: 550, labQuantity: 3 },
+    { caseNo: 80018, patientId: 18, visitDate: daysAgo(25), visitType: "NEW", operationId: rct!.id, operationRate: 5000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
+    { caseNo: 80019, patientId: 19, visitDate: daysAgo(30), visitType: "NEW", operationId: extraction!.id, operationRate: 1500, doctorId: surender!.id, doctorCommissionPercent: 50 },
+    { caseNo: 80020, patientId: 20, visitDate: daysAgo(35), visitType: "NEW", operationId: bleaching!.id, operationRate: 4000, doctorId: ramana!.id, doctorCommissionPercent: 75 },
   ];
 
   for (const v of visits) {
@@ -402,6 +406,82 @@ async function main() {
 
   // Checkout scenario 2: Patient 18 (RAVI KUMAR) pays ₹3,000 all against visit 80018 (RCT, ₹3,000 outstanding)
   await prisma.receipt.create({ data: { visitId: 18, amount: 3000, paymentMode: "UPI", receiptDate: daysAgo(3), receiptNo: receiptNo++ } });
+
+  // ==========================================
+  // FOLLOW-UP VISIT CHAINS (demonstrating visitType + parentVisitId)
+  // ==========================================
+
+  // Patient 10001 (id=1): RCT chain — 3 visits
+  // Parent: NEW visit for RCT started 14 days ago
+  const rctParent = await prisma.visit.create({
+    data: {
+      caseNo: 80023, patientId: 1, visitDate: daysAgo(14), visitType: "NEW",
+      operationId: rct!.id, operationRate: 5000, doctorId: surender!.id, doctorCommissionPercent: 50,
+    },
+  });
+  // Follow-up 1: BMP (bio-mechanical preparation) - 7 days ago
+  await prisma.visit.create({
+    data: {
+      caseNo: 80024, patientId: 1, visitDate: daysAgo(7), visitType: "FOLLOWUP",
+      parentVisitId: rctParent.id,
+      operationId: compFilling!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+    },
+  });
+  // Follow-up 2: Obturation - 2 days ago
+  await prisma.visit.create({
+    data: {
+      caseNo: 80025, patientId: 1, visitDate: daysAgo(2), visitType: "FOLLOWUP",
+      parentVisitId: rctParent.id,
+      operationId: rct!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+      notes: "Obturation complete. Crown prep next visit.",
+    },
+  });
+
+  // Patient 10002 (id=2): Ortho chain — NEW + 3 monthly adjustments at rate=0
+  const orthoParent = await prisma.visit.create({
+    data: {
+      caseNo: 80026, patientId: 2, visitDate: daysAgo(90), visitType: "NEW",
+      operationId: ortho!.id, operationRate: 35000, doctorId: anitha!.id, doctorCommissionPercent: 70,
+    },
+  });
+  for (let i = 1; i <= 3; i++) {
+    await prisma.visit.create({
+      data: {
+        caseNo: 80026 + i, patientId: 2, visitDate: daysAgo(90 - i * 30), visitType: "FOLLOWUP",
+        parentVisitId: orthoParent.id,
+        operationId: ortho!.id, operationRate: 0, doctorId: anitha!.id, doctorCommissionPercent: 70,
+        notes: `Monthly adjustment #${i}`,
+      },
+    });
+  }
+
+  // Patient 10003 (id=3): NEW visit + REVIEW 2 weeks later
+  const consParent = await prisma.visit.create({
+    data: {
+      caseNo: 80030, patientId: 3, visitDate: daysAgo(21), visitType: "NEW",
+      operationId: filling!.id, operationRate: 800, doctorId: ramana!.id, doctorCommissionPercent: 75,
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80031, patientId: 3, visitDate: daysAgo(7), visitType: "REVIEW",
+      parentVisitId: consParent.id,
+      operationId: regCons!.id, operationRate: 0, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      notes: "Post-filling review. No sensitivity. Patient doing well.",
+    },
+  });
+
+  // Clinical reports for follow-up visits
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctParent.id, doctorId: surender!.id, reportDate: daysAgo(14),
+      complaint: "PAIN IN LOWER RIGHT MOLAR",
+      examination: "Deep caries in 46 with periapical radiolucency. Tender on percussion.",
+      diagnosis: "Irreversible pulpitis with periapical abscess — 46",
+      treatmentNotes: "1. Access opening done\n2. Working length determined\n3. Canals irrigated with NaOCl\n4. Calcium hydroxide dressing placed",
+      medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS",
+    },
+  });
 
   // ==========================================
   // PATIENT DISEASES (medical history for some patients)
@@ -566,9 +646,9 @@ async function main() {
   console.log(`   - ${labs.length} labs`);
   console.log(`   - ${doctors.length} doctors`);
   console.log(`   - ${patients.length} patients`);
-  console.log(`   - ${visits.length} visits`);
+  console.log(`   - ${visits.length + 10} visits (incl. follow-up chains)`);
   console.log(`   - ${receipts.length} receipts`);
-  console.log(`   - ${clinicalReports.length} clinical reports`);
+  console.log(`   - ${clinicalReports.length + 1} clinical reports`);
   console.log(`   - ${patientFiles.length} patient files`);
   console.log("   - 1 clinic settings");
 }

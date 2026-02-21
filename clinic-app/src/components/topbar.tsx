@@ -1,26 +1,25 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { logout } from "@/app/login/logout-action";
+import { PatientSearch } from "@/components/patient-search";
 
 export function Topbar() {
   const { doctor } = useAuth();
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-card px-4 md:px-6">
-      <div className="flex items-center gap-3 md:ml-0 ml-12">
-        <h1 className="text-lg font-semibold hidden sm:block">
-          Secunderabad Dental Hospital
-        </h1>
-        <h1 className="text-lg font-semibold sm:hidden">SDH</h1>
-        <Badge variant="secondary" className="hidden sm:inline-flex">
-          Centre for Advanced Dental Care
-        </Badge>
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-card px-4 md:px-6">
+      <div className="flex items-center gap-2 shrink-0 md:ml-0 ml-12">
+        <h1 className="text-sm font-semibold hidden lg:block">SDH</h1>
       </div>
-      <div className="flex items-center gap-2">
+
+      <div className="flex-1 max-w-lg mx-auto">
+        <PatientSearch />
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4" />
           <span className="hidden sm:inline font-medium">{doctor.name}</span>

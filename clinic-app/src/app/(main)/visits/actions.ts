@@ -11,6 +11,8 @@ export async function createVisit(formData: FormData) {
   const assistingDoctorId = formData.get("assistingDoctorId") ? parseInt(formData.get("assistingDoctorId") as string) : null;
   const labId = formData.get("labId") ? parseInt(formData.get("labId") as string) : null;
   const labRateId = formData.get("labRateId") ? parseInt(formData.get("labRateId") as string) : null;
+  const visitType = (formData.get("visitType") as string) || "NEW";
+  const parentVisitId = formData.get("parentVisitId") ? parseInt(formData.get("parentVisitId") as string) : null;
 
   if (!patientId) throw new Error("Patient is required");
 
@@ -25,11 +27,25 @@ export async function createVisit(formData: FormData) {
     if (doctor) commPercent = doctor.commissionPercent;
   }
 
+  // For follow-ups, resolve to root parent (flat chain)
+  let resolvedParentId = parentVisitId;
+  if (resolvedParentId) {
+    const parent = await prisma.visit.findUnique({
+      where: { id: resolvedParentId },
+      select: { parentVisitId: true },
+    });
+    if (parent?.parentVisitId) {
+      resolvedParentId = parent.parentVisitId;
+    }
+  }
+
   const visit = await prisma.visit.create({
     data: {
       caseNo: nextCaseNo,
       patientId,
       visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
+      visitType,
+      parentVisitId: resolvedParentId,
       operationId,
       operationRate: parseFloat(formData.get("operationRate") as string) || 0,
       discount: parseFloat(formData.get("discount") as string) || 0,

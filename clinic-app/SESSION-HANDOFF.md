@@ -1,50 +1,95 @@
 # Session Handoff
-> Last updated: 2026-02-21 (Session 3)
+> Last updated: 2026-02-21 (Session 4)
 
 ## Completed This Session
-- [x] Payment/revenue gating by role — `src/lib/permissions.ts` with `canSeePayments()`, `canEditPatients()`, `canManageSystem()`
-- [x] Visit detail: hides paid/balance cards, commission %, lab costs, receipts for doctors; keeps operation rate + discount visible
-- [x] Patient detail: hides payment summary cards, receipts tab, checkout link for doctors; keeps rate/discount visible
-- [x] Dashboard: doctor view confirmed clean — no payment/collection amounts
-- [x] Sidebar: Reports + Receipts already hidden for doctors (minPermission: 2)
-- [x] Checkout + Receipts (list/new/print) + Reports (index/commission/outstanding) redirect doctors to dashboard
-- [x] File upload system — `POST /api/upload` + `DELETE /api/upload/[id]` with type/size validation
-- [x] PatientFile schema: added `uploadedById` (Doctor relation), `visitId` (Visit relation)
-- [x] FileUpload component (drag & drop, description, type/size validation)
-- [x] FileGallery component (thumbnail grid, PDF icon, delete for admin/reception only)
-- [x] Files & Images tab on patient detail page
-- [x] Files section on visit detail page (filtered to that visit)
-- [x] Clinical Summary tab — chronological treatment timeline (doctor's default view)
-- [x] Patient header bar with medical conditions (⚠ warning), calculated age, blood group, visit stats
-- [x] Clinical note attribution (Noted by Dr. X · date, edited indicator when updatedAt > createdAt + 60s)
-- [x] Role-aware tab ordering — doctors default to Clinical Summary, admin/reception default to Info
-- [x] Seed data: 10 sample PatientFile records with realistic dental filenames linked to visits/doctors
+
+### Global Patient Search
+- [x] Search API — `GET /api/patients/search?q=` with code/name/mobile search, take 8, exact code priority
+- [x] `PatientSearch` component — debounced input, dropdown results, keyboard nav (↑↓ Enter Esc), `/` shortcut to focus
+- [x] Topbar updated — search bar center, clinic name left, user/logout right
+- [x] Dashboard has large search bar as primary interaction point
+
+### Dashboard Redesign
+- [x] Time-aware greeting ("Good morning/afternoon/evening, Dr. {name}")
+- [x] Compact stats row (not 4 large cards) — visits, collections, outstanding inline
+- [x] Role-aware quick actions (doctors don't see "New Receipt")
+- [x] Doctor dashboard: My Patients Today + My Recent Visits
+- [x] Admin dashboard: search-centric with collections and outstanding
+
+### Login Page Polish
+- [x] Clinic branding: 🦷 icon, "Secunderabad Dental Hospital", "Centre for Advanced Dental Care", "Est. 2002"
+- [x] Dropdown for doctor name (not free text)
+- [x] Clean centered card layout
+
+### Visit Model: Follow-ups & Treatment Continuity
+- [x] Schema: `visitType` (NEW/FOLLOWUP/REVIEW) + `parentVisitId` (self-reference) on Visit model
+- [x] Follow-ups point to ROOT parent (flat chain, not nested tree)
+- [x] Visit creation action accepts `visitType` + `parentVisitId`, resolves to root parent
+- [x] Visit form: follow-up mode with pre-filled patient/operation/doctor, rate defaults to 0
+- [x] `/visits/new?followUp={id}` creates follow-up with banner showing parent context
+- [x] "F/U ↗" buttons on visit detail page and patient treatment timeline
+
+### Patient Detail Redesign (Unified Chart)
+- [x] Replaced tab-based layout with single scrollable page
+- [x] Sticky patient header (below topbar) with code, name, age/gender, blood group, medical conditions, visit stats, outstanding
+- [x] Treatment timeline component (`TreatmentTimeline`) with nested follow-ups under parents
+- [x] Follow-ups rendered indented with border-l connector
+- [x] Sections: Treatment History → Files & Images → Patient Information → Receipts (admin only)
+- [x] Compact payment summary (inline chips, not large cards)
+
+### Admin Management
+- [x] Doctor CRUD — `/doctors` list (active first, inactive grayed), `/doctors/new`, `/doctors/[id]/edit`
+- [x] Doctor form: name, mobile, email, designation, permission level, commission %, fixed rate, TDS %, password
+- [x] Toggle doctor active/inactive
+- [x] Operation management — `/settings/operations` grouped by category, add/toggle active
+- [x] Lab management — `/settings/labs` list, `/settings/labs/[id]` detail with rate card
+- [x] Lab rate CRUD — add items, toggle active
+- [x] Settings page as hub: Operations, Labs links for admins + clinic info + DB stats
+- [x] All admin pages gated by `canManageSystem()` (levels 0, 1)
+
+### Visit Detail Updates
+- [x] Visit type badge (New / Follow-up / Review)
+- [x] Parent visit link for follow-ups ("Follow-up of Case #80001 — Root Canal")
+- [x] Follow-ups list with tree connectors (├── └──)
+- [x] "F/U ↗" button to schedule follow-up
+
+### Seed Data
+- [x] All existing visits have `visitType: "NEW"` explicitly
+- [x] Patient 10001: RCT chain (NEW → 2 FOLLOWUP visits, different dates/procedures)
+- [x] Patient 10002: Ortho chain (NEW → 3 monthly FOLLOWUP visits, rate=0)
+- [x] Patient 10003: Filling → REVIEW 2 weeks later
+- [x] Clinical report for RCT parent visit
 
 ## Current State
 - **Branch:** main
-- **Last commit:** 9b0e244 Add auth system and clinical examination workflow
-- **Build:** passing (24 routes, zero errors)
-- **Uncommitted changes:** yes — 16 modified + 4 new files (Session 3 work)
+- **Build:** passing (29 routes, zero errors)
+- **Routes added:** `/api/patients/search`, `/doctors/new`, `/doctors/[id]/edit`, `/settings/operations`, `/settings/labs`, `/settings/labs/[id]`
+- **Seed data:** 50 patients, 30 visits (incl. follow-ups), 20 doctors, 107 operations, 28 labs
 - **Blockers:** none
 
-## Next Session Should
-1. **Phase 2: Admin management** — Doctor CRUD (commission settings, active/inactive, password management), Operation/Procedure CRUD (grouped by category), Lab & Lab Rate management
-2. **CF-4: Legacy data import** — import real patient/visit/receipt data from CLINIC.SQL into SQLite, map legacy codes (P_CODE 1–40427, H_CASE_NO 1–80316, R_NO 1–20178)
-3. **Phase 3: Appointment scheduling** — calendar/day view, doctor-specific appointments, status tracking
-4. **Phase 4: Remaining reports** — Operations, Lab Details, Discount, Receipts, Doctor-Patient reports
+## Schema Changes
+```prisma
+model Visit {
+  visitType       String    @default("NEW")    // "NEW", "FOLLOWUP", "REVIEW"
+  parentVisitId   Int?
+  parentVisit     Visit?    @relation("FollowUps", fields: [parentVisitId], references: [id])
+  followUps       Visit[]   @relation("FollowUps")
+}
+```
 
-## Context to Remember
-- **`canSeePayments(permissionLevel)`** is the single gate for all payment/receipt/collection/commission visibility — returns true for levels 0-2, false for 3 (doctors)
-- **Treatment pricing IS visible to doctors** — operation rate, discount, estimate in clinical notes. Only payment tracking (receipts, collections, balances, commissions, lab costs) is hidden.
-- **File uploads stored at** `public/uploads/patients/{patientId}/` — served as Next.js static files
-- **`public/uploads/` is in .gitignore** — uploaded files are local only, not committed
-- **File deletion** restricted to permissionLevel ≤ 2 (admin/reception); all roles can upload
-- **Patient detail page is now role-aware** — tab order differs: doctors see Clinical Summary → Files → Info; admin sees Info → Visits → Clinical → Files → Receipts
-- **Patient header always shows** medical conditions from PatientDisease with ⚠ icon, calculated age (from DOB or estimated from ageAtRegistration + years since registration), blood group, visit count/dates
-- **Auth is still simple cookies** — plain text password in DB, session cookie stores doctor ID. Must replace before public deployment.
-- **Login credentials:** KAZIM/admin (level 1), MURALIDHAR/admin (level 2), SURENDER/doctor (level 3), RAMANA REDDY/doctor (level 3)
-- **Prisma AI safety gate** — `bunx prisma db push --force-reset` requires `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes`
-- **`formatDistanceToNow` imported but unused** in patient detail — imported during development, harmless but could be cleaned up
+## Key Architecture Notes
+- **Follow-ups point to ROOT parent** — flat chain, no recursive tree. Visit A → F/U B → F/U C: both B and C have `parentVisitId = A.id`
+- **Patient detail is now tabless** — single scrollable page with sections (Treatment History, Files, Info, Receipts)
+- **Treatment timeline** only renders top-level visits (`parentVisitId === null`); follow-ups render nested under their parent
+- **PatientSearch** component used in both topbar (default size) and dashboard (large size)
+- **Commission still per-visit-per-receipt** — follow-ups with rate=0 generate no commission. Existing logic untouched.
+- **`canSeePayments()`** rules from Session 3 still apply throughout
+
+## Next Session Should
+1. **CF-4: Legacy data import** — import real data from CLINIC.SQL, map codes, verify integrity
+2. **Phase 3: Appointment scheduling** — calendar/day view, doctor-specific
+3. **Phase 4: Remaining reports** — Operations, Lab Details, Discount, Receipts reports
+4. **Phase 6: Production readiness** — Postgres migration, Supabase, deployment
 
 ## Start Command
 ```
