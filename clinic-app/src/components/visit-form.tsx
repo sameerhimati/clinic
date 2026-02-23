@@ -6,9 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { PatientSearch } from "@/components/patient-search";
+import { X } from "lucide-react";
 
-type Patient = { id: number; name: string; code: number | null };
+type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
 type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
 type Doctor = { id: number; name: string; commissionPercent: number };
 type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
@@ -24,11 +27,10 @@ type ParentVisit = {
 };
 
 export function VisitForm({
-  patients,
   operations,
   doctors,
   labs,
-  defaultPatientId,
+  defaultPatient,
   defaultDoctorId: propDefaultDoctorId,
   action,
   mode = "new",
@@ -36,11 +38,10 @@ export function VisitForm({
   showInternalCosts = true,
   appointmentId,
 }: {
-  patients: Patient[];
   operations: Operation[];
   doctors: Doctor[];
   labs: Lab[];
-  defaultPatientId?: number;
+  defaultPatient?: SelectedPatient | null;
   defaultDoctorId?: number;
   action: (formData: FormData) => Promise<void>;
   mode?: "new" | "followup";
@@ -52,10 +53,23 @@ export function VisitForm({
 
   const defaultOperationId = isFollowUp ? parentVisit.operationId : undefined;
   const defaultDoctorId = isFollowUp ? parentVisit.doctorId : propDefaultDoctorId;
-  const resolvedPatientId = isFollowUp ? parentVisit.patientId : defaultPatientId;
 
+  const [selectedPatient, setSelectedPatient] = useState<SelectedPatient | null>(
+    defaultPatient || null
+  );
   const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
   const [operationRate, setOperationRate] = useState(isFollowUp ? "0" : "");
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await action(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
 
   const selectedLab = labs.find((l) => l.id === selectedLabId);
 
@@ -68,7 +82,7 @@ export function VisitForm({
   }
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       {/* Hidden fields */}
       {appointmentId && (
         <input type="hidden" name="appointmentId" value={appointmentId} />
@@ -114,25 +128,36 @@ export function VisitForm({
           )}
 
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="patientId">
+            <Label>
               Patient <span className="text-destructive">*</span>
             </Label>
-            <select
-              name="patientId"
-              required
-              defaultValue={resolvedPatientId || ""}
-              disabled={!!isFollowUp}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm disabled:opacity-60"
-            >
-              <option value="">Select patient...</option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.code ? `(#${p.code})` : ""}
-                </option>
-              ))}
-            </select>
-            {isFollowUp && (
-              <input type="hidden" name="patientId" value={parentVisit.patientId} />
+            {selectedPatient && (
+              <input type="hidden" name="patientId" value={selectedPatient.id} />
+            )}
+            {isFollowUp ? (
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                <span className="font-mono mr-1">#{selectedPatient?.code}</span>
+                {selectedPatient?.name}
+              </Badge>
+            ) : selectedPatient ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm py-1 px-3">
+                  <span className="font-mono mr-1">#{selectedPatient.code}</span>
+                  {selectedPatient.salutation && `${selectedPatient.salutation}. `}
+                  {selectedPatient.name}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedPatient(null)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <PatientSearch onSelect={setSelectedPatient} />
             )}
           </div>
 
@@ -301,7 +326,7 @@ export function VisitForm({
         </CardContent>
       </Card>
 
-      <Button type="submit">{isFollowUp ? "Create Follow-up Visit" : "Create Visit"}</Button>
+      <Button type="submit" disabled={isPending}>{isPending ? "Creating..." : (isFollowUp ? "Create Follow-up Visit" : "Create Visit")}</Button>
     </form>
   );
 }

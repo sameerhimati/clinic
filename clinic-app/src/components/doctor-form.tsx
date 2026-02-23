@@ -1,5 +1,7 @@
 "use client";
 
+import { useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,9 +33,20 @@ export function DoctorForm({
   action: (formData: FormData) => Promise<void>;
 }) {
   const isEdit = !!doctor;
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await action(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl">
+    <form action={handleSubmit} className="space-y-6 max-w-2xl">
       {isEdit && <input type="hidden" name="id" value={doctor.id} />}
 
       <Card>
@@ -116,13 +129,13 @@ export function DoctorForm({
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input name="password" type="text" defaultValue={doctor?.password || ""} placeholder="Leave empty for no login access" />
+            <Input name="password" type="password" defaultValue={isEdit ? "" : ""} placeholder={isEdit ? "Leave blank to keep current" : "Leave empty for no login access"} />
             <p className="text-xs text-muted-foreground">Plain text password (legacy system). Leave empty to prevent login.</p>
           </div>
         </CardContent>
       </Card>
 
-      <Button type="submit">{isEdit ? "Save Changes" : "Create Doctor"}</Button>
+      <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : (isEdit ? "Save Changes" : "Create Doctor")}</Button>
     </form>
   );
 }

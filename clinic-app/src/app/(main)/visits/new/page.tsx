@@ -5,6 +5,8 @@ import { requireAuth } from "@/lib/auth";
 import { canSeeInternalCosts } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default async function NewVisitPage({
   searchParams,
@@ -15,11 +17,7 @@ export default async function NewVisitPage({
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
   const params = await searchParams;
 
-  const [patients, operations, doctors, labs] = await Promise.all([
-    prisma.patient.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, code: true },
-    }),
+  const [operations, doctors, labs] = await Promise.all([
     prisma.operation.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -43,6 +41,14 @@ export default async function NewVisitPage({
     appointment = await prisma.appointment.findUnique({
       where: { id: parseInt(params.appointmentId) },
       select: { id: true, reason: true, date: true },
+    });
+  }
+
+  let defaultPatient: { id: number; name: string; code: number | null; salutation: string | null } | null = null;
+  if (params.patientId) {
+    defaultPatient = await prisma.patient.findUnique({
+      where: { id: parseInt(params.patientId) },
+      select: { id: true, name: true, code: true, salutation: true },
     });
   }
 
@@ -82,12 +88,25 @@ export default async function NewVisitPage({
           doctorName: rootVisit.doctor?.name || null,
         };
         mode = "followup";
+        // Fetch patient for follow-up if not already loaded
+        if (!defaultPatient) {
+          defaultPatient = await prisma.patient.findUnique({
+            where: { id: rootVisit.patientId },
+            select: { id: true, name: true, code: true, salutation: true },
+          });
+        }
       }
     }
   }
 
   return (
     <div className="max-w-3xl space-y-4">
+      <Link
+        href={defaultPatient ? `/patients/${defaultPatient.id}` : "/visits"}
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2"
+      >
+        <ArrowLeft className="h-3 w-3" /> {defaultPatient ? defaultPatient.name : "Visits"}
+      </Link>
       <h2 className="text-2xl font-bold">
         {mode === "followup" ? "New Follow-up Visit" : "New Visit"}
       </h2>
@@ -102,11 +121,10 @@ export default async function NewVisitPage({
         </div>
       )}
       <VisitForm
-        patients={patients}
         operations={operations}
         doctors={doctors}
         labs={labs}
-        defaultPatientId={params.patientId ? parseInt(params.patientId) : undefined}
+        defaultPatient={defaultPatient}
         defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : undefined}
         action={createVisit}
         mode={mode}

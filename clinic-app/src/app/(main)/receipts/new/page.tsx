@@ -4,6 +4,8 @@ import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { createReceipt } from "../actions";
 import { ReceiptForm } from "./receipt-form";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default async function NewReceiptPage({
   searchParams,
@@ -50,6 +52,9 @@ export default async function NewReceiptPage({
 
   return (
     <div className="max-w-2xl space-y-4">
+      <Link href="/receipts" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Receipts
+      </Link>
       <h2 className="text-2xl font-bold">New Receipt</h2>
 
       {pendingVisits.length === 0 ? (

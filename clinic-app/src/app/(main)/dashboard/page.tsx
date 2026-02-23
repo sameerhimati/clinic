@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { PatientSearch } from "@/components/patient-search";
+import { StatusBadge } from "@/components/status-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -175,18 +176,18 @@ export default async function DashboardPage() {
         </div>
 
         {/* Today's Appointments */}
-        {data.todayAppointments.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                Today&apos;s Appointments
-              </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/appointments">View All →</Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Today&apos;s Appointments
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/appointments">View All →</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {data.todayAppointments.length > 0 ? (
               <div className="divide-y">
                 {data.todayAppointments.map((appt) => (
                   <div key={appt.id} className="flex items-center justify-between py-2.5">
@@ -200,19 +201,18 @@ export default async function DashboardPage() {
                         {appt.reason || "Appointment"}
                       </div>
                     </div>
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                      appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
-                      appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
-                      "border-blue-400 text-blue-800 bg-blue-100"
-                    }`}>
-                      {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
-                    </span>
+                    <StatusBadge status={appt.status} />
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="py-4 text-center text-muted-foreground">
+                No appointments scheduled today.{" "}
+                <Link href="/appointments/new" className="text-primary hover:underline">Schedule one</Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* My Patients Today */}
         <Card>
@@ -317,18 +317,18 @@ export default async function DashboardPage() {
       </div>
 
       {/* Today's Appointments */}
-      {data.todayAppointments.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Today&apos;s Appointments
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/appointments">View All →</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Today&apos;s Appointments
+          </CardTitle>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/appointments">View All →</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {data.todayAppointments.length > 0 ? (
             <div className="divide-y">
               {data.todayAppointments.map((appt) => (
                 <div key={appt.id} className="flex items-center justify-between py-2.5">
@@ -343,19 +343,18 @@ export default async function DashboardPage() {
                       {appt.reason || "Appointment"}
                     </div>
                   </div>
-                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                    appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
-                    appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
-                    "border-blue-400 text-blue-800 bg-blue-100"
-                  }`}>
-                    {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
-                  </span>
+                  <StatusBadge status={appt.status} />
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="py-4 text-center text-muted-foreground">
+              No appointments scheduled today.{" "}
+              <Link href="/appointments/new" className="text-primary hover:underline">Schedule one</Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats row - compact */}
       <div className="flex flex-wrap gap-4 text-sm">

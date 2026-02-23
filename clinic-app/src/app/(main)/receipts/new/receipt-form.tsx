@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 type PendingVisit = {
   id: number;
@@ -41,6 +42,7 @@ export function ReceiptForm({
   );
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -102,10 +104,20 @@ export function ReceiptForm({
     }
   }
 
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await action(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
+
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       {selectedVisit && (
         <input type="hidden" name="visitId" value={selectedVisit.id} />
       )}
@@ -282,8 +294,8 @@ export function ReceiptForm({
         </CardContent>
       </Card>
 
-      <Button type="submit" disabled={!selectedVisit}>
-        Create Receipt
+      <Button type="submit" disabled={!selectedVisit || isPending}>
+        {isPending ? "Creating..." : "Create Receipt"}
       </Button>
     </form>
   );

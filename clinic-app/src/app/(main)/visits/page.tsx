@@ -73,8 +73,14 @@ export default async function VisitsPage({
 
       {/* Filters */}
       <form className="flex flex-wrap gap-2">
-        <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
-        <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">From</span>
+          <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">To</span>
+          <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
+        </div>
         <select
           name="doctorId"
           defaultValue={effectiveDoctorId}

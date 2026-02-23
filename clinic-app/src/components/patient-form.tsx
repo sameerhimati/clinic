@@ -1,5 +1,7 @@
 "use client";
 
+import { useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,9 +51,20 @@ export function PatientForm({
   action: (formData: FormData) => Promise<void>;
 }) {
   const patientDiseaseIds = patient?.diseases?.map((d) => d.diseaseId) || [];
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await action(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       {/* Personal Information */}
       <Card>
         <CardHeader>
@@ -308,7 +321,7 @@ export function PatientForm({
       </Card>
 
       <div className="flex gap-2">
-        <Button type="submit">{patient ? "Update Patient" : "Register Patient"}</Button>
+        <Button type="submit" disabled={isPending}>{isPending ? (patient ? "Updating..." : "Registering...") : (patient ? "Update Patient" : "Register Patient")}</Button>
       </div>
     </form>
   );

@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (column-per-doctor timetable, status flow, dashboard widget, patient/visit integration)**. 31 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (column-per-doctor timetable, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**. 31 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -178,13 +178,29 @@ When ready to go live with real data:
 
 ---
 
+## UX: Form Feedback, Safety & Consistency [DONE]
+
+- [x] Loading states + error handling on all 8 forms (useTransition + toast)
+- [x] PatientSearch in visit form (replaces unusable select dropdown for 40K patients)
+- [x] AlertDialog for cascade deletes (patient delete, file delete) replaces window.confirm
+- [x] Password field masked (type="password"), blank-on-edit preserves existing password
+- [x] alert() replaced with toast.error() in appointment status updates
+- [x] Back links on all create pages (patients/new, visits/new, receipts/new, doctors/new, reports)
+- [x] Shared StatusBadge component (extracted from appointment-day-view, reused in dashboard + patient detail)
+- [x] Date filter labels ("From"/"To") on visits, receipts, commission, outstanding pages
+- [x] Dashboard always shows "Today's Appointments" card with empty state
+- [x] Commission table tablet-friendly (TDS/Net columns hidden on mobile)
+- [x] Sidebar collapsed state persists to localStorage
+
+---
+
 ## Technical Debt
 - [ ] Form validation (zod schemas, client + server)
-- [ ] Error boundaries and loading states
+- [x] Error boundaries and loading states (form loading states done)
 - [ ] Optimistic UI updates
 - [ ] Proper TypeScript types
 - [ ] Unit tests for commission calculation
 - [ ] E2E tests for critical flows
 - [ ] Seed script: populate all 28 labs' rate cards
-- [ ] Back links on "new" pages (patients/new, visits/new, doctors/new, receipts/new)
+- [x] Back links on "new" pages (patients/new, visits/new, doctors/new, receipts/new)
 - [x] Server action auth checks on all mutating actions

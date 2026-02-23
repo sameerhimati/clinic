@@ -56,7 +56,7 @@ export async function updateDoctor(formData: FormData) {
       commissionPercent: parseFloat(formData.get("commissionPercent") as string) || 0,
       commissionRate: formData.get("commissionRate") ? parseFloat(formData.get("commissionRate") as string) || null : null,
       tdsPercent: parseFloat(formData.get("tdsPercent") as string) || 0,
-      password: (formData.get("password") as string)?.trim() || null,
+      ...(((formData.get("password") as string)?.trim()) ? { password: (formData.get("password") as string).trim() } : {}),
     },
   });
 

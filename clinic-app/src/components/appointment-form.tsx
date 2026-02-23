@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { PatientSearch } from "@/components/patient-search";
 import { createAppointment } from "@/app/(main)/appointments/actions";
 import { X } from "lucide-react";
+import { toast } from "sonner";
 
 type Doctor = { id: number; name: string };
 type DefaultPatient = { id: number; code: number | null; name: string; salutation: string | null };
@@ -30,11 +31,22 @@ export function AppointmentForm({
   const [selectedPatient, setSelectedPatient] = useState<DefaultPatient | null>(
     defaultPatient || null
   );
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await createAppointment(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
 
   const todayStr = new Date().toISOString().split("T")[0];
 
   return (
-    <form action={createAppointment} className="space-y-6">
+    <form action={handleSubmit} className="space-y-6">
       {selectedPatient && (
         <input type="hidden" name="patientId" value={selectedPatient.id} />
       )}
@@ -124,8 +136,8 @@ export function AppointmentForm({
         </CardContent>
       </Card>
 
-      <Button type="submit" disabled={!selectedPatient}>
-        Schedule Appointment
+      <Button type="submit" disabled={!selectedPatient || isPending}>
+        {isPending ? "Scheduling..." : "Schedule Appointment"}
       </Button>
     </form>
   );

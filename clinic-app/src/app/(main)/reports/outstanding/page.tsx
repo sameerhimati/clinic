@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -73,11 +73,20 @@ export default async function OutstandingReportPage({
 
   return (
     <div className="space-y-6">
+      <Link href="/reports" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Reports
+      </Link>
       <h2 className="text-2xl font-bold">Outstanding Dues Report</h2>
 
       <form className="flex flex-wrap gap-2">
-        <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
-        <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">From</span>
+          <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">To</span>
+          <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
+        </div>
         <select
           name="doctorId"
           defaultValue={params.doctorId || ""}

@@ -14,6 +14,7 @@ import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { TreatmentTimeline } from "@/components/treatment-timeline";
 import { MedicalHistoryEditor } from "@/components/medical-history-editor";
+import { StatusBadge } from "@/components/status-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -266,13 +267,7 @@ export default async function PatientDetailPage({
                         {appt.reason && <span> · {appt.reason}</span>}
                       </div>
                     </div>
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                      appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
-                      appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
-                      "border-blue-400 text-blue-800 bg-blue-100"
-                    }`}>
-                      {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
-                    </span>
+                    <StatusBadge status={appt.status} />
                   </div>
                 ))}
               </div>

@@ -16,8 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, ArrowLeft } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -140,12 +141,21 @@ export default async function CommissionReportPage({
 
   return (
     <div className="space-y-6">
+      <Link href="/reports" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Reports
+      </Link>
       <h2 className="text-2xl font-bold">Doctor Commission Report</h2>
 
       {/* Filters */}
       <form className="flex flex-wrap gap-2">
-        <Input name="from" type="date" defaultValue={params.from} className="w-auto" />
-        <Input name="to" type="date" defaultValue={params.to} className="w-auto" />
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">From</span>
+          <Input name="from" type="date" defaultValue={params.from} className="w-auto" />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">To</span>
+          <Input name="to" type="date" defaultValue={params.to} className="w-auto" />
+        </div>
         <select
           name="doctorId"
           defaultValue={params.doctorId || ""}
@@ -226,8 +236,8 @@ export default async function CommissionReportPage({
                     <TableHead className="text-right">Lab</TableHead>
                     <TableHead className="text-right">%</TableHead>
                     <TableHead className="text-right">Commission</TableHead>
-                    <TableHead className="text-right">TDS</TableHead>
-                    <TableHead className="text-right">Net</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">TDS</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">Net</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,8 +252,8 @@ export default async function CommissionReportPage({
                       <TableCell className="text-right">{row.labRate > 0 ? row.labRate.toLocaleString("en-IN") : "-"}</TableCell>
                       <TableCell className="text-right">{row.doctorPercent}%</TableCell>
                       <TableCell className="text-right">{row.doctorAmount.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right">{row.tds > 0 ? row.tds.toLocaleString("en-IN") : "-"}</TableCell>
-                      <TableCell className="text-right font-medium">{row.netCommission.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell">{row.tds > 0 ? row.tds.toLocaleString("en-IN") : "-"}</TableCell>
+                      <TableCell className="text-right font-medium hidden md:table-cell">{row.netCommission.toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

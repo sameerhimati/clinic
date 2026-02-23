@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { createLabRate } from "../actions";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 export function LabRateCreateForm({ labId }: { labId: number }) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   if (!open) {
     return (
@@ -21,9 +23,15 @@ export function LabRateCreateForm({ labId }: { labId: number }) {
   return (
     <div className="border rounded-lg p-4 mb-3">
       <form
-        action={async (formData) => {
-          await createLabRate(formData);
-          setOpen(false);
+        action={(formData) => {
+          startTransition(async () => {
+            try {
+              await createLabRate(formData);
+              setOpen(false);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Something went wrong");
+            }
+          });
         }}
         className="flex items-end gap-3 flex-wrap"
       >
@@ -36,7 +44,7 @@ export function LabRateCreateForm({ labId }: { labId: number }) {
           <Label htmlFor="rate" className="text-xs">Rate (₹)</Label>
           <Input name="rate" type="number" step="0.01" min="0" defaultValue="0" className="w-28" />
         </div>
-        <Button type="submit" size="sm">Add</Button>
+        <Button type="submit" size="sm" disabled={isPending}>{isPending ? "Adding..." : "Add"}</Button>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
       </form>
     </div>

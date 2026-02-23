@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { createOperation } from "./actions";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 
 export function OperationCreateForm({ categories }: { categories: string[] }) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   if (!open) {
     return (
@@ -24,9 +26,15 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
       <CardHeader><CardTitle>New Operation</CardTitle></CardHeader>
       <CardContent>
         <form
-          action={async (formData) => {
-            await createOperation(formData);
-            setOpen(false);
+          action={(formData) => {
+            startTransition(async () => {
+              try {
+                await createOperation(formData);
+                setOpen(false);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Something went wrong");
+              }
+            });
           }}
           className="grid gap-4 sm:grid-cols-2"
         >
@@ -54,7 +62,7 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
           </div>
 
           <div className="sm:col-span-2 flex gap-2">
-            <Button type="submit">Create</Button>
+            <Button type="submit" disabled={isPending}>{isPending ? "Creating..." : "Create"}</Button>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           </div>
         </form>
