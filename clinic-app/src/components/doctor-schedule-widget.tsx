@@ -73,7 +73,7 @@ export function DoctorScheduleWidget({
         </CardHeader>
         <CardContent>
           {nextUp ? (
-            <div className="rounded-lg border p-4 space-y-2">
+            <div className="rounded-lg border-l-4 border-l-primary bg-primary/5 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
                   <Link
@@ -141,7 +141,7 @@ export function DoctorScheduleWidget({
               if (!periodAppts || periodAppts.length === 0) return null;
               return (
                 <div key={period}>
-                  <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
+                  <div className="px-4 py-1.5 text-xs font-semibold text-primary/70 uppercase tracking-wider bg-muted/50">
                     {period}
                   </div>
                   <div className="divide-y">
@@ -151,7 +151,7 @@ export function DoctorScheduleWidget({
                         <div
                           key={appt.id}
                           className={`flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-accent transition-colors ${
-                            isCompleted ? "opacity-60" : ""
+                            isCompleted ? "opacity-50" : ""
                           }`}
                           onClick={() => router.push(`/patients/${appt.patientId}`)}
                         >
@@ -162,7 +162,7 @@ export function DoctorScheduleWidget({
                             <span className="font-mono text-muted-foreground mr-1">
                               #{appt.patientCode}
                             </span>
-                            <span className="font-medium">{appt.patientName}</span>
+                            <span className={`font-medium ${isCompleted ? "line-through" : ""}`}>{appt.patientName}</span>
                           </span>
                           <StatusBadge status={appt.status} />
                           <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -170,7 +170,7 @@ export function DoctorScheduleWidget({
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-6 text-[10px]"
+                                className="h-7 text-xs"
                                 onClick={() => handleStatusChange(appt.id, "ARRIVED")}
                                 disabled={isPending}
                               >
@@ -178,14 +178,14 @@ export function DoctorScheduleWidget({
                               </Button>
                             )}
                             {appt.status === "ARRIVED" && (
-                              <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+                              <Button size="sm" variant="default" className="h-7 text-xs" asChild>
                                 <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
                                   Start Visit
                                 </Link>
                               </Button>
                             )}
                             {appt.status === "IN_PROGRESS" && appt.visitId && (
-                              <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+                              <Button size="sm" variant="default" className="h-7 text-xs" asChild>
                                 <Link href={`/visits/${appt.visitId}/examine`}>
                                   Examine
                                 </Link>

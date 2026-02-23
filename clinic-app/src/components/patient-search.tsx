@@ -180,8 +180,8 @@ export function PatientSearch({
           onKeyDown={handleKeyDown}
           placeholder="Search patient by code, name, or phone..."
           className={cn(
-            "w-full rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring",
-            isLarge ? "pl-11 pr-12 py-3 text-base" : "pl-9 pr-10 py-2"
+            "w-full border bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring",
+            isLarge ? "pl-11 pr-12 py-3 text-base rounded-xl border-2 shadow-[0_1px_3px_0_rgb(0_0_0/0.04)]" : "pl-9 pr-10 py-2 rounded-md border-input"
           )}
         />
         <kbd className={cn(

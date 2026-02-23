@@ -111,9 +111,9 @@ export default async function NewVisitPage({
         {mode === "followup" ? "New Follow-up Visit" : "New Visit"}
       </h2>
       {appointment && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-4">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-green-100 dark:bg-green-900">Appointment</Badge>
+            <Badge variant="outline" className="bg-green-100">Appointment</Badge>
             <span className="text-sm font-medium">
               {appointment.reason || "Appointment"} on {format(new Date(appointment.date), "MMM d, yyyy")}
             </span>

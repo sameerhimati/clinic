@@ -87,9 +87,9 @@ export default async function VisitDetailPage({
       </Link>
       {/* Post-create CTA */}
       {newVisit === "1" && !clinicalReport && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-blue-800 dark:text-blue-200">
+            <div className="text-sm text-blue-800">
               Visit created — add clinical notes?
             </div>
             <Button size="sm" asChild>
@@ -163,8 +163,8 @@ export default async function VisitDetailPage({
 
       {/* Visit lock indicator */}
       {hasReceipts && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3">
-          <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
             <Lock className="h-4 w-4" />
             <span>Visit details locked — payment received</span>
           </div>

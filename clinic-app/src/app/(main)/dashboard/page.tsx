@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { PatientSearch } from "@/components/patient-search";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, STATUS_CONFIG } from "@/components/status-badge";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 
 export const dynamic = "force-dynamic";
@@ -144,6 +144,16 @@ async function getDoctorDashboardData(doctorId: number) {
   return { todayPatients, recentVisits, todayAppointments };
 }
 
+// Status left-border color mapping
+const STATUS_BORDER_COLOR: Record<string, string> = {
+  SCHEDULED: "border-l-blue-400",
+  ARRIVED: "border-l-amber-400",
+  IN_PROGRESS: "border-l-blue-600",
+  COMPLETED: "border-l-green-400",
+  CANCELLED: "border-l-gray-300",
+  NO_SHOW: "border-l-red-400",
+};
+
 export default async function DashboardPage() {
   const doctor = await requireAuth();
   const isDoctor = doctor.permissionLevel === 3;
@@ -168,7 +178,7 @@ export default async function DashboardPage() {
 
         {/* Quick actions */}
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
+          <Button asChild>
             <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
           </Button>
           <Button variant="outline" asChild>
@@ -279,7 +289,7 @@ export default async function DashboardPage() {
         <Button asChild>
           <Link href="/patients/new"><UserPlus className="mr-2 h-4 w-4" />New Patient</Link>
         </Button>
-        <Button variant="outline" asChild>
+        <Button asChild>
           <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
         </Button>
         {canCollect && (
@@ -307,7 +317,7 @@ export default async function DashboardPage() {
           {data.todayAppointments.length > 0 ? (
             <div className="divide-y">
               {data.todayAppointments.map((appt) => (
-                <div key={appt.id} className="flex items-center justify-between py-2.5">
+                <div key={appt.id} className={`flex items-center justify-between py-2.5 border-l-4 pl-3 -ml-2 ${STATUS_BORDER_COLOR[appt.status] || ""}`}>
                   <div>
                     <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
                       <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
@@ -332,22 +342,40 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Stats row - compact */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
-          <Stethoscope className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Today:</span>
-          <span className="font-bold">{data.todayVisits} visits</span>
+      {/* Stats row - mini stat cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-primary/10 p-2">
+              <Stethoscope className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Today</div>
+              <div className="text-lg font-bold">{data.todayVisits} visits</div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
-          <IndianRupee className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Collections:</span>
-          <span className="font-bold">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</span>
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-primary/10 p-2">
+              <IndianRupee className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Collections</div>
+              <div className="text-lg font-bold">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Outstanding:</span>
-          <span className="font-bold text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</span>
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-destructive/10 p-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Outstanding</div>
+              <div className="text-lg font-bold text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</div>
+            </div>
+          </div>
         </div>
       </div>
 

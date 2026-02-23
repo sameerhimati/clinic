@@ -97,9 +97,9 @@ export function VisitForm({
 
       {/* Follow-up banner */}
       {isFollowUp && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900">Follow-up</Badge>
+            <Badge variant="outline" className="bg-blue-100">Follow-up</Badge>
             <span className="text-sm font-medium">
               Case #{parentVisit.caseNo} — {parentVisit.operationName || "Visit"}
               {parentVisit.doctorName && ` · Dr. ${parentVisit.doctorName}`}

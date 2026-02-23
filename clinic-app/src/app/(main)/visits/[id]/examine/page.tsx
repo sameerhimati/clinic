@@ -52,6 +52,33 @@ export default async function ExaminePage({
   const canUnlock = isAdmin(currentUser.permissionLevel);
   const hoursLeft = existingReport && !locked ? hoursUntilAutoLock(existingReport) : 0;
 
+  // Query next patient: find next ARRIVED or IN_PROGRESS appointment for the current doctor today
+  let nextVisitId: number | null = null;
+  if (currentUser.permissionLevel === 3) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const nextAppointments = await prisma.appointment.findMany({
+      where: {
+        doctorId: currentUser.id,
+        date: { gte: today, lt: tomorrow },
+        status: { in: ["ARRIVED", "IN_PROGRESS"] },
+        visitId: { not: visitId },
+        visit: { isNot: null },
+      },
+      select: { visitId: true, timeSlot: true },
+    });
+
+    // Sort by time slot to pick the chronologically next patient
+    if (nextAppointments.length > 0) {
+      const { timeSlotSortKey } = await import("@/lib/time-slots");
+      nextAppointments.sort((a, b) => timeSlotSortKey(a.timeSlot) - timeSlotSortKey(b.timeSlot));
+      nextVisitId = nextAppointments[0].visitId;
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <Link href={`/visits/${visitId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
@@ -100,6 +127,7 @@ export default async function ExaminePage({
         })) ?? []}
         lockedByName={existingReport?.lockedBy?.name ?? null}
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
+        nextVisitId={nextVisitId}
       />
     </div>
   );

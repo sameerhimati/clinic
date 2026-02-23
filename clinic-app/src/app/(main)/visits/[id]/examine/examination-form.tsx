@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { saveExamination, finalizeReport, unlockReport, addAddendum } from "./actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
-import { Lock, Unlock, Clock, MessageSquarePlus } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 
 const COMMON_COMPLAINTS = [
@@ -71,6 +71,7 @@ export function ExaminationForm({
   addendums,
   lockedByName,
   lockedAt,
+  nextVisitId,
 }: {
   visitId: number;
   doctors: { id: number; name: string }[];
@@ -83,6 +84,7 @@ export function ExaminationForm({
   addendums: Addendum[];
   lockedByName: string | null;
   lockedAt: string | null;
+  nextVisitId: number | null;
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -102,7 +104,7 @@ export function ExaminationForm({
   const [medication, setMedication] = useState(existingReport?.medication || "");
   const [addendumText, setAddendumText] = useState("");
 
-  async function handleSave(redirectTarget: "detail" | "print") {
+  async function handleSave(redirectTarget: "detail" | "print" | "next") {
     startTransition(async () => {
       try {
         const result = await saveExamination(visitId, {
@@ -133,6 +135,8 @@ export function ExaminationForm({
         }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
+        } else if (redirectTarget === "next" && nextVisitId) {
+          router.push(`/visits/${nextVisitId}/examine`);
         } else {
           router.push(`/visits/${visitId}`);
         }
@@ -187,11 +191,11 @@ export function ExaminationForm({
     return (
       <div className="space-y-4">
         {/* Lock banner */}
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Lock className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              <span className="text-sm font-medium text-amber-800">
                 Notes locked
                 {lockedAt && ` on ${format(new Date(lockedAt), "MMM d, yyyy 'at' h:mm a")}`}
                 {lockedByName && ` by Dr. ${lockedByName}`}
@@ -285,13 +289,13 @@ export function ExaminationForm({
     );
   }
 
-  // Editable form (no report or unlocked)
+  // Editable form — consolidated into 2 cards with sticky save bar
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       {/* Auto-lock warning */}
       {existingReport && hoursUntilLock > 0 && hoursUntilLock < 24 && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3">
-          <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-200">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
             <Clock className="h-4 w-4" />
             <span>
               Locks automatically in {hoursUntilLock < 1
@@ -329,109 +333,101 @@ export function ExaminationForm({
         </div>
       </div>
 
+      {/* Card 1: Clinical Assessment */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Chief Complaint</CardTitle>
+          <CardTitle className="text-base">Clinical Assessment</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {COMMON_COMPLAINTS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                  complaint.toUpperCase().includes(c)
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted hover:bg-accent"
-                }`}
-                onClick={() => {
-                  if (!complaint) {
-                    setComplaint(c);
-                  } else if (!complaint.toUpperCase().includes(c)) {
-                    setComplaint(complaint + ", " + c);
-                  }
-                }}
-              >
-                {c}
-              </button>
-            ))}
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Chief Complaint</Label>
+            <div className="flex flex-wrap gap-1">
+              {COMMON_COMPLAINTS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                    complaint.toUpperCase().split(",").map(s => s.trim()).includes(c)
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted hover:bg-accent"
+                  }`}
+                  onClick={() => {
+                    if (!complaint) {
+                      setComplaint(c);
+                    } else if (!complaint.toUpperCase().includes(c)) {
+                      setComplaint(complaint + ", " + c);
+                    }
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="Describe the chief complaint..."
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
+              rows={2}
+            />
           </div>
-          <Textarea
-            placeholder="Describe the chief complaint..."
-            value={complaint}
-            onChange={(e) => setComplaint(e.target.value)}
-            rows={2}
-          />
+
+          <div className="space-y-2">
+            <Label>Examination Findings</Label>
+            <Textarea
+              placeholder="Record examination findings..."
+              value={examination}
+              onChange={(e) => setExamination(e.target.value)}
+              rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Diagnosis</Label>
+            <Textarea
+              placeholder="Enter diagnosis..."
+              value={diagnosis}
+              onChange={(e) => setDiagnosis(e.target.value)}
+              rows={2}
+            />
+          </div>
         </CardContent>
       </Card>
 
+      {/* Card 2: Treatment & Prescription */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Examination Findings</CardTitle>
+          <CardTitle className="text-base">Treatment & Prescription</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Record examination findings..."
-            value={examination}
-            onChange={(e) => setExamination(e.target.value)}
-            rows={4}
-          />
-        </CardContent>
-      </Card>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Treatment Plan / Recommendations</Label>
+            <Textarea
+              placeholder="Enter treatment plan..."
+              value={treatmentNotes}
+              onChange={(e) => setTreatmentNotes(e.target.value)}
+              rows={4}
+            />
+          </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Diagnosis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Enter diagnosis..."
-            value={diagnosis}
-            onChange={(e) => setDiagnosis(e.target.value)}
-            rows={2}
-          />
-        </CardContent>
-      </Card>
+          <div className="space-y-2">
+            <Label>Estimate</Label>
+            <Textarea
+              placeholder="Enter cost estimate..."
+              value={estimate}
+              onChange={(e) => setEstimate(e.target.value)}
+              rows={2}
+            />
+          </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Treatment Plan / Recommendations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Enter treatment plan..."
-            value={treatmentNotes}
-            onChange={(e) => setTreatmentNotes(e.target.value)}
-            rows={4}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Estimate</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Enter cost estimate..."
-            value={estimate}
-            onChange={(e) => setEstimate(e.target.value)}
-            rows={2}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Medication Prescribed</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="Enter prescribed medication..."
-            value={medication}
-            onChange={(e) => setMedication(e.target.value)}
-            rows={3}
-          />
+          <div className="space-y-2">
+            <Label>Medication Prescribed</Label>
+            <Textarea
+              placeholder="Enter prescribed medication..."
+              value={medication}
+              onChange={(e) => setMedication(e.target.value)}
+              rows={3}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -454,7 +450,8 @@ export function ExaminationForm({
         </Card>
       )}
 
-      <div className="flex gap-3 justify-between pt-2">
+      {/* Sticky save bar */}
+      <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t -mx-4 px-4 md:-mx-6 md:px-6 py-3 flex gap-3 justify-between items-center z-20">
         <div>
           {existingReport && (
             <Button
@@ -464,24 +461,42 @@ export function ExaminationForm({
               className="text-amber-700 border-amber-300 hover:bg-amber-50"
             >
               <Lock className="mr-1 h-3.5 w-3.5" />
-              Finalize Notes
+              Finalize
             </Button>
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap justify-end">
           <Button
             variant="outline"
             onClick={() => handleSave("detail")}
             disabled={isPending}
           >
-            {isPending ? "Saving..." : "Save Examination"}
+            {isPending ? "Saving..." : "Save"}
           </Button>
           <Button
+            variant="outline"
             onClick={() => handleSave("print")}
             disabled={isPending}
           >
-            {isPending ? "Saving..." : "Save & Print"}
+            Save & Print
           </Button>
+          {nextVisitId && (
+            <Button
+              onClick={() => handleSave("next")}
+              disabled={isPending}
+            >
+              {isPending ? "Saving..." : "Save & Next Patient"}
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          )}
+          {!nextVisitId && (
+            <Button
+              onClick={() => handleSave("detail")}
+              disabled={isPending}
+            >
+              {isPending ? "Saving..." : "Save Examination"}
+            </Button>
+          )}
         </div>
       </div>
     </div>

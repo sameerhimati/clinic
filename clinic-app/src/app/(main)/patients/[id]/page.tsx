@@ -153,7 +153,7 @@ export default async function PatientDetailPage({
         <ArrowLeft className="h-3 w-3" /> Patients
       </Link>
       {/* Patient Header — Sticky */}
-      <div className="sticky top-14 z-30 bg-background border-b -mx-4 px-4 md:-mx-6 md:px-6 py-4">
+      <div className="sticky top-14 z-30 bg-background border-b shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] -mx-4 px-4 md:-mx-6 md:px-6 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-primary text-primary-foreground rounded-lg px-3 py-1.5 text-center shrink-0">
@@ -237,7 +237,7 @@ export default async function PatientDetailPage({
             <span className="font-bold text-green-600">{"\u20B9"}{totalPaid.toLocaleString("en-IN")}</span>
           </div>
           {totalBalance > 0 && (
-            <div className="rounded-lg border border-destructive/30 px-4 py-2">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-2">
               <span className="text-muted-foreground">Balance: </span>
               <span className="font-bold text-destructive">{"\u20B9"}{totalBalance.toLocaleString("en-IN")}</span>
             </div>
@@ -378,8 +378,8 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
   if (!value) return null;
   return (
     <div>
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="mt-0.5">{value}</div>
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="mt-0.5 text-sm font-medium">{value}</div>
     </div>
   );
 }

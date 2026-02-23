@@ -75,7 +75,7 @@ function PrimaryAction({
       <Button
         size="sm"
         variant="outline"
-        className="h-6 text-[10px]"
+        className="h-7 text-xs"
         onClick={(e) => {
           e.stopPropagation();
           onStatusChange(appt.id, "ARRIVED");
@@ -87,7 +87,7 @@ function PrimaryAction({
   }
   if (appt.status === "ARRIVED") {
     return (
-      <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+      <Button size="sm" variant="default" className="h-7 text-xs" asChild>
         <Link
           href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}
           onClick={(e) => e.stopPropagation()}
@@ -99,7 +99,7 @@ function PrimaryAction({
   }
   if (appt.status === "IN_PROGRESS" && appt.visitId) {
     return (
-      <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+      <Button size="sm" variant="default" className="h-7 text-xs" asChild>
         <Link
           href={`/visits/${appt.visitId}/examine`}
           onClick={(e) => e.stopPropagation()}
@@ -135,7 +135,7 @@ function SecondaryActions({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="shrink-0 rounded p-0.5 hover:bg-accent"
+          className="shrink-0 rounded p-1.5 hover:bg-accent"
           onClick={(e) => e.stopPropagation()}
         >
           <MoreVertical className="h-3.5 w-3.5" />
@@ -183,9 +183,9 @@ function AppointmentCard({
 
   return (
     <div
-      className={`rounded-md border p-2 text-xs space-y-1 transition-colors ${
-        isCancelled ? "opacity-60" : "bg-card cursor-pointer hover:border-primary/50"
-      } ${isTerminal ? "" : "cursor-pointer hover:border-primary/50"}`}
+      className={`rounded-md border p-2 text-xs space-y-1 transition-colors bg-card ${
+        isTerminal ? "opacity-60" : "cursor-pointer hover:border-primary/50"
+      }`}
       onClick={() => {
         if (!isTerminal) {
           router.push(`/patients/${appt.patientId}`);
@@ -409,23 +409,23 @@ export function AppointmentDayView({
         />
       </div>
 
-      {/* View toggles */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* View toggles — segmented control */}
+      <div className="flex items-center gap-3 flex-wrap">
         {/* Doctor/Room toggle */}
         {columnRooms.length > 0 && (
-          <div className="flex items-center gap-1">
+          <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
             <Button
-              variant={viewMode === "doctor" ? "default" : "outline"}
+              variant={viewMode === "doctor" ? "default" : "ghost"}
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 rounded-md"
               onClick={() => setViewMode("doctor")}
             >
               By Doctor
             </Button>
             <Button
-              variant={viewMode === "room" ? "default" : "outline"}
+              variant={viewMode === "room" ? "default" : "ghost"}
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 rounded-md"
               onClick={() => setViewMode("room")}
             >
               By Room
@@ -435,19 +435,19 @@ export function AppointmentDayView({
 
         {/* My Schedule / Clinic Schedule toggle (for doctors) */}
         {isDoctor && (
-          <div className="flex items-center gap-1">
+          <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
             <Button
-              variant={showAll ? "outline" : "default"}
+              variant={showAll ? "ghost" : "default"}
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 rounded-md"
               onClick={() => setShowAll(false)}
             >
               My Schedule
             </Button>
             <Button
-              variant={showAll ? "default" : "outline"}
+              variant={showAll ? "default" : "ghost"}
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 rounded-md"
               onClick={() => setShowAll(true)}
             >
               Clinic Schedule
@@ -515,7 +515,7 @@ export function AppointmentDayView({
             }}
           >
             {/* Header row */}
-            <div className="border-b bg-muted/50 px-2 py-2 text-xs font-medium text-muted-foreground sticky left-0 bg-background z-10">
+            <div className="border-b px-2 py-2 text-xs font-medium text-muted-foreground sticky left-0 bg-background z-10">
               Time
             </div>
             {columns.map((col) => (
@@ -537,7 +537,7 @@ export function AppointmentDayView({
               return (
                 <div key={period} className="contents">
                   {/* Period label */}
-                  <div className="border-b px-2 py-3 text-xs font-semibold text-muted-foreground sticky left-0 bg-background z-10 flex items-start">
+                  <div className="border-b px-2 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wider sticky left-0 bg-background z-10 flex items-start">
                     {period}
                   </div>
                   {/* Column cells */}
@@ -598,7 +598,7 @@ export function AppointmentDayView({
             if (!periodAppts || periodAppts.length === 0) return null;
             return (
               <div key={period}>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                <h3 className="text-sm font-semibold text-primary/70 uppercase tracking-wider mb-2">
                   {period}
                 </h3>
                 <div className="space-y-2">
@@ -689,10 +689,9 @@ export function AppointmentDayView({
         </DialogContent>
       </Dialog>
 
+      {/* Loading indicator — thin top bar instead of full-screen overlay */}
       {isPending && (
-        <div className="fixed inset-0 bg-background/50 z-50 flex items-center justify-center">
-          <div className="text-sm text-muted-foreground">Updating...</div>
-        </div>
+        <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-primary animate-pulse" />
       )}
     </div>
   );
