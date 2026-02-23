@@ -15,3 +15,23 @@ export function canEditPatients(permissionLevel: number): boolean {
 export function canManageSystem(permissionLevel: number): boolean {
   return permissionLevel <= 1;
 }
+
+/** Admin can unlock reports and visits */
+export function isAdmin(permissionLevel: number): boolean {
+  return permissionLevel <= 1;
+}
+
+const LOCK_AFTER_HOURS = 24;
+
+/** Check if a clinical report is locked (auto-lock after 24h or manually finalized) */
+export function isReportLocked(report: { lockedAt: Date | null; createdAt: Date }): boolean {
+  if (report.lockedAt) return true;
+  const hoursSinceCreation = (Date.now() - new Date(report.createdAt).getTime()) / (1000 * 60 * 60);
+  return hoursSinceCreation >= LOCK_AFTER_HOURS;
+}
+
+/** Get hours remaining until auto-lock */
+export function hoursUntilAutoLock(report: { createdAt: Date }): number {
+  const hoursSinceCreation = (Date.now() - new Date(report.createdAt).getTime()) / (1000 * 60 * 60);
+  return Math.max(0, LOCK_AFTER_HOURS - hoursSinceCreation);
+}

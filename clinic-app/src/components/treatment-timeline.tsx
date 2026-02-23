@@ -1,8 +1,45 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { Calendar, Paperclip, GitBranch } from "lucide-react";
+import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock } from "lucide-react";
+import { useState, useTransition } from "react";
+import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
+// Doctor color palette for visual distinction
+const DOCTOR_COLORS = [
+  "border-blue-400",
+  "border-emerald-400",
+  "border-purple-400",
+  "border-orange-400",
+  "border-pink-400",
+  "border-cyan-400",
+  "border-yellow-400",
+  "border-red-400",
+];
+
+const DOCTOR_DOT_COLORS = [
+  "bg-blue-400",
+  "bg-emerald-400",
+  "bg-purple-400",
+  "bg-orange-400",
+  "bg-pink-400",
+  "bg-cyan-400",
+  "bg-yellow-400",
+  "bg-red-400",
+];
+
+type Addendum = {
+  id: number;
+  content: string;
+  createdAt: Date;
+  doctor: { name: string };
+};
 
 type ClinicalReport = {
   id: number;
@@ -15,7 +52,9 @@ type ClinicalReport = {
   reportDate: Date;
   createdAt: Date;
   updatedAt: Date;
+  lockedAt: Date | null;
   doctor: { name: string };
+  addendums: Addendum[];
 };
 
 type FileRecord = {
@@ -30,151 +69,317 @@ type VisitWithRelations = {
   visitDate: Date;
   visitType: string;
   parentVisitId: number | null;
+  stepLabel: string | null;
   operationRate: number | null;
   discount: number;
   operation: { name: string } | null;
-  doctor: { name: string } | null;
+  doctor: { id?: number; name: string } | null;
+  lab: { name: string } | null;
+  labRateAmount: number;
   clinicalReports: ClinicalReport[];
   files: FileRecord[];
   followUps: VisitWithRelations[];
   receipts: { amount: number }[];
 };
 
-function VisitClinicalNotes({ report }: { report: ClinicalReport }) {
-  const isEdited = new Date(report.updatedAt).getTime() - new Date(report.createdAt).getTime() > 60000;
+function QuickNoteForm({ visitId }: { visitId: number }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+      >
+        Quick Note
+      </button>
+    );
+  }
+
   return (
-    <div className="bg-muted/30 rounded-md p-3 text-sm space-y-1.5">
-      {report.complaint && (
-        <div><span className="text-muted-foreground font-medium">Complaint: </span><span className="whitespace-pre-wrap">{report.complaint}</span></div>
-      )}
-      {report.examination && (
-        <div><span className="text-muted-foreground font-medium">Examination: </span><span className="whitespace-pre-wrap">{report.examination}</span></div>
-      )}
-      {report.diagnosis && (
-        <div><span className="text-muted-foreground font-medium">Diagnosis: </span><span className="whitespace-pre-wrap">{report.diagnosis}</span></div>
-      )}
-      {report.treatmentNotes && (
-        <div><span className="text-muted-foreground font-medium">Treatment: </span><span className="whitespace-pre-wrap">{report.treatmentNotes}</span></div>
-      )}
-      {report.medication && (
-        <div><span className="text-muted-foreground font-medium">Medication: </span><span className="whitespace-pre-wrap">{report.medication}</span></div>
-      )}
-      {report.estimate && (
-        <div><span className="text-muted-foreground font-medium">Estimate: </span><span className="whitespace-pre-wrap">{report.estimate}</span></div>
-      )}
-      <div className="text-xs text-muted-foreground text-right pt-1">
-        Noted by Dr. {report.doctor.name} · {format(new Date(report.reportDate), "MMM d, yyyy")}
-        {isEdited && " (edited)"}
+    <div className="mt-2 space-y-2">
+      <Textarea
+        placeholder="Add a quick note..."
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        className="text-sm"
+        autoFocus
+      />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          className="h-7 text-xs"
+          disabled={isPending || !note.trim()}
+          onClick={() => {
+            startTransition(async () => {
+              try {
+                await saveQuickNote(visitId, note);
+                toast.success("Note saved");
+                setNote("");
+                setOpen(false);
+                router.refresh();
+              } catch {
+                toast.error("Failed to save note");
+              }
+            });
+          }}
+        >
+          {isPending ? "Saving..." : "Save"}
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setOpen(false); setNote(""); }}>
+          Cancel
+        </Button>
       </div>
     </div>
   );
 }
 
-function VisitEntry({
+function ExpandableNotes({ report }: { report: ClinicalReport }) {
+  const [expanded, setExpanded] = useState(false);
+  const isEdited = new Date(report.updatedAt).getTime() - new Date(report.createdAt).getTime() > 60000;
+  const isLocked = report.lockedAt !== null || (Date.now() - new Date(report.createdAt).getTime()) >= 24 * 60 * 60 * 1000;
+
+  // Show a compact summary when collapsed
+  const summaryText = report.treatmentNotes || report.diagnosis || report.complaint || "";
+  const needsExpand = !!(report.complaint && report.examination) || !!(report.diagnosis && report.treatmentNotes);
+
+  if (!needsExpand) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        {isLocked && <Lock className="h-3 w-3 inline mr-1 text-amber-500" />}
+        <span className="whitespace-pre-wrap">{summaryText}</span>
+        {isEdited && <span className="text-xs ml-1">(edited)</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        {isLocked && <Lock className="h-3 w-3 text-amber-500" />}
+        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        <span className="whitespace-pre-wrap line-clamp-1">{summaryText}</span>
+      </button>
+      {expanded && (
+        <div className="bg-muted/30 rounded-md p-3 text-sm space-y-1.5 mt-1">
+          {report.complaint && (
+            <div><span className="text-muted-foreground font-medium">Complaint: </span><span className="whitespace-pre-wrap">{report.complaint}</span></div>
+          )}
+          {report.examination && (
+            <div><span className="text-muted-foreground font-medium">Examination: </span><span className="whitespace-pre-wrap">{report.examination}</span></div>
+          )}
+          {report.diagnosis && (
+            <div><span className="text-muted-foreground font-medium">Diagnosis: </span><span className="whitespace-pre-wrap">{report.diagnosis}</span></div>
+          )}
+          {report.treatmentNotes && (
+            <div><span className="text-muted-foreground font-medium">Treatment: </span><span className="whitespace-pre-wrap">{report.treatmentNotes}</span></div>
+          )}
+          {report.medication && (
+            <div><span className="text-muted-foreground font-medium">Medication: </span><span className="whitespace-pre-wrap">{report.medication}</span></div>
+          )}
+          {report.estimate && (
+            <div><span className="text-muted-foreground font-medium">Estimate: </span><span className="whitespace-pre-wrap">{report.estimate}</span></div>
+          )}
+          <div className="text-xs text-muted-foreground text-right pt-1">
+            Dr. {report.doctor.name} · {format(new Date(report.reportDate), "MMM d, yyyy")}
+            {isEdited && " (edited)"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StandaloneVisitEntry({
   visit,
   showPayments,
   patientId,
-  isFollowUp = false,
 }: {
   visit: VisitWithRelations;
   showPayments: boolean;
   patientId: number;
-  isFollowUp?: boolean;
 }) {
   const report = visit.clinicalReports[0] || null;
   const rate = visit.operationRate || 0;
 
   return (
-    <div className={isFollowUp ? "ml-6 pl-4 border-l-2 border-muted-foreground/20 py-2" : "py-4"}>
-      {/* Visit header */}
+    <div className="py-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 text-sm flex-wrap">
-          {isFollowUp ? (
-            <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-          ) : (
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="font-medium">
-            {format(new Date(visit.visitDate), "MMM d, yyyy")}
-          </span>
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{format(new Date(visit.visitDate), "MMM d, yyyy")}</span>
           <span className="text-muted-foreground">—</span>
-          <Link href={`/visits/${visit.id}`} className="hover:underline">
-            {visit.operation?.name || "Visit"}
+          <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
+            {visit.stepLabel || visit.operation?.name || "Visit"}
           </Link>
-          {showPayments && (
-            <>
-              <span className="text-muted-foreground">·</span>
-              <span>{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
-              {visit.discount > 0 && (
-                <span className="text-muted-foreground">(disc. {"\u20B9"}{visit.discount.toLocaleString("en-IN")})</span>
-              )}
-            </>
-          )}
-          {!showPayments && rate > 0 && (
-            <>
-              <span className="text-muted-foreground">·</span>
-              <span>{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
-            </>
+          <span className="text-muted-foreground">·</span>
+          <span>{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+          {showPayments && visit.discount > 0 && (
+            <span className="text-muted-foreground">(disc. {"\u20B9"}{visit.discount.toLocaleString("en-IN")})</span>
           )}
           <span className="text-muted-foreground">·</span>
           <span>Dr. {visit.doctor?.name || "N/A"}</span>
-          {visit.visitType === "FOLLOWUP" && (
-            <Badge variant="outline" className="text-xs">F/U</Badge>
-          )}
-          {visit.visitType === "REVIEW" && (
-            <Badge variant="outline" className="text-xs">Review</Badge>
-          )}
         </div>
-        {!isFollowUp && (
-          <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
-            <Link href={`/visits/new?followUp=${visit.id}&patientId=${patientId}`}>
-              F/U ↗
-            </Link>
-          </Button>
-        )}
-      </div>
-
-      {/* Clinical notes */}
-      <div className="mt-2">
-        {report ? (
-          <VisitClinicalNotes report={report} />
-        ) : (
-          <div className="text-sm text-muted-foreground italic">(No clinical notes)</div>
-        )}
-      </div>
-
-      {/* Files */}
-      {visit.files.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-          <Paperclip className="h-3.5 w-3.5" />
-          {visit.files.length} file{visit.files.length !== 1 ? "s" : ""}:{" "}
-          {visit.files.map((f) => f.fileName || "file").join(", ")}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-2">
-        <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-          <Link href={`/visits/${visit.id}/examine`}>
-            {report ? "Edit Notes" : "Add Notes"}
+        <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
+          <Link href={`/visits/new?followUp=${visit.id}&patientId=${patientId}`}>
+            F/U ↗
           </Link>
         </Button>
       </div>
+      <div className="mt-2">
+        {report ? (
+          <>
+            <ExpandableNotes report={report} />
+            {report.addendums.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <MessageSquarePlus className="h-3 w-3" />
+                {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 text-sm">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+            <span className="text-amber-600 text-xs">Notes not recorded</span>
+            <QuickNoteForm visitId={visit.id} />
+            <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
+              Full Notes
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Follow-ups rendered nested */}
-      {visit.followUps && visit.followUps.length > 0 && (
-        <div className="mt-2">
-          {visit.followUps.map((fu) => (
-            <VisitEntry
-              key={fu.id}
-              visit={fu}
-              showPayments={showPayments}
-              patientId={patientId}
-              isFollowUp
-            />
+function ChainTimeline({
+  rootVisit,
+  showPayments,
+  patientId,
+}: {
+  rootVisit: VisitWithRelations;
+  showPayments: boolean;
+  patientId: number;
+}) {
+  // Collect all visits in the chain
+  const allVisits = [rootVisit, ...rootVisit.followUps].sort(
+    (a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime()
+  );
+
+  // Build doctor color map
+  const uniqueDoctors = [...new Map(allVisits.filter(v => v.doctor).map(v => [v.doctor!.name, v.doctor!])).values()];
+  const doctorColorMap = new Map<string, number>();
+  uniqueDoctors.forEach((d, i) => doctorColorMap.set(d.name, i % DOCTOR_COLORS.length));
+
+  // Calculate chain totals
+  const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - v.discount, 0);
+  const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
+  const totalDue = totalBilled - totalPaid;
+
+  return (
+    <div className="py-4">
+      {/* Chain summary header */}
+      <div className="rounded-lg border bg-muted/30 p-3 mb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span>{rootVisit.operation?.name || "Treatment"}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{allVisits.length} visits</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">{uniqueDoctors.length} doctor{uniqueDoctors.length !== 1 ? "s" : ""}</span>
+          </div>
+          <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
+            <Link href={`/visits/new?followUp=${rootVisit.id}&patientId=${patientId}`}>
+              F/U ↗
+            </Link>
+          </Button>
+        </div>
+        {showPayments && (
+          <div className="text-xs text-muted-foreground mt-1">
+            {"\u20B9"}{totalBilled.toLocaleString("en-IN")} billed
+            {" · "}{"\u20B9"}{totalPaid.toLocaleString("en-IN")} paid
+            {totalDue > 0 && <span className="text-destructive"> · {"\u20B9"}{totalDue.toLocaleString("en-IN")} due</span>}
+          </div>
+        )}
+        <div className="flex items-center gap-3 mt-2">
+          {uniqueDoctors.map((d) => (
+            <div key={d.name} className="flex items-center gap-1 text-xs">
+              <span className={`inline-block w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[doctorColorMap.get(d.name) || 0]}`} />
+              <span>Dr. {d.name}</span>
+            </div>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* Vertical timeline */}
+      <div className="relative pl-6">
+        {allVisits.map((visit, i) => {
+          const isLast = i === allVisits.length - 1;
+          const report = visit.clinicalReports[0] || null;
+          const rate = visit.operationRate || 0;
+          const colorIdx = visit.doctor ? (doctorColorMap.get(visit.doctor.name) || 0) : 0;
+
+          return (
+            <div key={visit.id} className="relative pb-4">
+              {/* Timeline connector line */}
+              {!isLast && (
+                <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${DOCTOR_COLORS[colorIdx].replace("border-", "bg-")}`} />
+              )}
+              {/* Dot */}
+              <div className={`absolute left-[-20px] top-1.5 w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[colorIdx]} ring-2 ring-background`} />
+
+              {/* Visit content */}
+              <div className={`border-l-2 ${DOCTOR_COLORS[colorIdx]} pl-3 -ml-[1px]`}>
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className="font-medium">{format(new Date(visit.visitDate), "MMM d")}</span>
+                    <span className="text-muted-foreground">—</span>
+                    <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
+                      {visit.stepLabel || visit.operation?.name || "Visit"}
+                    </Link>
+                    <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Dr. {visit.doctor?.name || "N/A"}
+                  {visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
+                </div>
+
+                {/* Notes or missing indicator */}
+                <div className="mt-1">
+                  {report ? (
+                    <>
+                      <ExpandableNotes report={report} />
+                      {report.addendums.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <MessageSquarePlus className="h-3 w-3" />
+                          {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm mt-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-amber-600 text-xs">Notes not recorded</span>
+                      <QuickNoteForm visitId={visit.id} />
+                      <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
+                        Full Notes
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -194,14 +399,29 @@ export function TreatmentTimeline({
 
   return (
     <div className="divide-y">
-      {visits.map((visit) => (
-        <VisitEntry
-          key={visit.id}
-          visit={visit}
-          showPayments={showPayments}
-          patientId={patientId}
-        />
-      ))}
+      {visits.map((visit) => {
+        const hasFollowUps = visit.followUps && visit.followUps.length > 0;
+
+        if (hasFollowUps) {
+          return (
+            <ChainTimeline
+              key={visit.id}
+              rootVisit={visit}
+              showPayments={showPayments}
+              patientId={patientId}
+            />
+          );
+        }
+
+        return (
+          <StandaloneVisitEntry
+            key={visit.id}
+            visit={visit}
+            showPayments={showPayments}
+            patientId={patientId}
+          />
+        );
+      })}
     </div>
   );
 }

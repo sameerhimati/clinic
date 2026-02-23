@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canSeePayments, isReportLocked } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 
@@ -16,12 +16,15 @@ export const dynamic = "force-dynamic";
 
 export default async function VisitDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const currentUser = await requireAuth();
   const showPayments = canSeePayments(currentUser.permissionLevel);
   const { id } = await params;
+  const { newVisit } = await searchParams;
   const visit = await prisma.visit.findUnique({
     where: { id: parseInt(id) },
     include: {
@@ -33,7 +36,13 @@ export default async function VisitDetailPage({
       labRate: true,
       receipts: { orderBy: { receiptDate: "desc" } },
       clinicalReports: {
-        include: { doctor: { select: { name: true } } },
+        include: {
+          doctor: { select: { name: true } },
+          addendums: {
+            include: { doctor: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
+        },
         orderBy: { reportDate: "desc" },
         take: 1,
       },
@@ -60,6 +69,8 @@ export default async function VisitDetailPage({
   const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
   const balance = billed - paid;
   const clinicalReport = visit.clinicalReports[0] || null;
+  const hasReceipts = visit.receipts.length > 0;
+  const reportLocked = clinicalReport ? isReportLocked(clinicalReport) : false;
 
   // Visit type badge color
   const typeBadge = {
@@ -70,6 +81,23 @@ export default async function VisitDetailPage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      {/* Post-create CTA */}
+      {newVisit === "1" && !clinicalReport && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-blue-800 dark:text-blue-200">
+              Visit created — add clinical notes?
+            </div>
+            <Button size="sm" asChild>
+              <Link href={`/visits/${visit.id}/examine`}>
+                <ClipboardPlus className="mr-1 h-3.5 w-3.5" />
+                Add Notes
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-3">
@@ -83,6 +111,10 @@ export default async function VisitDetailPage({
             {" · "}
             {format(new Date(visit.visitDate), "MMMM d, yyyy")}
           </p>
+          {/* Step label */}
+          {visit.stepLabel && (
+            <p className="text-sm mt-0.5 font-medium text-primary">{visit.stepLabel}</p>
+          )}
           {/* Parent visit link */}
           {visit.parentVisit && (
             <p className="text-sm mt-1">
@@ -104,7 +136,11 @@ export default async function VisitDetailPage({
           <Button variant={clinicalReport ? "outline" : "default"} size="sm" asChild>
             <Link href={`/visits/${visit.id}/examine`}>
               {clinicalReport ? (
-                <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
+                reportLocked ? (
+                  <><MessageSquarePlus className="mr-2 h-4 w-4" />Add Addendum</>
+                ) : (
+                  <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
+                )
               ) : (
                 <><ClipboardPlus className="mr-2 h-4 w-4" />Add Notes</>
               )}
@@ -119,6 +155,16 @@ export default async function VisitDetailPage({
           )}
         </div>
       </div>
+
+      {/* Visit lock indicator */}
+      {hasReceipts && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3">
+          <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+            <Lock className="h-4 w-4" />
+            <span>Visit details locked — payment received</span>
+          </div>
+        </div>
+      )}
 
       {/* Follow-ups list */}
       {visit.followUps.length > 0 && (
@@ -180,13 +226,23 @@ export default async function VisitDetailPage({
       {clinicalReport && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Clinical Notes</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>Clinical Notes</CardTitle>
+              {reportLocked && (
+                <Badge variant="outline" className="text-amber-700 border-amber-300">
+                  <Lock className="h-3 w-3 mr-1" />
+                  Locked
+                </Badge>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" asChild>
                 <Link href={`/visits/${visit.id}/examine/print`}>Print</Link>
               </Button>
               <Button size="sm" variant="outline" asChild>
-                <Link href={`/visits/${visit.id}/examine`}>Edit</Link>
+                <Link href={`/visits/${visit.id}/examine`}>
+                  {reportLocked ? "View / Addendum" : "Edit"}
+                </Link>
               </Button>
             </div>
           </CardHeader>
@@ -210,11 +266,34 @@ export default async function VisitDetailPage({
         </Card>
       )}
 
+      {/* Addendums */}
+      {clinicalReport && clinicalReport.addendums.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquarePlus className="h-4 w-4" />
+              Addendums ({clinicalReport.addendums.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {clinicalReport.addendums.map((a) => (
+              <div key={a.id} className="rounded-md border p-3 text-sm">
+                <div className="whitespace-pre-wrap">{a.content}</div>
+                <div className="text-xs text-muted-foreground mt-2">
+                  Dr. {a.doctor.name} · {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Visit Details */}
       <Card>
         <CardHeader><CardTitle>Visit Details</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <DetailRow label="Operation" value={visit.operation?.name} />
+          {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
           <DetailRow label="Doctor" value={visit.doctor?.name} />
           {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
           {showPayments && visit.doctorCommissionPercent != null && (

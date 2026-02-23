@@ -123,6 +123,8 @@ model Doctor {
   assistedVisits    Visit[]                  @relation("AssistingDoctor")
   receiptsCreated   Receipt[]
   clinicalReports   ClinicalReport[]
+  lockedReports     ClinicalReport[]   @relation("LockedReports")
+  addendums         ClinicalAddendum[]
   uploadedFiles     PatientFile[]
 
   @@map("doctors")
@@ -196,6 +198,7 @@ model Visit {
   parentVisitId           Int?
   parentVisit             Visit?           @relation("FollowUps", fields: [parentVisitId], references: [id])
   followUps               Visit[]          @relation("FollowUps")
+  stepLabel               String?
   operationId             Int?
   operation               Operation?       @relation(fields: [operationId], references: [id])
   operationRate           Float?
@@ -240,22 +243,38 @@ model Receipt {
 }
 
 model ClinicalReport {
-  id             Int      @id @default(autoincrement())
+  id             Int                @id @default(autoincrement())
   visitId        Int
-  visit          Visit    @relation(fields: [visitId], references: [id])
+  visit          Visit              @relation(fields: [visitId], references: [id])
   reportDate     DateTime
   doctorId       Int
-  doctor         Doctor   @relation(fields: [doctorId], references: [id])
+  doctor         Doctor             @relation(fields: [doctorId], references: [id])
   complaint      String?
   examination    String?
   diagnosis      String?
   treatmentNotes String?
   estimate       String?
   medication     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  lockedAt       DateTime?
+  lockedById     Int?
+  lockedBy       Doctor?            @relation("LockedReports", fields: [lockedById], references: [id])
+  addendums      ClinicalAddendum[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@map("clinical_reports")
+}
+
+model ClinicalAddendum {
+  id               Int            @id @default(autoincrement())
+  clinicalReportId Int
+  clinicalReport   ClinicalReport @relation(fields: [clinicalReportId], references: [id], onDelete: Cascade)
+  doctorId         Int
+  doctor           Doctor         @relation(fields: [doctorId], references: [id])
+  content          String
+  createdAt        DateTime       @default(now())
+
+  @@map("clinical_addendums")
 }
 
 model PatientFile {

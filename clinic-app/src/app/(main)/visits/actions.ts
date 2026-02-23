@@ -39,6 +39,8 @@ export async function createVisit(formData: FormData) {
     }
   }
 
+  const stepLabel = (formData.get("stepLabel") as string) || null;
+
   const visit = await prisma.visit.create({
     data: {
       caseNo: nextCaseNo,
@@ -46,6 +48,7 @@ export async function createVisit(formData: FormData) {
       visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
       visitType,
       parentVisitId: resolvedParentId,
+      stepLabel,
       operationId,
       operationRate: parseFloat(formData.get("operationRate") as string) || 0,
       discount: parseFloat(formData.get("discount") as string) || 0,
@@ -63,5 +66,5 @@ export async function createVisit(formData: FormData) {
   revalidatePath("/visits");
   revalidatePath("/dashboard");
   revalidatePath(`/patients/${patientId}`);
-  redirect(`/visits/${visit.id}`);
+  redirect(`/visits/${visit.id}?newVisit=1`);
 }

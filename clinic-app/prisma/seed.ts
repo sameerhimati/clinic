@@ -315,9 +315,15 @@ async function main() {
   const today = new Date();
   const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000);
 
-  // Also look up BMP operation for follow-up seed
+  // Also look up operations for follow-up seed
   const compFilling = await prisma.operation.findFirst({ where: { code: 17 } });
   const ortho = await prisma.operation.findFirst({ where: { code: 34 } });
+  const checkup = await prisma.operation.findFirst({ where: { code: 41 } });
+  const cd = await prisma.operation.findFirst({ where: { code: 22 } });
+  const ncBridge = await prisma.operation.findFirst({ where: { code: 21 } });
+
+  // Look up labs for scenarios
+  const lab14 = await prisma.lab.findFirst({ where: { code: 14 } }); // KATARA DENTAL
 
   const visits = [
     // Today's visits
@@ -484,6 +490,262 @@ async function main() {
   });
 
   // ==========================================
+  // SCENARIO 1: Dental Implant (5 visits, 3 doctors, 2 labs)
+  // Patient 10022 (VENKAT RAO, id=22)
+  // ==========================================
+  const implantV1 = await prisma.visit.create({
+    data: {
+      caseNo: 80032, patientId: 22, visitDate: daysAgo(70), visitType: "NEW",
+      operationId: regCons!.id, operationRate: 500, doctorId: kazim!.id, doctorCommissionPercent: 0,
+      stepLabel: "Consultation & Planning",
+    },
+  });
+  const implantV2 = await prisma.visit.create({
+    data: {
+      caseNo: 80033, patientId: 22, visitDate: daysAgo(63), visitType: "FOLLOWUP",
+      parentVisitId: implantV1.id,
+      operationId: xray!.id, operationRate: 2000, doctorId: kazim!.id, doctorCommissionPercent: 0,
+      stepLabel: "CBCT Scan",
+    },
+  });
+  const implantV3 = await prisma.visit.create({
+    data: {
+      caseNo: 80034, patientId: 22, visitDate: daysAgo(56), visitType: "FOLLOWUP",
+      parentVisitId: implantV1.id,
+      operationId: implant!.id, operationRate: 25000, doctorId: bhadra!.id,
+      labId: lab14!.id, labRateAmount: 8000,
+      stepLabel: "Implant Placement",
+    },
+  });
+  const implantV4 = await prisma.visit.create({
+    data: {
+      caseNo: 80035, patientId: 22, visitDate: daysAgo(42), visitType: "FOLLOWUP",
+      parentVisitId: implantV1.id,
+      operationId: checkup!.id, operationRate: 0, doctorId: bhadra!.id,
+      stepLabel: "Suture Removal",
+    },
+  });
+  const implantV5 = await prisma.visit.create({
+    data: {
+      caseNo: 80036, patientId: 22, visitDate: daysAgo(14), visitType: "FOLLOWUP",
+      parentVisitId: implantV1.id,
+      operationId: cerCrown!.id, operationRate: 8000, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      labId: lab7!.id, labRateAmount: 550,
+      stepLabel: "Crown Cementation",
+    },
+  });
+
+  // Receipts for implant scenario
+  await prisma.receipt.create({ data: { visitId: implantV1.id, amount: 500, paymentMode: "Cash", receiptDate: daysAgo(70), receiptNo: receiptNo++ } });
+  await prisma.receipt.create({ data: { visitId: implantV2.id, amount: 2000, paymentMode: "UPI", receiptDate: daysAgo(63), receiptNo: receiptNo++ } });
+  await prisma.receipt.create({ data: { visitId: implantV3.id, amount: 25000, paymentMode: "Card", receiptDate: daysAgo(56), receiptNo: receiptNo++ } });
+  await prisma.receipt.create({ data: { visitId: implantV5.id, amount: 2500, paymentMode: "UPI", receiptDate: daysAgo(14), receiptNo: receiptNo++ } });
+
+  // Clinical reports for implant scenario
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: implantV1.id, doctorId: kazim!.id, reportDate: daysAgo(70),
+      complaint: "MISSING TOOTH",
+      examination: "Missing tooth #36. Adequate bone height on OPG. No active periodontal disease.",
+      diagnosis: "Edentulous space #36 — suitable for implant",
+      treatmentNotes: "Treatment plan:\n1. CBCT scan for bone assessment\n2. Implant placement (Nobel Biocare)\n3. Healing period 8-12 weeks\n4. Final crown cementation",
+      estimate: "CBCT: ₹2,000\nImplant + Surgery: ₹25,000\nCeramic Crown: ₹8,000\nTotal: ₹35,500",
+      medication: null,
+    },
+  });
+  const implantReport3 = await prisma.clinicalReport.create({
+    data: {
+      visitId: implantV3.id, doctorId: bhadra!.id, reportDate: daysAgo(56),
+      complaint: null,
+      examination: "CBCT confirms adequate bone density. Implant site prepared.",
+      diagnosis: "Implant placement #36",
+      treatmentNotes: "Nobel Biocare implant placed at #36 position.\nTorque: 35 Ncm. Primary stability achieved.\nCover screw placed. Flap sutured with 3-0 silk.\nPost-op instructions given.",
+      estimate: null,
+      medication: "Tab Amoxicillin 500mg TID x 7 days\nTab Ibuprofen 400mg TID x 5 days\nCap Omeprazole 20mg OD x 7 days\n0.2% Chlorhexidine mouthwash BD x 2 weeks",
+    },
+  });
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: implantV4.id, doctorId: bhadra!.id, reportDate: daysAgo(42),
+      complaint: null, examination: "Healing satisfactory. No signs of infection. Sutures intact.",
+      diagnosis: "Post-implant healing — satisfactory",
+      treatmentNotes: "Sutures removed. Healing cap placed.\nPatient advised soft diet for 2 more weeks.\nReview in 6 weeks for impression.",
+      estimate: null, medication: null,
+    },
+  });
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: implantV5.id, doctorId: ramana!.id, reportDate: daysAgo(14),
+      complaint: null,
+      examination: "Osseointegration confirmed. Implant stable. Soft tissue healthy.",
+      diagnosis: "Implant #36 — ready for final prosthesis",
+      treatmentNotes: "Impression post placed. Final impression taken with polyvinyl siloxane.\nShade A2 selected. Crown cementation scheduled in 10 days.",
+      estimate: null, medication: null,
+    },
+  });
+
+  // Addendum on implant visit 3 by RAMANA
+  await prisma.clinicalAddendum.create({
+    data: {
+      clinicalReportId: implantReport3.id, doctorId: ramana!.id,
+      content: "Reviewed post-op X-ray. Implant position and angulation are ideal. Bone-to-implant contact appears adequate. Proceed with planned healing period before prosthetic phase.",
+    },
+  });
+
+  // ==========================================
+  // SCENARIO 2: RCT + Crown (4 visits, 2 doctors, 1 lab)
+  // Patient 10028 (KAVITHA REDDY, id=28)
+  // ==========================================
+  const rctV1 = await prisma.visit.create({
+    data: {
+      caseNo: 80037, patientId: 28, visitDate: daysAgo(45), visitType: "NEW",
+      operationId: rct!.id, operationRate: 5000, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "Access Opening",
+    },
+  });
+  const rctV2 = await prisma.visit.create({
+    data: {
+      caseNo: 80038, patientId: 28, visitDate: daysAgo(38), visitType: "FOLLOWUP",
+      parentVisitId: rctV1.id,
+      operationId: rct!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "BMP & Shaping",
+    },
+  });
+  const rctV3 = await prisma.visit.create({
+    data: {
+      caseNo: 80039, patientId: 28, visitDate: daysAgo(31), visitType: "FOLLOWUP",
+      parentVisitId: rctV1.id,
+      operationId: rct!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "Obturation",
+    },
+  });
+  const rctV4 = await prisma.visit.create({
+    data: {
+      caseNo: 80040, patientId: 28, visitDate: daysAgo(17), visitType: "FOLLOWUP",
+      parentVisitId: rctV1.id,
+      operationId: cerCrown!.id, operationRate: 8000, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      labId: lab7!.id, labRateAmount: 550,
+      stepLabel: "Crown Cementation",
+    },
+  });
+
+  // Receipts for RCT scenario
+  await prisma.receipt.create({ data: { visitId: rctV1.id, amount: 5000, paymentMode: "Cash", receiptDate: daysAgo(45), receiptNo: receiptNo++ } });
+  await prisma.receipt.create({ data: { visitId: rctV4.id, amount: 8000, paymentMode: "Card", receiptDate: daysAgo(17), receiptNo: receiptNo++ } });
+
+  // Clinical reports for RCT scenario
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctV1.id, doctorId: surender!.id, reportDate: daysAgo(45),
+      complaint: "PAIN IN UPPER RIGHT MOLAR",
+      examination: "Deep caries in 16 extending to pulp. Tender on percussion. Electric pulp test negative. Periapical radiolucency on IOPA.",
+      diagnosis: "Irreversible pulpitis with periapical pathology — 16",
+      treatmentNotes: "Access opening done under LA.\nPulp extirpated. 4 canals located (MB, DB, P, MB2).\nWorking length determined with apex locator.\nCanals irrigated with 3% NaOCl.\nCalcium hydroxide intra-canal dressing placed.\nTemporary restoration — Cavit.",
+      estimate: "RCT: ₹5,000\nCeramic Crown: ₹8,000\nTotal: ₹13,000",
+      medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS\nCap Omeprazole 20mg OD x 5 days",
+    },
+  });
+  // Quick notes on visits 2 & 3
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctV2.id, doctorId: surender!.id, reportDate: daysAgo(38),
+      treatmentNotes: "BMP done. Canals shaped with rotary NiTi files. Copious irrigation. CaOH dressing refreshed. Patient comfortable, no symptoms.",
+    },
+  });
+  const rctReport3 = await prisma.clinicalReport.create({
+    data: {
+      visitId: rctV3.id, doctorId: surender!.id, reportDate: daysAgo(31),
+      treatmentNotes: "Obturation completed with lateral condensation technique. IOPA confirms adequate fill. No voids. Referred to Dr. RAMANA REDDY for crown.",
+    },
+  });
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctV4.id, doctorId: ramana!.id, reportDate: daysAgo(17),
+      complaint: null,
+      examination: "Post-RCT 16 — satisfactory obturation. Tooth prepared for full coverage ceramic crown.",
+      diagnosis: "Post-RCT 16 — crown preparation",
+      treatmentNotes: "Crown preparation done.\nImpression taken (PVS). Shade A3.\nTemporary crown cemented.\nFinal crown cementation in 7 days.",
+      estimate: null, medication: null,
+    },
+  });
+
+  // Addendum on RCT visit 3 by RAMANA
+  await prisma.clinicalAddendum.create({
+    data: {
+      clinicalReportId: rctReport3.id, doctorId: ramana!.id,
+      content: "Reviewed obturation X-ray. All 4 canals well-obturated to working length. No overfill. Tooth suitable for ceramic crown. Will schedule crown prep.",
+    },
+  });
+
+  // ==========================================
+  // SCENARIO 3: Parallel Chains (2 treatments, same patient)
+  // Patient 10046 (NARASIMHA RAO, id=46)
+  // ==========================================
+  // Chain A: Upper CD — 3 visits, RAMANA
+  const cdV1 = await prisma.visit.create({
+    data: {
+      caseNo: 80041, patientId: 46, visitDate: daysAgo(50), visitType: "NEW",
+      operationId: cd!.id, operationRate: 12000, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      stepLabel: "Primary Impression",
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80042, patientId: 46, visitDate: daysAgo(40), visitType: "FOLLOWUP",
+      parentVisitId: cdV1.id,
+      operationId: cd!.id, operationRate: 0, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      stepLabel: "Border Molding & Final Impression",
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80043, patientId: 46, visitDate: daysAgo(25), visitType: "FOLLOWUP",
+      parentVisitId: cdV1.id,
+      operationId: cd!.id, operationRate: 0, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      labId: lab7!.id, labRateAmount: 3000,
+      stepLabel: "Denture Delivery",
+    },
+  });
+
+  // Chain B: RCT + Bridge — 4 visits, ANITHA → RAMANA
+  const bridgeV1 = await prisma.visit.create({
+    data: {
+      caseNo: 80044, patientId: 46, visitDate: daysAgo(48), visitType: "NEW",
+      operationId: rct!.id, operationRate: 5000, doctorId: anitha!.id, doctorCommissionPercent: 70,
+      stepLabel: "RCT Access Opening",
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80045, patientId: 46, visitDate: daysAgo(41), visitType: "FOLLOWUP",
+      parentVisitId: bridgeV1.id,
+      operationId: rct!.id, operationRate: 0, doctorId: anitha!.id, doctorCommissionPercent: 70,
+      stepLabel: "Obturation",
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80046, patientId: 46, visitDate: daysAgo(34), visitType: "FOLLOWUP",
+      parentVisitId: bridgeV1.id,
+      operationId: ncBridge!.id, operationRate: 10000, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      stepLabel: "Bridge Preparation",
+    },
+  });
+  await prisma.visit.create({
+    data: {
+      caseNo: 80047, patientId: 46, visitDate: daysAgo(20), visitType: "FOLLOWUP",
+      parentVisitId: bridgeV1.id,
+      operationId: ncBridge!.id, operationRate: 0, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      labId: lab7!.id, labRateAmount: 1650,
+      stepLabel: "Bridge Cementation",
+    },
+  });
+
+  // Receipts for scenario 3
+  await prisma.receipt.create({ data: { visitId: cdV1.id, amount: 12000, paymentMode: "Cash", receiptDate: daysAgo(50), receiptNo: receiptNo++ } });
+  await prisma.receipt.create({ data: { visitId: bridgeV1.id, amount: 5000, paymentMode: "UPI", receiptDate: daysAgo(48), receiptNo: receiptNo++ } });
+
+  // ==========================================
   // PATIENT DISEASES (medical history for some patients)
   // ==========================================
   const patientDiseases = [
@@ -646,9 +908,10 @@ async function main() {
   console.log(`   - ${labs.length} labs`);
   console.log(`   - ${doctors.length} doctors`);
   console.log(`   - ${patients.length} patients`);
-  console.log(`   - ${visits.length + 10} visits (incl. follow-up chains)`);
-  console.log(`   - ${receipts.length} receipts`);
-  console.log(`   - ${clinicalReports.length + 1} clinical reports`);
+  console.log(`   - ${visits.length + 10 + 12 + 7} visits (incl. follow-up chains + 3 scenarios)`);
+  console.log(`   - ${receipts.length} + scenario receipts`);
+  console.log(`   - ${clinicalReports.length + 1} + scenario clinical reports`);
+  console.log("   - 2 clinical addendums");
   console.log(`   - ${patientFiles.length} patient files`);
   console.log("   - 1 clinic settings");
 }

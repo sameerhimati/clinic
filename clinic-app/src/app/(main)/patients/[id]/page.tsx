@@ -34,10 +34,17 @@ export default async function PatientDetailPage({
         orderBy: { visitDate: "desc" },
         include: {
           operation: { select: { name: true } },
-          doctor: { select: { name: true } },
+          doctor: { select: { id: true, name: true } },
+          lab: { select: { name: true } },
           receipts: { select: { id: true, receiptNo: true, amount: true, paymentMode: true, receiptDate: true } },
           clinicalReports: {
-            include: { doctor: { select: { name: true } } },
+            include: {
+              doctor: { select: { name: true } },
+              addendums: {
+                include: { doctor: { select: { name: true } } },
+                orderBy: { createdAt: "asc" },
+              },
+            },
             orderBy: { reportDate: "desc" },
             take: 1,
           },
@@ -49,9 +56,16 @@ export default async function PatientDetailPage({
             orderBy: { visitDate: "asc" },
             include: {
               operation: { select: { name: true } },
-              doctor: { select: { name: true } },
+              doctor: { select: { id: true, name: true } },
+              lab: { select: { name: true } },
               clinicalReports: {
-                include: { doctor: { select: { name: true } } },
+                include: {
+                  doctor: { select: { name: true } },
+                  addendums: {
+                    include: { doctor: { select: { name: true } } },
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
                 orderBy: { reportDate: "desc" },
                 take: 1,
               },

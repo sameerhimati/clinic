@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
+import { requireAuth } from "@/lib/auth";
+import { isReportLocked, hoursUntilAutoLock, isAdmin } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,7 @@ export default async function ExaminePage({
 }) {
   const { id } = await params;
   const visitId = parseInt(id);
+  const currentUser = await requireAuth();
 
   const visit = await prisma.visit.findUnique({
     where: { id: visitId },
@@ -27,6 +30,13 @@ export default async function ExaminePage({
   // Load existing clinical report if any
   const existingReport = await prisma.clinicalReport.findFirst({
     where: { visitId },
+    include: {
+      addendums: {
+        include: { doctor: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+      lockedBy: { select: { name: true } },
+    },
   });
 
   // Load active doctors for the doctor dropdown
@@ -35,6 +45,10 @@ export default async function ExaminePage({
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
+
+  const locked = existingReport ? isReportLocked(existingReport) : false;
+  const canUnlock = isAdmin(currentUser.permissionLevel);
+  const hoursLeft = existingReport && !locked ? hoursUntilAutoLock(existingReport) : 0;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -59,6 +73,7 @@ export default async function ExaminePage({
         doctors={doctors}
         defaultDoctorId={visit.doctorId}
         existingReport={existingReport ? {
+          id: existingReport.id,
           doctorId: existingReport.doctorId,
           reportDate: format(new Date(existingReport.reportDate), "yyyy-MM-dd"),
           complaint: existingReport.complaint,
@@ -68,6 +83,18 @@ export default async function ExaminePage({
           estimate: existingReport.estimate,
           medication: existingReport.medication,
         } : null}
+        isLocked={locked}
+        canUnlock={canUnlock}
+        hoursUntilLock={hoursLeft}
+        reportId={existingReport?.id ?? null}
+        addendums={existingReport?.addendums.map(a => ({
+          id: a.id,
+          content: a.content,
+          createdAt: a.createdAt.toISOString(),
+          doctorName: a.doctor.name,
+        })) ?? []}
+        lockedByName={existingReport?.lockedBy?.name ?? null}
+        lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
       />
     </div>
   );

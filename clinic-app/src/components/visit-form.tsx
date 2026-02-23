@@ -93,6 +93,17 @@ export function VisitForm({
           <CardTitle>Visit Details</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          {isFollowUp && (
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="stepLabel">Step Description</Label>
+              <Input
+                name="stepLabel"
+                placeholder="e.g., Impression, Crown Prep, Suture Removal"
+              />
+              <p className="text-xs text-muted-foreground">Optional label shown in the treatment timeline</p>
+            </div>
+          )}
+
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="patientId">
               Patient <span className="text-destructive">*</span>
