@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Edit, Plus, IndianRupee, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Edit, Plus, IndianRupee, AlertTriangle, ArrowLeft, CalendarDays } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, canEditPatients } from "@/lib/permissions";
@@ -92,6 +92,18 @@ export default async function PatientDetailPage({
   });
 
   if (!patient) notFound();
+
+  // Upcoming appointments
+  const upcomingAppointments = await prisma.appointment.findMany({
+    where: {
+      patientId: patientId,
+      status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] },
+    },
+    include: {
+      doctor: { select: { name: true } },
+    },
+    orderBy: { date: "asc" },
+  });
 
   // Filter to only top-level visits
   const topLevelVisits = patient.visits.filter((v) => v.parentVisitId === null);
@@ -191,6 +203,12 @@ export default async function PatientDetailPage({
                 New Visit
               </Link>
             </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/appointments/new?patientId=${patient.id}`}>
+                <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                Schedule
+              </Link>
+            </Button>
             {canEditPatients(currentUser.permissionLevel) && (
               <>
                 <Button variant="outline" size="sm" asChild>
@@ -224,6 +242,43 @@ export default async function PatientDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {/* ═══ Upcoming Appointments ═══ */}
+      {upcomingAppointments.length > 0 && (
+        <section>
+          <h3 className="text-lg font-semibold border-b pb-2 mb-2 flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Upcoming Appointments
+          </h3>
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {upcomingAppointments.map((appt) => (
+                  <div key={appt.id} className="flex items-center justify-between p-4">
+                    <div>
+                      <div className="font-medium">
+                        {format(new Date(appt.date), "MMM d, yyyy")}
+                        {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {appt.doctor && <span>Dr. {appt.doctor.name}</span>}
+                        {appt.reason && <span> · {appt.reason}</span>}
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
+                      appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
+                      "border-blue-400 text-blue-800 bg-blue-100"
+                    }`}>
+                      {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {/* ═══ Treatment History ═══ */}

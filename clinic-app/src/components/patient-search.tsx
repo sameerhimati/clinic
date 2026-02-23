@@ -18,7 +18,20 @@ type SearchResult = {
   visits: { visitDate: string }[];
 };
 
-export function PatientSearch({ size = "default" }: { size?: "default" | "large" }) {
+type SelectedPatient = {
+  id: number;
+  code: number | null;
+  name: string;
+  salutation: string | null;
+};
+
+export function PatientSearch({
+  size = "default",
+  onSelect,
+}: {
+  size?: "default" | "large";
+  onSelect?: (patient: SelectedPatient) => void;
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -75,12 +88,21 @@ export function PatientSearch({ size = "default" }: { size?: "default" | "large"
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const navigateToPatient = useCallback((id: number) => {
+  const selectPatient = useCallback((result: SearchResult) => {
     setIsOpen(false);
     setQuery("");
     setResults([]);
-    router.push(`/patients/${id}`);
-  }, [router]);
+    if (onSelect) {
+      onSelect({
+        id: result.id,
+        code: result.code,
+        name: result.name,
+        salutation: result.salutation,
+      });
+    } else {
+      router.push(`/patients/${result.id}`);
+    }
+  }, [router, onSelect]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") {
@@ -101,12 +123,12 @@ export function PatientSearch({ size = "default" }: { size?: "default" | "large"
     if (e.key === "Enter") {
       e.preventDefault();
       if (selectedIndex >= 0 && results[selectedIndex]) {
-        navigateToPatient(results[selectedIndex].id);
+        selectPatient(results[selectedIndex]);
         return;
       }
       // If only 1 result, navigate directly
       if (results.length === 1) {
-        navigateToPatient(results[0].id);
+        selectPatient(results[0]);
         return;
       }
       // Exact code match
@@ -114,7 +136,7 @@ export function PatientSearch({ size = "default" }: { size?: "default" | "large"
       if (isNumeric) {
         const exact = results.find((r) => r.code === parseInt(query.trim()));
         if (exact) {
-          navigateToPatient(exact.id);
+          selectPatient(exact);
           return;
         }
       }
@@ -189,7 +211,7 @@ export function PatientSearch({ size = "default" }: { size?: "default" | "large"
                   "w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors border-b last:border-0",
                   selectedIndex === i && "bg-accent"
                 )}
-                onMouseDown={() => navigateToPatient(r.id)}
+                onMouseDown={() => selectPatient(r)}
                 onMouseEnter={() => setSelectedIndex(i)}
               >
                 <div className="flex items-center justify-between">

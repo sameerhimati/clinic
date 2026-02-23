@@ -123,9 +123,11 @@ model Doctor {
   assistedVisits    Visit[]                  @relation("AssistingDoctor")
   receiptsCreated   Receipt[]
   clinicalReports   ClinicalReport[]
-  lockedReports     ClinicalReport[]   @relation("LockedReports")
-  addendums         ClinicalAddendum[]
-  uploadedFiles     PatientFile[]
+  lockedReports        ClinicalReport[]   @relation("LockedReports")
+  addendums            ClinicalAddendum[]
+  uploadedFiles        PatientFile[]
+  appointmentsAsDoctor Appointment[]      @relation("AppointmentDoctor")
+  appointmentsCreated  Appointment[]      @relation("AppointmentCreatedBy")
 
   @@map("doctors")
 }
@@ -171,6 +173,7 @@ model Patient {
   diseases            PatientDisease[]
   visits              Visit[]
   files               PatientFile[]
+  appointments        Appointment[]
 
   @@map("patients")
 }
@@ -221,6 +224,7 @@ model Visit {
   receipts                Receipt[]
   clinicalReports         ClinicalReport[]
   files                   PatientFile[]
+  appointments            Appointment[]
 
   @@map("visits")
 }
@@ -275,6 +279,31 @@ model ClinicalAddendum {
   createdAt        DateTime       @default(now())
 
   @@map("clinical_addendums")
+}
+
+model Appointment {
+  id           Int      @id @default(autoincrement())
+  patientId    Int
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  doctorId     Int?
+  doctor       Doctor?  @relation("AppointmentDoctor", fields: [doctorId], references: [id])
+  visitId      Int?
+  visit        Visit?   @relation(fields: [visitId], references: [id])
+  date         DateTime
+  timeSlot     String?  // free text: "10:00 AM", "2:30 PM", "morning"
+  status       String   @default("SCHEDULED") // SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+  reason       String?
+  notes        String?
+  cancelReason String?
+  createdById  Int?
+  createdBy    Doctor?  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@index([doctorId, date])
+  @@index([patientId])
+  @@map("appointments")
 }
 
 model PatientFile {

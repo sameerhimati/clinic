@@ -29,25 +29,29 @@ export function VisitForm({
   doctors,
   labs,
   defaultPatientId,
+  defaultDoctorId: propDefaultDoctorId,
   action,
   mode = "new",
   parentVisit,
   showInternalCosts = true,
+  appointmentId,
 }: {
   patients: Patient[];
   operations: Operation[];
   doctors: Doctor[];
   labs: Lab[];
   defaultPatientId?: number;
+  defaultDoctorId?: number;
   action: (formData: FormData) => Promise<void>;
   mode?: "new" | "followup";
   parentVisit?: ParentVisit | null;
   showInternalCosts?: boolean;
+  appointmentId?: number;
 }) {
   const isFollowUp = mode === "followup" && parentVisit;
 
   const defaultOperationId = isFollowUp ? parentVisit.operationId : undefined;
-  const defaultDoctorId = isFollowUp ? parentVisit.doctorId : undefined;
+  const defaultDoctorId = isFollowUp ? parentVisit.doctorId : propDefaultDoctorId;
   const resolvedPatientId = isFollowUp ? parentVisit.patientId : defaultPatientId;
 
   const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
@@ -65,7 +69,10 @@ export function VisitForm({
 
   return (
     <form action={action} className="space-y-6">
-      {/* Hidden fields for follow-up */}
+      {/* Hidden fields */}
+      {appointmentId && (
+        <input type="hidden" name="appointmentId" value={appointmentId} />
+      )}
       {isFollowUp && (
         <>
           <input type="hidden" name="visitType" value="FOLLOWUP" />

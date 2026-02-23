@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**. 29 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (column-per-doctor timetable, status flow, dashboard widget, patient/visit integration)**. 31 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -64,27 +64,28 @@ When ready to go live with real data:
 
 ---
 
-## Phase 3: Appointment Scheduling
+## Phase 3: Appointment Scheduling [DONE]
 
-### P3-1: Appointment Model
-- [ ] Schema: Appointment (date, timeSlot, doctorId, patientId, opRoom, status, notes)
-- [ ] Status flow: scheduled → confirmed → in-progress → completed / cancelled / no-show
-- [ ] Link appointments to visits (optional — appointment can exist before visit is created)
+### P3-1: Appointment Model [DONE]
+- [x] Schema: Appointment (date, timeSlot, doctorId, patientId, visitId, status, reason, notes, cancelReason, createdById)
+- [x] Status flow: SCHEDULED → ARRIVED → IN_PROGRESS → COMPLETED / CANCELLED / NO_SHOW
+- [x] Link appointments to visits (optional — appointment can exist before visit is created)
 
-### P3-2: Day View
-- [ ] Column-per-doctor or column-per-OP-room layout
-- [ ] Time slots as draggable tiles
-- [ ] Receptionist view: all OP rooms as columns, drag to reassign
-- [ ] Consultant view: personal timetable (just their appointments for the day)
-- [ ] BDS doctor view: their assigned room schedule
+### P3-2: Day View [DONE]
+- [x] Column-per-doctor layout with CSS Grid (rows per time period)
+- [x] Doctor columns: in-house staff + any doctors with appointments
+- [x] Receptionist view: all doctors as columns, full timetable
+- [x] Doctor view: own column highlighted, mobile defaults to own appointments
+- [x] Mobile: card list grouped by period with filter toggle
 
-### P3-3: Appointment Management
-- [ ] Create appointment from patient detail or standalone
-- [ ] Quick reschedule (drag-and-drop or edit)
-- [ ] Cancel with reason tracking
-- [ ] Today's appointments widget on dashboard for all roles
+### P3-3: Appointment Management [DONE]
+- [x] Create appointment from patient detail, visit detail, or standalone
+- [x] Cancel with reason tracking (dialog with required reason)
+- [x] Today's appointments widget on dashboard for all roles
+- [x] Status actions via dropdown on each appointment card
 
 ### P3-4: Future Enhancements
+- [ ] Drag-and-drop rescheduling
 - [ ] Online booking: patients request slots, reception confirms based on availability
 - [ ] SMS/WhatsApp appointment reminders
 - [ ] Recurring appointment templates (e.g., weekly ortho adjustments)
@@ -168,6 +169,15 @@ When ready to go live with real data:
 
 ---
 
+## UX: Navigation & Inline Editing [DONE]
+
+- [x] Back links on all detail/sub-pages (← pattern with ArrowLeft icon)
+- [x] Inline medical history editing on patient detail (pencil → checkboxes → save)
+- [x] Server action auth hardening (all patient/visit mutations now gated)
+- [x] Input validation on disease update (dedup, bounds, type check)
+
+---
+
 ## Technical Debt
 - [ ] Form validation (zod schemas, client + server)
 - [ ] Error boundaries and loading states
@@ -176,3 +186,5 @@ When ready to go live with real data:
 - [ ] Unit tests for commission calculation
 - [ ] E2E tests for critical flows
 - [ ] Seed script: populate all 28 labs' rate cards
+- [ ] Back links on "new" pages (patients/new, visits/new, doctors/new, receipts/new)
+- [x] Server action auth checks on all mutating actions

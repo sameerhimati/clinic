@@ -42,6 +42,7 @@ export async function createVisit(formData: FormData) {
   }
 
   const stepLabel = (formData.get("stepLabel") as string) || null;
+  const appointmentId = formData.get("appointmentId") ? parseInt(formData.get("appointmentId") as string) : null;
 
   const visit = await prisma.visit.create({
     data: {
@@ -64,6 +65,15 @@ export async function createVisit(formData: FormData) {
       notes: (formData.get("notes") as string) || null,
     },
   });
+
+  // Link appointment if provided
+  if (appointmentId) {
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { visitId: visit.id, status: "IN_PROGRESS" },
+    });
+    revalidatePath("/appointments");
+  }
 
   revalidatePath("/visits");
   revalidatePath("/dashboard");

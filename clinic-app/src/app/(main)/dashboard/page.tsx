@@ -10,6 +10,7 @@ import {
   Stethoscope,
   IndianRupee,
   AlertCircle,
+  CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -37,6 +38,7 @@ async function getAdminDashboardData() {
     todayReceipts,
     recentVisits,
     outstandingVisits,
+    todayAppointments,
   ] = await Promise.all([
     prisma.visit.count({
       where: { visitDate: { gte: today, lt: tomorrow } },
@@ -62,6 +64,18 @@ async function getAdminDashboardData() {
         receipts: { select: { amount: true } },
       },
     }),
+    prisma.appointment.findMany({
+      where: {
+        date: { gte: today, lt: tomorrow },
+        status: { notIn: ["COMPLETED", "CANCELLED", "NO_SHOW"] },
+      },
+      take: 5,
+      orderBy: { createdAt: "asc" },
+      include: {
+        patient: { select: { id: true, name: true, code: true } },
+        doctor: { select: { name: true } },
+      },
+    }),
   ]);
 
   let totalOutstanding = 0;
@@ -77,6 +91,7 @@ async function getAdminDashboardData() {
     todayCollections: todayReceipts._sum.amount || 0,
     totalOutstanding,
     recentVisits,
+    todayAppointments,
   };
 }
 
@@ -86,7 +101,7 @@ async function getDoctorDashboardData(doctorId: number) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [todayPatients, recentVisits] = await Promise.all([
+  const [todayPatients, recentVisits, todayAppointments] = await Promise.all([
     prisma.visit.findMany({
       where: {
         doctorId,
@@ -109,9 +124,22 @@ async function getDoctorDashboardData(doctorId: number) {
         clinicalReports: { select: { id: true }, take: 1 },
       },
     }),
+    prisma.appointment.findMany({
+      where: {
+        doctorId,
+        date: { gte: today, lt: tomorrow },
+        status: { notIn: ["COMPLETED", "CANCELLED", "NO_SHOW"] },
+      },
+      take: 5,
+      orderBy: { createdAt: "asc" },
+      include: {
+        patient: { select: { id: true, name: true, code: true } },
+        doctor: { select: { name: true } },
+      },
+    }),
   ]);
 
-  return { todayPatients, recentVisits };
+  return { todayPatients, recentVisits, todayAppointments };
 }
 
 export default async function DashboardPage() {
@@ -141,7 +169,50 @@ export default async function DashboardPage() {
           <Button variant="outline" asChild>
             <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
           </Button>
+          <Button variant="outline" asChild>
+            <Link href="/appointments/new"><CalendarDays className="mr-2 h-4 w-4" />Schedule</Link>
+          </Button>
         </div>
+
+        {/* Today's Appointments */}
+        {data.todayAppointments.length > 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Today&apos;s Appointments
+              </CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/appointments">View All →</Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y">
+                {data.todayAppointments.map((appt) => (
+                  <div key={appt.id} className="flex items-center justify-between py-2.5">
+                    <div>
+                      <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
+                        <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
+                        {appt.patient.name}
+                      </Link>
+                      <div className="text-sm text-muted-foreground">
+                        {appt.timeSlot && <span>{appt.timeSlot} · </span>}
+                        {appt.reason || "Appointment"}
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
+                      appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
+                      "border-blue-400 text-blue-800 bg-blue-100"
+                    }`}>
+                      {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* My Patients Today */}
         <Card>
@@ -240,7 +311,51 @@ export default async function DashboardPage() {
             <Link href="/receipts/new"><Receipt className="mr-2 h-4 w-4" />New Receipt</Link>
           </Button>
         )}
+        <Button variant="outline" asChild>
+          <Link href="/appointments/new"><CalendarDays className="mr-2 h-4 w-4" />Schedule</Link>
+        </Button>
       </div>
+
+      {/* Today's Appointments */}
+      {data.todayAppointments.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Today&apos;s Appointments
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/appointments">View All →</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {data.todayAppointments.map((appt) => (
+                <div key={appt.id} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
+                      <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
+                      {appt.patient.name}
+                    </Link>
+                    <div className="text-sm text-muted-foreground">
+                      {appt.timeSlot && <span>{appt.timeSlot} · </span>}
+                      {appt.doctor && <span>Dr. {appt.doctor.name} · </span>}
+                      {appt.reason || "Appointment"}
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                    appt.status === "SCHEDULED" ? "border-blue-300 text-blue-700 bg-blue-50" :
+                    appt.status === "ARRIVED" ? "border-amber-300 text-amber-700 bg-amber-50" :
+                    "border-blue-400 text-blue-800 bg-blue-100"
+                  }`}>
+                    {appt.status === "SCHEDULED" ? "Scheduled" : appt.status === "ARRIVED" ? "Arrived" : "In Progress"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats row - compact */}
       <div className="flex flex-wrap gap-4 text-sm">

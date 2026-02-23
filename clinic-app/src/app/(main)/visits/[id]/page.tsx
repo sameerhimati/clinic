@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, ArrowLeft } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, ArrowLeft, CalendarDays } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
@@ -133,8 +133,9 @@ export default async function VisitDetailPage({
         <div className="flex gap-2 flex-wrap justify-end">
           {/* Schedule Follow-up */}
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/visits/new?followUp=${visit.id}&patientId=${visit.patientId}`}>
-              F/U ↗
+            <Link href={`/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}`}>
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />
+              Schedule F/U
             </Link>
           </Button>
           <Button variant={clinicalReport ? "outline" : "default"} size="sm" asChild>

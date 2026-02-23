@@ -1,0 +1,135 @@
+"use server";
+
+import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
+import { isAdmin } from "@/lib/permissions";
+
+export async function createAppointment(formData: FormData) {
+  const currentUser = await requireAuth();
+
+  const patientId = parseInt(formData.get("patientId") as string);
+  if (!patientId || isNaN(patientId)) throw new Error("Patient is required");
+
+  const dateStr = formData.get("date") as string;
+  if (!dateStr) throw new Error("Date is required");
+
+  const date = new Date(dateStr);
+  // Validate date is today or future
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const appointmentDate = new Date(date);
+  appointmentDate.setHours(0, 0, 0, 0);
+  if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
+
+  const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  const timeSlot = (formData.get("timeSlot") as string) || null;
+  const reason = (formData.get("reason") as string) || null;
+  const notes = (formData.get("notes") as string) || null;
+
+  await prisma.appointment.create({
+    data: {
+      patientId,
+      doctorId: doctorId || null,
+      date,
+      timeSlot,
+      reason,
+      notes,
+      createdById: currentUser.id,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+  redirect(`/appointments?date=${dateStr}`);
+}
+
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  SCHEDULED: ["ARRIVED", "CANCELLED", "NO_SHOW"],
+  ARRIVED: ["IN_PROGRESS", "CANCELLED"],
+  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
+};
+
+export async function updateAppointmentStatus(
+  appointmentId: number,
+  newStatus: string,
+  cancelReason?: string
+) {
+  await requireAuth();
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+
+  const allowed = VALID_TRANSITIONS[appointment.status] || [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error(`Cannot transition from ${appointment.status} to ${newStatus}`);
+  }
+
+  if (newStatus === "CANCELLED" && !cancelReason) {
+    throw new Error("Cancel reason is required");
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      status: newStatus,
+      cancelReason: newStatus === "CANCELLED" ? cancelReason : undefined,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+}
+
+export async function updateAppointment(appointmentId: number, formData: FormData) {
+  await requireAuth();
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+  if (appointment.status !== "SCHEDULED") throw new Error("Can only edit scheduled appointments");
+
+  const dateStr = formData.get("date") as string;
+  if (!dateStr) throw new Error("Date is required");
+
+  const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  const timeSlot = (formData.get("timeSlot") as string) || null;
+  const reason = (formData.get("reason") as string) || null;
+  const notes = (formData.get("notes") as string) || null;
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      date: new Date(dateStr),
+      doctorId: doctorId || null,
+      timeSlot,
+      reason,
+      notes,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+}
+
+export async function deleteAppointment(appointmentId: number) {
+  const currentUser = await requireAuth();
+  if (!isAdmin(currentUser.permissionLevel)) throw new Error("Admin only");
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+  if (!["CANCELLED", "NO_SHOW"].includes(appointment.status)) {
+    throw new Error("Can only delete cancelled or no-show appointments");
+  }
+
+  await prisma.appointment.delete({ where: { id: appointmentId } });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+}

@@ -901,6 +901,31 @@ async function main() {
     await prisma.patientFile.create({ data: pf });
   }
 
+  // ==========================================
+  // SAMPLE APPOINTMENTS
+  // ==========================================
+  const tomorrow = new Date(today.getTime() + 86400000);
+
+  const appointments = [
+    // Today — various statuses
+    { patientId: 1, doctorId: kazim!.id, date: today, timeSlot: "10:00 AM", status: "SCHEDULED", reason: "Regular checkup", createdById: kazim!.id },
+    { patientId: 3, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "RCT follow-up", createdById: kazim!.id },
+    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "IN_PROGRESS", reason: "Extraction", createdById: kazim!.id },
+    { patientId: 7, doctorId: anitha!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Bleaching review", createdById: kazim!.id },
+    { patientId: 9, doctorId: kazim!.id, date: today, timeSlot: "3:00 PM", status: "SCHEDULED", reason: "X-Ray", createdById: kazim!.id },
+    { patientId: 11, doctorId: surender!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id },
+    // Tomorrow — SCHEDULED
+    { patientId: 15, doctorId: ramana!.id, date: tomorrow, timeSlot: "9:30 AM", status: "SCHEDULED", reason: "Implant consultation", createdById: kazim!.id },
+    { patientId: 18, doctorId: surender!.id, date: tomorrow, timeSlot: "11:00 AM", status: "SCHEDULED", reason: "Filling", createdById: kazim!.id },
+    // Yesterday — completed / no-show
+    { patientId: 20, doctorId: ramana!.id, date: daysAgo(1), timeSlot: "10:00 AM", status: "COMPLETED", reason: "Scaling", createdById: kazim!.id },
+    { patientId: 22, doctorId: anitha!.id, date: daysAgo(1), timeSlot: "3:00 PM", status: "NO_SHOW", reason: "Ortho adjustment", createdById: kazim!.id },
+  ];
+
+  for (const appt of appointments) {
+    await prisma.appointment.create({ data: appt });
+  }
+
   console.log("✅ Database seeded successfully!");
   console.log("   - 2 designations");
   console.log("   - 18 diseases");
@@ -913,6 +938,7 @@ async function main() {
   console.log(`   - ${clinicalReports.length + 1} + scenario clinical reports`);
   console.log("   - 2 clinical addendums");
   console.log(`   - ${patientFiles.length} patient files`);
+  console.log(`   - ${appointments.length} appointments`);
   console.log("   - 1 clinic settings");
 }
 

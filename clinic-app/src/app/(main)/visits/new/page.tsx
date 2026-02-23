@@ -3,11 +3,13 @@ import { createVisit } from "../actions";
 import { VisitForm } from "@/components/visit-form";
 import { requireAuth } from "@/lib/auth";
 import { canSeeInternalCosts } from "@/lib/permissions";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 export default async function NewVisitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patientId?: string; followUp?: string }>;
+  searchParams: Promise<{ patientId?: string; followUp?: string; appointmentId?: string; doctorId?: string }>;
 }) {
   const currentUser = await requireAuth();
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
@@ -34,6 +36,15 @@ export default async function NewVisitPage({
       },
     }),
   ]);
+
+  // Load appointment if coming from appointment
+  let appointment: { id: number; reason: string | null; date: Date } | null = null;
+  if (params.appointmentId) {
+    appointment = await prisma.appointment.findUnique({
+      where: { id: parseInt(params.appointmentId) },
+      select: { id: true, reason: true, date: true },
+    });
+  }
 
   // Load parent visit if follow-up
   let parentVisit = null;
@@ -80,16 +91,28 @@ export default async function NewVisitPage({
       <h2 className="text-2xl font-bold">
         {mode === "followup" ? "New Follow-up Visit" : "New Visit"}
       </h2>
+      {appointment && (
+        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-green-100 dark:bg-green-900">Appointment</Badge>
+            <span className="text-sm font-medium">
+              {appointment.reason || "Appointment"} on {format(new Date(appointment.date), "MMM d, yyyy")}
+            </span>
+          </div>
+        </div>
+      )}
       <VisitForm
         patients={patients}
         operations={operations}
         doctors={doctors}
         labs={labs}
         defaultPatientId={params.patientId ? parseInt(params.patientId) : undefined}
+        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : undefined}
         action={createVisit}
         mode={mode}
         parentVisit={parentVisit}
         showInternalCosts={showInternalCosts}
+        appointmentId={appointment?.id}
       />
     </div>
   );
