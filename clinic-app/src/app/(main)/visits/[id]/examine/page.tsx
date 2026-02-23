@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
 import { requireAuth } from "@/lib/auth";
@@ -52,6 +54,9 @@ export default async function ExaminePage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Link href={`/visits/${visitId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Case #{visit.caseNo || visit.id}
+      </Link>
       <div>
         <h2 className="text-2xl font-bold">
           Clinical Examination — Case #{visit.caseNo || visit.id}

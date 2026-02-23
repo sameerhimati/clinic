@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, ArrowLeft } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
@@ -82,6 +82,9 @@ export default async function VisitDetailPage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Link href={`/patients/${visit.patientId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> {visit.patient.salutation ? `${visit.patient.salutation}. ` : ""}{visit.patient.name}
+      </Link>
       {/* Post-create CTA */}
       {newVisit === "1" && !clinicalReport && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">

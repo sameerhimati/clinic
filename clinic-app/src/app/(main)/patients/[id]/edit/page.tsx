@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { PatientForm } from "@/components/patient-form";
 import { updatePatient } from "../../actions";
 import { requireAuth } from "@/lib/auth";
@@ -29,6 +31,9 @@ export default async function EditPatientPage({
 
   return (
     <div className="max-w-4xl space-y-4">
+      <Link href={`/patients/${patientId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> {patient.name}
+      </Link>
       <h2 className="text-2xl font-bold">Edit Patient: {patient.name}</h2>
       <PatientForm diseases={diseases} patient={patient} action={boundAction} />
     </div>

@@ -6,13 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Edit, Plus, IndianRupee, AlertTriangle } from "lucide-react";
+import { Edit, Plus, IndianRupee, AlertTriangle, ArrowLeft } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, canEditPatients } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { TreatmentTimeline } from "@/components/treatment-timeline";
+import { MedicalHistoryEditor } from "@/components/medical-history-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -128,8 +129,16 @@ export default async function PatientDetailPage({
     ageDisplay = patient.gender === "M" ? "Male" : "Female";
   }
 
+  // Fetch all diseases for inline editor
+  const allDiseases = canEditPatients(currentUser.permissionLevel)
+    ? await prisma.disease.findMany({ orderBy: { id: "asc" } })
+    : [];
+
   return (
     <div className="space-y-6">
+      <Link href="/patients" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Patients
+      </Link>
       {/* Patient Header — Sticky */}
       <div className="sticky top-14 z-30 bg-background border-b -mx-4 px-4 md:-mx-6 md:px-6 py-4">
         <div className="flex items-start justify-between gap-4">
@@ -267,16 +276,13 @@ export default async function PatientDetailPage({
               )}
             </div>
             {/* Medical History */}
-            {patient.diseases.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground font-medium mb-2">Medical History</div>
-                <div className="flex flex-wrap gap-2">
-                  {patient.diseases.map((pd) => (
-                    <Badge key={pd.id} variant="destructive">{pd.disease.name}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+            <MedicalHistoryEditor
+              patientId={patient.id}
+              currentDiseaseIds={patient.diseases.map((pd) => pd.diseaseId)}
+              allDiseases={allDiseases}
+              canEdit={canEditPatients(currentUser.permissionLevel)}
+              diseaseNames={patient.diseases.map((pd) => pd.disease.name)}
+            />
           </CardContent>
         </Card>
       </section>

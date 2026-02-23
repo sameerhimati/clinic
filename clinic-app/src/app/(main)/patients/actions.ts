@@ -100,6 +100,16 @@ export async function updatePatient(id: number, formData: FormData) {
   redirect(`/patients/${id}`);
 }
 
+export async function updatePatientDiseases(patientId: number, diseaseIds: number[]) {
+  await prisma.patientDisease.deleteMany({ where: { patientId } });
+  if (diseaseIds.length > 0) {
+    await prisma.patientDisease.createMany({
+      data: diseaseIds.map((diseaseId) => ({ patientId, diseaseId })),
+    });
+  }
+  revalidatePath(`/patients/${patientId}`);
+}
+
 export async function deletePatient(id: number) {
   await prisma.patient.delete({ where: { id } });
   revalidatePath("/patients");
