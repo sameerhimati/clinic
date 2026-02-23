@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PatientForm } from "@/components/patient-form";
 import { updatePatient } from "../../actions";
+import { requireAuth } from "@/lib/auth";
+import { canEditPatients } from "@/lib/permissions";
 
 export default async function EditPatientPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const currentUser = await requireAuth();
+  if (!canEditPatients(currentUser.permissionLevel)) redirect("/dashboard");
   const { id } = await params;
   const patientId = parseInt(id);
 
