@@ -13,16 +13,19 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 
 type Doctor = { id: number; name: string };
+type RoomOption = { id: number; name: string };
 type DefaultPatient = { id: number; code: number | null; name: string; salutation: string | null };
 
 export function AppointmentForm({
   doctors,
+  rooms,
   defaultPatient,
   defaultDoctorId,
   defaultDate,
   defaultReason,
 }: {
   doctors: Doctor[];
+  rooms?: RoomOption[];
   defaultPatient?: DefaultPatient | null;
   defaultDoctorId?: number;
   defaultDate?: string;
@@ -98,6 +101,24 @@ export function AppointmentForm({
               ))}
             </select>
           </div>
+
+          {rooms && rooms.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="roomId">Room</Label>
+              <select
+                name="roomId"
+                defaultValue=""
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">No room assigned</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="date">

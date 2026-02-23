@@ -902,23 +902,36 @@ async function main() {
   }
 
   // ==========================================
+  // ROOMS (5 OP rooms)
+  // ==========================================
+  await prisma.room.createMany({
+    data: [
+      { id: 1, name: "OP Room 1", sortOrder: 1 },
+      { id: 2, name: "OP Room 2", sortOrder: 2 },
+      { id: 3, name: "OP Room 3", sortOrder: 3 },
+      { id: 4, name: "OP Room 4", sortOrder: 4 },
+      { id: 5, name: "OP Room 5", sortOrder: 5 },
+    ],
+  });
+
+  // ==========================================
   // SAMPLE APPOINTMENTS
   // ==========================================
   const tomorrow = new Date(today.getTime() + 86400000);
 
   const appointments = [
-    // Today — various statuses
-    { patientId: 1, doctorId: kazim!.id, date: today, timeSlot: "10:00 AM", status: "SCHEDULED", reason: "Regular checkup", createdById: kazim!.id },
-    { patientId: 3, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "RCT follow-up", createdById: kazim!.id },
-    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "IN_PROGRESS", reason: "Extraction", createdById: kazim!.id },
-    { patientId: 7, doctorId: anitha!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Bleaching review", createdById: kazim!.id },
+    // Today — various statuses (with room assignments)
+    { patientId: 1, doctorId: kazim!.id, date: today, timeSlot: "10:00 AM", status: "SCHEDULED", reason: "Regular checkup", createdById: kazim!.id, roomId: 1 },
+    { patientId: 3, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "RCT follow-up", createdById: kazim!.id, roomId: 2 },
+    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "IN_PROGRESS", reason: "Extraction", createdById: kazim!.id, roomId: 3 },
+    { patientId: 7, doctorId: anitha!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Bleaching review", createdById: kazim!.id, roomId: 1 },
     { patientId: 9, doctorId: kazim!.id, date: today, timeSlot: "3:00 PM", status: "SCHEDULED", reason: "X-Ray", createdById: kazim!.id },
-    { patientId: 11, doctorId: surender!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id },
+    { patientId: 11, doctorId: surender!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id, roomId: 4 },
     // Tomorrow — SCHEDULED
-    { patientId: 15, doctorId: ramana!.id, date: tomorrow, timeSlot: "9:30 AM", status: "SCHEDULED", reason: "Implant consultation", createdById: kazim!.id },
-    { patientId: 18, doctorId: surender!.id, date: tomorrow, timeSlot: "11:00 AM", status: "SCHEDULED", reason: "Filling", createdById: kazim!.id },
+    { patientId: 15, doctorId: ramana!.id, date: tomorrow, timeSlot: "9:30 AM", status: "SCHEDULED", reason: "Implant consultation", createdById: kazim!.id, roomId: 2 },
+    { patientId: 18, doctorId: surender!.id, date: tomorrow, timeSlot: "11:00 AM", status: "SCHEDULED", reason: "Filling", createdById: kazim!.id, roomId: 3 },
     // Yesterday — completed / no-show
-    { patientId: 20, doctorId: ramana!.id, date: daysAgo(1), timeSlot: "10:00 AM", status: "COMPLETED", reason: "Scaling", createdById: kazim!.id },
+    { patientId: 20, doctorId: ramana!.id, date: daysAgo(1), timeSlot: "10:00 AM", status: "COMPLETED", reason: "Scaling", createdById: kazim!.id, roomId: 1 },
     { patientId: 22, doctorId: anitha!.id, date: daysAgo(1), timeSlot: "3:00 PM", status: "NO_SHOW", reason: "Ortho adjustment", createdById: kazim!.id },
   ];
 
@@ -939,6 +952,7 @@ async function main() {
   console.log("   - 2 clinical addendums");
   console.log(`   - ${patientFiles.length} patient files`);
   console.log(`   - ${appointments.length} appointments`);
+  console.log("   - 5 rooms");
   console.log("   - 1 clinic settings");
 }
 

@@ -18,6 +18,7 @@ import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { PatientSearch } from "@/components/patient-search";
 import { StatusBadge } from "@/components/status-badge";
+import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 
 export const dynamic = "force-dynamic";
 
@@ -129,13 +130,13 @@ async function getDoctorDashboardData(doctorId: number) {
       where: {
         doctorId,
         date: { gte: today, lt: tomorrow },
-        status: { notIn: ["COMPLETED", "CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
-      take: 5,
       orderBy: { createdAt: "asc" },
       include: {
         patient: { select: { id: true, name: true, code: true } },
         doctor: { select: { name: true } },
+        visit: { select: { id: true } },
       },
     }),
   ]);
@@ -175,44 +176,19 @@ export default async function DashboardPage() {
           </Button>
         </div>
 
-        {/* Today's Appointments */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Today&apos;s Appointments
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/appointments">View All →</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {data.todayAppointments.length > 0 ? (
-              <div className="divide-y">
-                {data.todayAppointments.map((appt) => (
-                  <div key={appt.id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
-                        <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
-                        {appt.patient.name}
-                      </Link>
-                      <div className="text-sm text-muted-foreground">
-                        {appt.timeSlot && <span>{appt.timeSlot} · </span>}
-                        {appt.reason || "Appointment"}
-                      </div>
-                    </div>
-                    <StatusBadge status={appt.status} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-4 text-center text-muted-foreground">
-                No appointments scheduled today.{" "}
-                <Link href="/appointments/new" className="text-primary hover:underline">Schedule one</Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Today's Schedule */}
+        <DoctorScheduleWidget
+          appointments={data.todayAppointments.map((appt) => ({
+            id: appt.id,
+            patientId: appt.patient.id,
+            patientCode: appt.patient.code,
+            patientName: appt.patient.name,
+            visitId: appt.visit?.id || null,
+            timeSlot: appt.timeSlot,
+            status: appt.status,
+            reason: appt.reason,
+          }))}
+        />
 
         {/* My Patients Today */}
         <Card>

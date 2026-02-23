@@ -61,7 +61,26 @@ export async function saveExamination(
     });
   }
 
+  // Auto-complete linked appointment
+  let appointmentAutoCompleted = false;
+  let completedAppointmentId: number | null = null;
+
+  const visitWithAppts = await prisma.visit.findUnique({
+    where: { id: visitId },
+    include: { appointments: { where: { status: "IN_PROGRESS" }, take: 1 } },
+  });
+  if (visitWithAppts?.appointments[0]) {
+    await prisma.appointment.update({
+      where: { id: visitWithAppts.appointments[0].id },
+      data: { status: "COMPLETED" },
+    });
+    appointmentAutoCompleted = true;
+    completedAppointmentId = visitWithAppts.appointments[0].id;
+    revalidatePath("/appointments");
+  }
+
   revalidateVisitPaths(visitId);
+  return { appointmentAutoCompleted, completedAppointmentId };
 }
 
 export async function finalizeReport(reportId: number) {

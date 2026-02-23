@@ -24,6 +24,7 @@ export async function createAppointment(formData: FormData) {
   if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
 
   const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
   const timeSlot = (formData.get("timeSlot") as string) || null;
   const reason = (formData.get("reason") as string) || null;
   const notes = (formData.get("notes") as string) || null;
@@ -32,6 +33,7 @@ export async function createAppointment(formData: FormData) {
     data: {
       patientId,
       doctorId: doctorId || null,
+      roomId: roomId || null,
       date,
       timeSlot,
       reason,
@@ -97,6 +99,7 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
   if (!dateStr) throw new Error("Date is required");
 
   const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
   const timeSlot = (formData.get("timeSlot") as string) || null;
   const reason = (formData.get("reason") as string) || null;
   const notes = (formData.get("notes") as string) || null;
@@ -106,6 +109,7 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
     data: {
       date: new Date(dateStr),
       doctorId: doctorId || null,
+      roomId: roomId || null,
       timeSlot,
       reason,
       notes,

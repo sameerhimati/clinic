@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import Link from "next/link";
-import { Stethoscope, FlaskConical, Building2, ChevronRight } from "lucide-react";
+import { Stethoscope, FlaskConical, Building2, ChevronRight, DoorOpen } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,17 @@ export default async function SettingsPage() {
               <div>
                 <div className="font-medium">Labs & Lab Rates</div>
                 <div className="text-sm text-muted-foreground">Manage dental labs and their rate cards</div>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+
+          <Link href="/settings/rooms" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
+            <div className="flex items-center gap-3">
+              <DoorOpen className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="font-medium">Rooms</div>
+                <div className="text-sm text-muted-foreground">Manage OP rooms for appointment scheduling</div>
               </div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />

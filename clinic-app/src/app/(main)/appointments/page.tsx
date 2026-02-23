@@ -18,17 +18,25 @@ export default async function AppointmentsPage({
   const nextDay = new Date(date);
   nextDay.setDate(nextDay.getDate() + 1);
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      date: { gte: date, lt: nextDay },
-    },
-    include: {
-      patient: { select: { id: true, code: true, name: true, salutation: true } },
-      doctor: { select: { id: true, name: true } },
-      visit: { select: { id: true, caseNo: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const [appointments, columnRooms] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        date: { gte: date, lt: nextDay },
+      },
+      include: {
+        patient: { select: { id: true, code: true, name: true, salutation: true } },
+        doctor: { select: { id: true, name: true } },
+        visit: { select: { id: true, caseNo: true } },
+        room: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.room.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   // Doctor columns: doctors with appointments + in-house salaried staff
   const appointmentDoctorIds = new Set(
@@ -81,6 +89,8 @@ export default async function AppointmentsPage({
     doctorId: a.doctor?.id || null,
     doctorName: a.doctor?.name || null,
     visitId: a.visit?.id || null,
+    roomId: a.room?.id || null,
+    roomName: a.room?.name || null,
     timeSlot: a.timeSlot,
     status: a.status,
     reason: a.reason,
@@ -93,6 +103,7 @@ export default async function AppointmentsPage({
       dateStr={dateStr}
       appointments={serialized}
       columnDoctors={columnDoctors}
+      columnRooms={columnRooms}
       currentUserId={currentUser.id}
       permissionLevel={currentUser.permissionLevel}
     />

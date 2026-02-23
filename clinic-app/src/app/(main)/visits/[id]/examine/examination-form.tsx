@@ -16,6 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { saveExamination, finalizeReport, unlockReport, addAddendum } from "./actions";
+import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import { Lock, Unlock, Clock, MessageSquarePlus } from "lucide-react";
 import { format } from "date-fns";
@@ -104,7 +105,7 @@ export function ExaminationForm({
   async function handleSave(redirectTarget: "detail" | "print") {
     startTransition(async () => {
       try {
-        await saveExamination(visitId, {
+        const result = await saveExamination(visitId, {
           doctorId: parseInt(doctorId),
           reportDate,
           complaint: complaint || null,
@@ -114,7 +115,22 @@ export function ExaminationForm({
           estimate: estimate || null,
           medication: medication || null,
         });
-        toast.success("Examination saved");
+        if (result?.appointmentAutoCompleted && result.completedAppointmentId) {
+          const apptId = result.completedAppointmentId;
+          toast.success("Appointment completed", {
+            action: {
+              label: "Undo",
+              onClick: () => {
+                updateAppointmentStatus(apptId, "IN_PROGRESS").catch(() => {
+                  toast.error("Failed to undo");
+                });
+              },
+            },
+            duration: 8000,
+          });
+        } else {
+          toast.success("Examination saved");
+        }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
         } else {

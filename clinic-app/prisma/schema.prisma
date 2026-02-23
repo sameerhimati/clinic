@@ -75,6 +75,18 @@ model Designation {
   @@map("designations")
 }
 
+model Room {
+  id           Int           @id @default(autoincrement())
+  name         String
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+
+  @@map("rooms")
+}
+
 // ============================================
 // CORE TABLES
 // ============================================
@@ -289,6 +301,8 @@ model Appointment {
   doctor       Doctor?  @relation("AppointmentDoctor", fields: [doctorId], references: [id])
   visitId      Int?
   visit        Visit?   @relation(fields: [visitId], references: [id])
+  roomId       Int?
+  room         Room?    @relation(fields: [roomId], references: [id])
   date         DateTime
   timeSlot     String?  // free text: "10:00 AM", "2:30 PM", "morning"
   status       String   @default("SCHEDULED") // SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
@@ -303,6 +317,7 @@ model Appointment {
   @@index([date])
   @@index([doctorId, date])
   @@index([patientId])
+  @@index([roomId, date])
   @@map("appointments")
 }
 

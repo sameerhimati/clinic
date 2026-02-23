@@ -17,11 +17,18 @@ export default async function NewAppointmentPage({
   await requireAuth();
   const params = await searchParams;
 
-  const doctors = await prisma.doctor.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const [doctors, rooms] = await Promise.all([
+    prisma.doctor.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.room.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   let defaultPatient = null;
   if (params.patientId) {
@@ -53,6 +60,7 @@ export default async function NewAppointmentPage({
       <h2 className="text-2xl font-bold">Schedule Appointment</h2>
       <AppointmentForm
         doctors={doctors}
+        rooms={rooms}
         defaultPatient={defaultPatient}
         defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : undefined}
         defaultDate={params.date}

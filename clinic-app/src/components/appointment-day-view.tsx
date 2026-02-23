@@ -23,7 +23,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "luc
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
-import { StatusBadge, STATUS_CONFIG } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 
 type Appointment = {
   id: number;
@@ -34,6 +34,8 @@ type Appointment = {
   doctorId: number | null;
   doctorName: string | null;
   visitId: number | null;
+  roomId: number | null;
+  roomName: string | null;
   timeSlot: string | null;
   status: string;
   reason: string | null;
@@ -42,6 +44,7 @@ type Appointment = {
 };
 
 type ColumnDoctor = { id: number; name: string };
+type ColumnRoom = { id: number; name: string };
 
 const VALID_TRANSITIONS: Record<string, { status: string; label: string }[]> = {
   SCHEDULED: [
@@ -59,17 +62,120 @@ const VALID_TRANSITIONS: Record<string, { status: string; label: string }[]> = {
   ],
 };
 
+// Primary action for each status (shown as inline button)
+function PrimaryAction({
+  appt,
+  onStatusChange,
+}: {
+  appt: Appointment;
+  onStatusChange: (id: number, status: string) => void;
+}) {
+  if (appt.status === "SCHEDULED") {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 text-[10px]"
+        onClick={(e) => {
+          e.stopPropagation();
+          onStatusChange(appt.id, "ARRIVED");
+        }}
+      >
+        Arrived
+      </Button>
+    );
+  }
+  if (appt.status === "ARRIVED") {
+    return (
+      <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+        <Link
+          href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Start Visit
+        </Link>
+      </Button>
+    );
+  }
+  if (appt.status === "IN_PROGRESS" && appt.visitId) {
+    return (
+      <Button size="sm" variant="default" className="h-6 text-[10px]" asChild>
+        <Link
+          href={`/visits/${appt.visitId}/examine`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Examine
+        </Link>
+      </Button>
+    );
+  }
+  return null;
+}
+
+// Secondary actions in dropdown (Cancel, No Show, etc. — minus the primary)
+function SecondaryActions({
+  appt,
+  onStatusChange,
+}: {
+  appt: Appointment;
+  onStatusChange: (id: number, status: string) => void;
+}) {
+  const transitions = VALID_TRANSITIONS[appt.status] || [];
+  // Filter out the primary action
+  const secondary = transitions.filter((t) => {
+    if (appt.status === "SCHEDULED" && t.status === "ARRIVED") return false;
+    if (appt.status === "ARRIVED" && t.status === "IN_PROGRESS") return false;
+    if (appt.status === "IN_PROGRESS" && t.status === "COMPLETED") return false;
+    return true;
+  });
+
+  if (secondary.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="shrink-0 rounded p-0.5 hover:bg-accent"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {secondary.map((t) => (
+          <DropdownMenuItem
+            key={t.status}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (t.status === "CANCELLED") {
+                onStatusChange(appt.id, "CANCEL_PROMPT");
+              } else {
+                onStatusChange(appt.id, t.status);
+              }
+            }}
+          >
+            {t.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function AppointmentCard({
   appt,
   compact,
+  showDoctorName,
   onStatusChange,
 }: {
   appt: Appointment;
   compact?: boolean;
+  showDoctorName?: boolean;
   onStatusChange: (id: number, status: string, reason?: string) => void;
 }) {
-  const transitions = VALID_TRANSITIONS[appt.status] || [];
+  const router = useRouter();
   const isCancelled = appt.status === "CANCELLED";
+  const isTerminal = isCancelled || appt.status === "NO_SHOW";
   const abbreviatedName =
     appt.patientName.length > 18
       ? appt.patientName.slice(0, 16) + "..."
@@ -77,64 +183,38 @@ function AppointmentCard({
 
   return (
     <div
-      className={`rounded-md border p-2 text-xs space-y-1 ${
-        isCancelled ? "opacity-60" : "bg-card"
-      }`}
+      className={`rounded-md border p-2 text-xs space-y-1 transition-colors ${
+        isCancelled ? "opacity-60" : "bg-card cursor-pointer hover:border-primary/50"
+      } ${isTerminal ? "" : "cursor-pointer hover:border-primary/50"}`}
+      onClick={() => {
+        if (!isTerminal) {
+          router.push(`/patients/${appt.patientId}`);
+        }
+      }}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
-          <Link
-            href={`/patients/${appt.patientId}`}
-            className="font-mono text-muted-foreground hover:underline"
-          >
+          <span className="font-mono text-muted-foreground">
             #{appt.patientCode}
-          </Link>{" "}
+          </span>{" "}
           <span className={`font-medium ${isCancelled ? "line-through" : ""}`}>
             {compact ? abbreviatedName : appt.patientName}
           </span>
         </div>
-        {transitions.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="shrink-0 rounded p-0.5 hover:bg-accent">
-                <MoreVertical className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {transitions.map((t) => (
-                <DropdownMenuItem
-                  key={t.status}
-                  onClick={() => {
-                    if (t.status === "CANCELLED") {
-                      onStatusChange(appt.id, "CANCEL_PROMPT");
-                    } else {
-                      onStatusChange(appt.id, t.status);
-                    }
-                  }}
-                >
-                  {t.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <SecondaryActions appt={appt} onStatusChange={onStatusChange} />
       </div>
       {appt.timeSlot && (
         <div className="text-muted-foreground">{appt.timeSlot}</div>
+      )}
+      {showDoctorName && appt.doctorName && (
+        <div className="text-muted-foreground">Dr. {appt.doctorName}</div>
       )}
       {appt.reason && (
         <div className="text-muted-foreground truncate">{appt.reason}</div>
       )}
       <div className="flex items-center gap-1 flex-wrap">
         <StatusBadge status={appt.status} />
-        {appt.status === "ARRIVED" && (
-          <Link
-            href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}
-            className="text-[10px] text-primary hover:underline font-medium"
-          >
-            Create Visit →
-          </Link>
-        )}
+        <PrimaryAction appt={appt} onStatusChange={onStatusChange} />
       </div>
       {appt.cancelReason && (
         <div className="text-muted-foreground italic">
@@ -145,16 +225,20 @@ function AppointmentCard({
   );
 }
 
+type ViewMode = "doctor" | "room";
+
 export function AppointmentDayView({
   dateStr,
   appointments,
   columnDoctors,
+  columnRooms,
   currentUserId,
   permissionLevel,
 }: {
   dateStr: string;
   appointments: Appointment[];
   columnDoctors: ColumnDoctor[];
+  columnRooms: ColumnRoom[];
   currentUserId: number;
   permissionLevel: number;
 }) {
@@ -163,6 +247,7 @@ export function AppointmentDayView({
   const [cancelDialogId, setCancelDialogId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("doctor");
 
   const isDoctor = permissionLevel === 3;
 
@@ -183,22 +268,42 @@ export function AppointmentDayView({
     year: "numeric",
   });
 
-  // Status summary
+  // Doctor filtering (Phase 6)
+  const filteredAppointments =
+    isDoctor && !showAll
+      ? appointments.filter((a) => a.doctorId === currentUserId)
+      : appointments;
+
+  // Status summary (based on filtered)
   const counts: Record<string, number> = {};
-  for (const a of appointments) {
+  for (const a of filteredAppointments) {
     counts[a.status] = (counts[a.status] || 0) + 1;
   }
 
-  // Group by period and doctor
+  // Column source depends on view mode
+  const columns: { id: number; name: string }[] =
+    viewMode === "doctor"
+      ? isDoctor && !showAll
+        ? columnDoctors.filter((d) => d.id === currentUserId)
+        : columnDoctors
+      : columnRooms;
+
+  const columnLabel = (col: { id: number; name: string }) =>
+    viewMode === "doctor" ? `Dr. ${col.name}` : col.name;
+
+  const groupKey = (appt: Appointment): number | null =>
+    viewMode === "doctor" ? appt.doctorId : appt.roomId;
+
+  // Group by period and column
   const grouped = new Map<TimePeriod, Map<number | null, Appointment[]>>();
   for (const period of PERIOD_ORDER) {
     grouped.set(period, new Map());
   }
 
-  for (const appt of appointments) {
+  for (const appt of filteredAppointments) {
     const period = classifyTimeSlot(appt.timeSlot);
     const periodMap = grouped.get(period)!;
-    const key = appt.doctorId;
+    const key = groupKey(appt);
     if (!periodMap.has(key)) periodMap.set(key, []);
     periodMap.get(key)!.push(appt);
   }
@@ -216,18 +321,12 @@ export function AppointmentDayView({
     return Array.from(periodMap.values()).some((arr) => arr.length > 0);
   });
 
-  // Unassigned appointments
-  const unassigned = appointments.filter((a) => !a.doctorId);
+  // Unassigned appointments (no groupKey value)
+  const unassigned = filteredAppointments.filter((a) => groupKey(a) === null);
 
-  // Mobile filter for doctors
-  const mobileAppointments =
-    isDoctor && !showAll
-      ? appointments.filter((a) => a.doctorId === currentUserId)
-      : appointments;
-
-  // Group mobile appointments by period
+  // Mobile: group by period
   const mobilePeriods = new Map<TimePeriod, Appointment[]>();
-  for (const appt of mobileAppointments) {
+  for (const appt of filteredAppointments) {
     const period = classifyTimeSlot(appt.timeSlot);
     if (!mobilePeriods.has(period)) mobilePeriods.set(period, []);
     mobilePeriods.get(period)!.push(appt);
@@ -310,10 +409,57 @@ export function AppointmentDayView({
         />
       </div>
 
+      {/* View toggles */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Doctor/Room toggle */}
+        {columnRooms.length > 0 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant={viewMode === "doctor" ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setViewMode("doctor")}
+            >
+              By Doctor
+            </Button>
+            <Button
+              variant={viewMode === "room" ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setViewMode("room")}
+            >
+              By Room
+            </Button>
+          </div>
+        )}
+
+        {/* My Schedule / Clinic Schedule toggle (for doctors) */}
+        {isDoctor && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant={showAll ? "outline" : "default"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setShowAll(false)}
+            >
+              My Schedule
+            </Button>
+            <Button
+              variant={showAll ? "default" : "outline"}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setShowAll(true)}
+            >
+              Clinic Schedule
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Summary bar */}
-      {appointments.length > 0 && (
+      {filteredAppointments.length > 0 && (
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary">{appointments.length} total</Badge>
+          <Badge variant="secondary">{filteredAppointments.length} total</Badge>
           {counts.SCHEDULED && (
             <Badge variant="outline" className="border-blue-300 text-blue-700">
               {counts.SCHEDULED} scheduled
@@ -347,9 +493,11 @@ export function AppointmentDayView({
         </div>
       )}
 
-      {appointments.length === 0 && (
+      {filteredAppointments.length === 0 && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
-          No appointments for this date.{" "}
+          {isDoctor && !showAll
+            ? "No appointments assigned to you today."
+            : "No appointments for this date."}{" "}
           <Link href={`/appointments/new?date=${dateStr}`} className="text-primary hover:underline">
             Schedule one
           </Link>
@@ -357,29 +505,29 @@ export function AppointmentDayView({
       )}
 
       {/* === Desktop Timetable === */}
-      {appointments.length > 0 && (
+      {filteredAppointments.length > 0 && (
         <div className="hidden md:block overflow-x-auto">
           <div
             className="min-w-fit"
             style={{
               display: "grid",
-              gridTemplateColumns: `100px repeat(${columnDoctors.length}, minmax(180px, 1fr))`,
+              gridTemplateColumns: `100px repeat(${columns.length}, minmax(180px, 1fr))`,
             }}
           >
             {/* Header row */}
             <div className="border-b bg-muted/50 px-2 py-2 text-xs font-medium text-muted-foreground sticky left-0 bg-background z-10">
               Time
             </div>
-            {columnDoctors.map((doc) => (
+            {columns.map((col) => (
               <div
-                key={doc.id}
+                key={col.id}
                 className={`border-b border-l px-2 py-2 text-xs font-medium text-center truncate ${
-                  isDoctor && doc.id === currentUserId
+                  viewMode === "doctor" && isDoctor && col.id === currentUserId
                     ? "bg-primary/10 border-primary/30"
                     : "bg-muted/50"
                 }`}
               >
-                Dr. {doc.name}
+                {columnLabel(col)}
               </div>
             ))}
 
@@ -392,14 +540,14 @@ export function AppointmentDayView({
                   <div className="border-b px-2 py-3 text-xs font-semibold text-muted-foreground sticky left-0 bg-background z-10 flex items-start">
                     {period}
                   </div>
-                  {/* Doctor cells */}
-                  {columnDoctors.map((doc) => {
-                    const cellAppts = periodMap.get(doc.id) || [];
+                  {/* Column cells */}
+                  {columns.map((col) => {
+                    const cellAppts = periodMap.get(col.id) || [];
                     return (
                       <div
-                        key={doc.id}
+                        key={col.id}
                         className={`border-b border-l p-1.5 min-h-[60px] space-y-1.5 ${
-                          isDoctor && doc.id === currentUserId
+                          viewMode === "doctor" && isDoctor && col.id === currentUserId
                             ? "bg-primary/5"
                             : ""
                         }`}
@@ -409,6 +557,7 @@ export function AppointmentDayView({
                             key={appt.id}
                             appt={appt}
                             compact
+                            showDoctorName={viewMode === "room"}
                             onStatusChange={handleStatusChange}
                           />
                         ))}
@@ -431,6 +580,7 @@ export function AppointmentDayView({
                   <AppointmentCard
                     key={appt.id}
                     appt={appt}
+                    showDoctorName={viewMode === "room"}
                     onStatusChange={handleStatusChange}
                   />
                 ))}
@@ -441,33 +591,8 @@ export function AppointmentDayView({
       )}
 
       {/* === Mobile Card List === */}
-      {appointments.length > 0 && (
+      {filteredAppointments.length > 0 && (
         <div className="md:hidden space-y-4">
-          {isDoctor && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant={showAll ? "outline" : "default"}
-                size="sm"
-                onClick={() => setShowAll(false)}
-              >
-                My Appointments
-              </Button>
-              <Button
-                variant={showAll ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowAll(true)}
-              >
-                Show All
-              </Button>
-            </div>
-          )}
-
-          {mobileAppointments.length === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-4">
-              No appointments assigned to you today
-            </div>
-          )}
-
           {PERIOD_ORDER.map((period) => {
             const periodAppts = mobilePeriods.get(period);
             if (!periodAppts || periodAppts.length === 0) return null;
@@ -480,7 +605,8 @@ export function AppointmentDayView({
                   {periodAppts.map((appt) => (
                     <div
                       key={appt.id}
-                      className="rounded-lg border p-3 text-sm space-y-1"
+                      className="rounded-lg border p-3 text-sm space-y-1 cursor-pointer hover:border-primary/50"
+                      onClick={() => router.push(`/patients/${appt.patientId}`)}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -495,49 +621,22 @@ export function AppointmentDayView({
                             </span>
                           )}
                         </div>
-                        <StatusBadge status={appt.status} />
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <StatusBadge status={appt.status} />
+                          <SecondaryActions appt={appt} onStatusChange={handleStatusChange} />
+                        </div>
                       </div>
                       <div>
-                        <Link
-                          href={`/patients/${appt.patientId}`}
-                          className="font-medium hover:underline"
-                        >
-                          <span className="font-mono text-muted-foreground mr-1">
-                            #{appt.patientCode}
-                          </span>
-                          {appt.patientName}
-                        </Link>
+                        <span className="font-mono text-muted-foreground mr-1">
+                          #{appt.patientCode}
+                        </span>
+                        <span className="font-medium">{appt.patientName}</span>
                       </div>
                       {appt.reason && (
                         <div className="text-muted-foreground">{appt.reason}</div>
                       )}
-                      <div className="flex items-center gap-2 pt-1">
-                        {(VALID_TRANSITIONS[appt.status] || []).map((t) => (
-                          <Button
-                            key={t.status}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => {
-                              if (t.status === "CANCELLED") {
-                                handleStatusChange(appt.id, "CANCEL_PROMPT");
-                              } else {
-                                handleStatusChange(appt.id, t.status);
-                              }
-                            }}
-                          >
-                            {t.label}
-                          </Button>
-                        ))}
-                        {appt.status === "ARRIVED" && (
-                          <Button variant="default" size="sm" className="text-xs h-7" asChild>
-                            <Link
-                              href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}
-                            >
-                              Create Visit →
-                            </Link>
-                          </Button>
-                        )}
+                      <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <PrimaryAction appt={appt} onStatusChange={handleStatusChange} />
                       </div>
                       {appt.cancelReason && (
                         <div className="text-xs text-muted-foreground italic">
