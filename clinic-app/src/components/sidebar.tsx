@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   { href: "/patients", label: "Patients", icon: Users },
   { href: "/visits", label: "Visits", icon: Stethoscope },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
-  { href: "/receipts", label: "Receipts", icon: Receipt },
+  { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
   { href: "/doctors", label: "Doctors", icon: UserCog, minPermission: 1 },
   { href: "/reports", label: "Reports", icon: BarChart3, minPermission: 2 },
   { href: "/settings", label: "Settings", icon: Settings, minPermission: 1 },
