@@ -12,11 +12,12 @@ export default async function AppointmentsPage({
   const currentUser = await requireAuth();
   const params = await searchParams;
 
-  const dateStr = params.date || new Date().toISOString().split("T")[0];
-  const date = new Date(dateStr);
-  date.setHours(0, 0, 0, 0);
-  const nextDay = new Date(date);
-  nextDay.setDate(nextDay.getDate() + 1);
+  // Locale-safe date handling — avoid .toISOString() UTC shift
+  const now = new Date();
+  const dateStr = params.date || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const nextDay = new Date(y, m - 1, d + 1);
 
   const [appointments, columnRooms] = await Promise.all([
     prisma.appointment.findMany({

@@ -247,21 +247,26 @@ export function AppointmentDayView({
   const [cancelDialogId, setCancelDialogId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("doctor");
+  const [viewMode, setViewMode] = useState<ViewMode>("room");
 
   const isDoctor = permissionLevel === 3;
 
-  // Date navigation helpers
-  const date = new Date(dateStr + "T00:00:00");
-  const prevDate = new Date(date);
-  prevDate.setDate(prevDate.getDate() - 1);
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + 1);
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Date navigation helpers — locale-safe, no .toISOString() (avoids UTC shift)
+  function addDays(ds: string, n: number): string {
+    const [y, m, d] = ds.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + n);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  }
+
+  const prevDateStr = addDays(dateStr, -1);
+  const nextDateStr = addDays(dateStr, 1);
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const isToday = dateStr === todayStr;
 
-  const fmtDate = (d: Date) => d.toISOString().split("T")[0];
-  const displayDate = date.toLocaleDateString("en-IN", {
+  const [dy, dm, dd] = dateStr.split("-").map(Number);
+  const displayDate = new Date(dy, dm - 1, dd).toLocaleDateString("en-IN", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -384,13 +389,13 @@ export function AppointmentDayView({
       {/* Date navigation */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/appointments?date=${fmtDate(prevDate)}`}>
+          <Link href={`/appointments?date=${prevDateStr}`}>
             <ChevronLeft className="h-4 w-4" />
           </Link>
         </Button>
         <span className="font-medium text-sm">{displayDate}</span>
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/appointments?date=${fmtDate(nextDate)}`}>
+          <Link href={`/appointments?date=${nextDateStr}`}>
             <ChevronRight className="h-4 w-4" />
           </Link>
         </Button>
