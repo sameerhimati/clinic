@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canCollectPayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +17,7 @@ export default async function ReceiptsPage({
   searchParams: Promise<{ from?: string; to?: string; page?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
-    redirect("/dashboard");
-  }
+  const canCollect = canCollectPayments(currentUser.permissionLevel);
 
   const params = await searchParams;
   const page = parseInt(params.page || "1");
@@ -58,11 +55,13 @@ export default async function ReceiptsPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Receipts</h2>
-        <Button asChild>
-          <Link href="/receipts/new">
-            <Plus className="mr-2 h-4 w-4" /> New Receipt
-          </Link>
-        </Button>
+        {canCollect && (
+          <Button asChild>
+            <Link href="/receipts/new">
+              <Plus className="mr-2 h-4 w-4" /> New Receipt
+            </Link>
+          </Button>
+        )}
       </div>
 
       <form className="flex flex-wrap gap-2">

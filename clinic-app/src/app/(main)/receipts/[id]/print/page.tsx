@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/db";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { amountInWords } from "@/lib/amount-in-words";
 import { PrintButton } from "./print-button";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +12,7 @@ export default async function ReceiptPrintPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
-    redirect("/dashboard");
-  }
-
+  await requireAuth();
   const { id } = await params;
 
   const receipt = await prisma.receipt.findUnique({

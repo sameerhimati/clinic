@@ -3,11 +3,11 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, AlertCircle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canSeeReports } from "@/lib/permissions";
 
 export default async function ReportsPage() {
   const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
+  if (!canSeeReports(currentUser.permissionLevel)) {
     redirect("/dashboard");
   }
   return (

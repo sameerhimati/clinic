@@ -151,21 +151,24 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
     return (
       <div className="text-sm text-muted-foreground">
         {isLocked && <Lock className="h-3 w-3 inline mr-1 text-amber-500" />}
-        <span className="whitespace-pre-wrap">{summaryText}</span>
+        <span>{summaryText.replace(/\s+/g, ' ').trim()}</span>
         {isEdited && <span className="text-xs ml-1">(edited)</span>}
       </div>
     );
   }
 
+  const collapsedText = summaryText.replace(/\s+/g, ' ').trim();
+  const truncated = collapsedText.length > 80 ? collapsedText.slice(0, 80) + "..." : collapsedText;
+
   return (
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-full text-left"
       >
-        {isLocked && <Lock className="h-3 w-3 text-amber-500" />}
-        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        <span className="whitespace-pre-wrap line-clamp-1">{summaryText}</span>
+        {isLocked && <Lock className="h-3 w-3 text-amber-500 shrink-0" />}
+        {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+        <span className="truncate">{expanded ? collapsedText : truncated}</span>
       </button>
       {expanded && (
         <div className="bg-muted/30 rounded-md p-3 text-sm space-y-1.5 mt-1">
@@ -199,11 +202,11 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
 
 function StandaloneVisitEntry({
   visit,
-  showPayments,
+  showInternalCosts,
   patientId,
 }: {
   visit: VisitWithRelations;
-  showPayments: boolean;
+  showInternalCosts: boolean;
   patientId: number;
 }) {
   const report = visit.clinicalReports[0] || null;
@@ -221,7 +224,7 @@ function StandaloneVisitEntry({
           </Link>
           <span className="text-muted-foreground">·</span>
           <span>{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
-          {showPayments && visit.discount > 0 && (
+          {showInternalCosts && visit.discount > 0 && (
             <span className="text-muted-foreground">(disc. {"\u20B9"}{visit.discount.toLocaleString("en-IN")})</span>
           )}
           <span className="text-muted-foreground">·</span>
@@ -233,9 +236,9 @@ function StandaloneVisitEntry({
           </Link>
         </Button>
       </div>
-      <div className="mt-2">
+      <div className="mt-1.5">
         {report ? (
-          <>
+          <div className="bg-muted/20 rounded px-2.5 py-1.5">
             <ExpandableNotes report={report} />
             {report.addendums.length > 0 && (
               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -243,7 +246,7 @@ function StandaloneVisitEntry({
                 {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
               </div>
             )}
-          </>
+          </div>
         ) : (
           <div className="flex items-center gap-2 text-sm">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -261,11 +264,11 @@ function StandaloneVisitEntry({
 
 function ChainTimeline({
   rootVisit,
-  showPayments,
+  showInternalCosts,
   patientId,
 }: {
   rootVisit: VisitWithRelations;
-  showPayments: boolean;
+  showInternalCosts: boolean;
   patientId: number;
 }) {
   // Collect all visits in the chain
@@ -301,13 +304,11 @@ function ChainTimeline({
             </Link>
           </Button>
         </div>
-        {showPayments && (
-          <div className="text-xs text-muted-foreground mt-1">
-            {"\u20B9"}{totalBilled.toLocaleString("en-IN")} billed
-            {" · "}{"\u20B9"}{totalPaid.toLocaleString("en-IN")} paid
-            {totalDue > 0 && <span className="text-destructive"> · {"\u20B9"}{totalDue.toLocaleString("en-IN")} due</span>}
-          </div>
-        )}
+        <div className="text-xs text-muted-foreground mt-1">
+          {"\u20B9"}{totalBilled.toLocaleString("en-IN")} billed
+          {" · "}{"\u20B9"}{totalPaid.toLocaleString("en-IN")} paid
+          {totalDue > 0 && <span className="text-destructive"> · {"\u20B9"}{totalDue.toLocaleString("en-IN")} due</span>}
+        </div>
         <div className="flex items-center gap-3 mt-2">
           {uniqueDoctors.map((d) => (
             <div key={d.name} className="flex items-center gap-1 text-xs">
@@ -327,7 +328,7 @@ function ChainTimeline({
           const colorIdx = visit.doctor ? (doctorColorMap.get(visit.doctor.name) || 0) : 0;
 
           return (
-            <div key={visit.id} className="relative pb-4">
+            <div key={visit.id} className="relative pb-3">
               {/* Timeline connector line */}
               {!isLast && (
                 <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${DOCTOR_COLORS[colorIdx].replace("border-", "bg-")}`} />
@@ -336,7 +337,7 @@ function ChainTimeline({
               <div className={`absolute left-[-20px] top-1.5 w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[colorIdx]} ring-2 ring-background`} />
 
               {/* Visit content */}
-              <div className={`border-l-2 ${DOCTOR_COLORS[colorIdx]} pl-3 -ml-[1px]`}>
+              <div className="pl-1">
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <div className="flex items-center gap-2 text-sm flex-wrap">
                     <span className="font-medium">{format(new Date(visit.visitDate), "MMM d")}</span>
@@ -349,13 +350,13 @@ function ChainTimeline({
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   Dr. {visit.doctor?.name || "N/A"}
-                  {visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
+                  {showInternalCosts && visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
                 </div>
 
                 {/* Notes or missing indicator */}
-                <div className="mt-1">
+                <div className="mt-1.5">
                   {report ? (
-                    <>
+                    <div className="bg-muted/20 rounded px-2.5 py-1.5">
                       <ExpandableNotes report={report} />
                       {report.addendums.length > 0 && (
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -363,7 +364,7 @@ function ChainTimeline({
                           {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
                         </div>
                       )}
-                    </>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2 text-sm mt-1">
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
@@ -386,11 +387,11 @@ function ChainTimeline({
 
 export function TreatmentTimeline({
   visits,
-  showPayments,
+  showInternalCosts,
   patientId,
 }: {
   visits: VisitWithRelations[];
-  showPayments: boolean;
+  showInternalCosts: boolean;
   patientId: number;
 }) {
   if (visits.length === 0) {
@@ -407,7 +408,7 @@ export function TreatmentTimeline({
             <ChainTimeline
               key={visit.id}
               rootVisit={visit}
-              showPayments={showPayments}
+              showInternalCosts={showInternalCosts}
               patientId={patientId}
             />
           );
@@ -417,7 +418,7 @@ export function TreatmentTimeline({
           <StandaloneVisitEntry
             key={visit.id}
             visit={visit}
-            showPayments={showPayments}
+            showInternalCosts={showInternalCosts}
             patientId={patientId}
           />
         );

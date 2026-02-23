@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canCollectPayments } from "@/lib/permissions";
 import { PatientSearch } from "@/components/patient-search";
 
 export const dynamic = "force-dynamic";
@@ -117,7 +117,7 @@ async function getDoctorDashboardData(doctorId: number) {
 export default async function DashboardPage() {
   const doctor = await requireAuth();
   const isDoctor = doctor.permissionLevel === 3;
-  const showPayments = canSeePayments(doctor.permissionLevel);
+  const canCollect = canCollectPayments(doctor.permissionLevel);
   const greeting = getGreeting();
 
   if (isDoctor) {
@@ -235,7 +235,7 @@ export default async function DashboardPage() {
         <Button variant="outline" asChild>
           <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
         </Button>
-        {showPayments && (
+        {canCollect && (
           <Button variant="outline" asChild>
             <Link href="/receipts/new"><Receipt className="mr-2 h-4 w-4" />New Receipt</Link>
           </Button>
@@ -249,20 +249,16 @@ export default async function DashboardPage() {
           <span className="text-muted-foreground">Today:</span>
           <span className="font-bold">{data.todayVisits} visits</span>
         </div>
-        {showPayments && (
-          <>
-            <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
-              <IndianRupee className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Collections:</span>
-              <span className="font-bold">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Outstanding:</span>
-              <span className="font-bold text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</span>
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
+          <IndianRupee className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Collections:</span>
+          <span className="font-bold">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border px-4 py-2.5">
+          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Outstanding:</span>
+          <span className="font-bold text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</span>
+        </div>
       </div>
 
       {/* Recent Visits */}
@@ -287,23 +283,21 @@ export default async function DashboardPage() {
                       {" · "}{format(new Date(visit.visitDate), "MMM d")}
                     </div>
                   </div>
-                  {showPayments && (
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <div className="text-sm font-medium">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
-                        {balance > 0 ? (
-                          <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">Paid</Badge>
-                        )}
-                      </div>
-                      {balance > 0 && (
-                        <Button size="sm" variant="outline" asChild>
-                          <Link href={`/patients/${visit.patient.id}/checkout`}>Pay</Link>
-                        </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <div className="text-sm font-medium">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
+                      {balance > 0 ? (
+                        <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">Paid</Badge>
                       )}
                     </div>
-                  )}
+                    {canCollect && balance > 0 && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/patients/${visit.patient.id}/checkout`}>Pay</Link>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}

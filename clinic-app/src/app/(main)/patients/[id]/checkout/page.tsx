@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "./checkout-form";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canCollectPayments } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export default async function CheckoutPage({
   const patientId = parseInt(id);
 
   const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
+  if (!canCollectPayments(currentUser.permissionLevel)) {
     redirect(`/patients/${patientId}`);
   }
 

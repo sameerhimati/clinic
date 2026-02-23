@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { calculateCommission } from "@/lib/commission";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canSeeReports } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,7 @@ export default async function CommissionReportPage({
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
+  if (!canSeeReports(currentUser.permissionLevel)) {
     redirect("/dashboard");
   }
 

@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report)**, **Payment Gating (doctors see pricing not payments)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with nested follow-ups)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**. 29 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**. 29 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -66,11 +66,28 @@ When ready to go live with real data:
 
 ## Phase 3: Appointment Scheduling
 
-- [ ] Appointment creation (standalone or linked to visit)
-- [ ] Calendar/day view of appointments
-- [ ] Doctor-specific appointment views
-- [ ] Status tracking (scheduled → confirmed → completed/cancelled/no-show)
-- [ ] Today's appointments on dashboard
+### P3-1: Appointment Model
+- [ ] Schema: Appointment (date, timeSlot, doctorId, patientId, opRoom, status, notes)
+- [ ] Status flow: scheduled → confirmed → in-progress → completed / cancelled / no-show
+- [ ] Link appointments to visits (optional — appointment can exist before visit is created)
+
+### P3-2: Day View
+- [ ] Column-per-doctor or column-per-OP-room layout
+- [ ] Time slots as draggable tiles
+- [ ] Receptionist view: all OP rooms as columns, drag to reassign
+- [ ] Consultant view: personal timetable (just their appointments for the day)
+- [ ] BDS doctor view: their assigned room schedule
+
+### P3-3: Appointment Management
+- [ ] Create appointment from patient detail or standalone
+- [ ] Quick reschedule (drag-and-drop or edit)
+- [ ] Cancel with reason tracking
+- [ ] Today's appointments widget on dashboard for all roles
+
+### P3-4: Future Enhancements
+- [ ] Online booking: patients request slots, reception confirms based on availability
+- [ ] SMS/WhatsApp appointment reminders
+- [ ] Recurring appointment templates (e.g., weekly ortho adjustments)
 
 ---
 
@@ -96,6 +113,24 @@ When ready to go live with real data:
 ### P5-1: Clinical Examination [DONE]
 ### P5-2: Document/Image Management [DONE]
 ### P5-3: Clinical Summary Timeline [DONE]
+### P5-4: Clinical Notes Locking & Addendums [DONE]
+- [x] Auto-lock after 24 hours, manual finalize
+- [x] Admin unlock capability
+- [x] Addendum system for locked reports
+- [x] Lock indicators in timeline and visit detail
+
+### P5-5: Treatment Timeline Overhaul [DONE]
+- [x] Doctor-colored timeline chains (unique color per doctor)
+- [x] Chain summary headers with billed/paid/due totals
+- [x] Step labels for multi-step treatments
+- [x] Visual containers for clinical notes
+- [x] Expandable notes with normalized text
+
+### P5-6: Granular Permission Model [DONE]
+- [x] `canSeeReports()` — gates Reports pages (commission, outstanding)
+- [x] `canSeeInternalCosts()` — gates lab costs, commission %, clinic margins
+- [x] `canCollectPayments()` — gates checkout, receipt creation, "Collect" buttons
+- [x] Doctors can see receipts, payment status, billing — just not internal costs or reports
 
 ---
 

@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments, isReportLocked } from "@/lib/permissions";
+import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 
@@ -22,7 +22,8 @@ export default async function VisitDetailPage({
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const currentUser = await requireAuth();
-  const showPayments = canSeePayments(currentUser.permissionLevel);
+  const canCollect = canCollectPayments(currentUser.permissionLevel);
+  const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
   const { id } = await params;
   const { newVisit } = await searchParams;
   const visit = await prisma.visit.findUnique({
@@ -146,7 +147,7 @@ export default async function VisitDetailPage({
               )}
             </Link>
           </Button>
-          {showPayments && balance > 0 && (
+          {canCollect && balance > 0 && (
             <Button size="sm" asChild>
               <Link href={`/patients/${visit.patientId}/checkout`}>
                 <IndianRupee className="mr-2 h-4 w-4" /> Collect
@@ -190,7 +191,7 @@ export default async function VisitDetailPage({
       )}
 
       {/* Billing Summary */}
-      <div className={`grid gap-4 ${showPayments ? "sm:grid-cols-3" : "sm:grid-cols-1"}`}>
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground">Billed</div>
@@ -202,24 +203,20 @@ export default async function VisitDetailPage({
             )}
           </CardContent>
         </Card>
-        {showPayments && (
-          <>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-sm text-muted-foreground">Paid</div>
-                <div className="text-2xl font-bold text-green-600">{"\u20B9"}{paid.toLocaleString("en-IN")}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-sm text-muted-foreground">Balance</div>
-                <div className={`text-2xl font-bold ${balance > 0 ? "text-destructive" : ""}`}>
-                  {"\u20B9"}{balance.toLocaleString("en-IN")}
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground">Paid</div>
+            <div className="text-2xl font-bold text-green-600">{"\u20B9"}{paid.toLocaleString("en-IN")}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground">Balance</div>
+            <div className={`text-2xl font-bold ${balance > 0 ? "text-destructive" : ""}`}>
+              {"\u20B9"}{balance.toLocaleString("en-IN")}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Clinical Report */}
@@ -296,13 +293,13 @@ export default async function VisitDetailPage({
           {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
           <DetailRow label="Doctor" value={visit.doctor?.name} />
           {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
-          {showPayments && visit.doctorCommissionPercent != null && (
+          {showInternalCosts && visit.doctorCommissionPercent != null && (
             <DetailRow label="Commission %" value={`${visit.doctorCommissionPercent}%`} />
           )}
           <Separator />
           {visit.lab && <DetailRow label="Lab" value={visit.lab.name} />}
           {visit.labRate && <DetailRow label="Lab Item" value={visit.labRate.itemName} />}
-          {showPayments && visit.labRateAmount > 0 && (
+          {showInternalCosts && visit.labRateAmount > 0 && (
             <DetailRow label="Lab Rate" value={`₹${visit.labRateAmount.toLocaleString("en-IN")} × ${visit.labQuantity}`} />
           )}
           {visit.notes && (
@@ -329,18 +326,17 @@ export default async function VisitDetailPage({
       </Card>
 
       {/* Receipts */}
-      {showPayments && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Receipts ({visit.receipts.length})</CardTitle>
-            {balance > 0 && (
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/patients/${visit.patientId}/checkout`}>
-                  <IndianRupee className="mr-2 h-4 w-4" /> Collect
-                </Link>
-              </Button>
-            )}
-          </CardHeader>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Receipts ({visit.receipts.length})</CardTitle>
+          {canCollect && balance > 0 && (
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/patients/${visit.patientId}/checkout`}>
+                <IndianRupee className="mr-2 h-4 w-4" /> Collect
+              </Link>
+            </Button>
+          )}
+        </CardHeader>
           <CardContent>
             <div className="divide-y">
               {visit.receipts.map((receipt) => (
@@ -365,8 +361,7 @@ export default async function VisitDetailPage({
               )}
             </div>
           </CardContent>
-        </Card>
-      )}
+      </Card>
     </div>
   );
 }

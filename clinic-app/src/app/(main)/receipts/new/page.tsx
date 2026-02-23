@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments } from "@/lib/permissions";
+import { canCollectPayments } from "@/lib/permissions";
 import { createReceipt } from "../actions";
 import { ReceiptForm } from "./receipt-form";
 
@@ -11,7 +11,7 @@ export default async function NewReceiptPage({
   searchParams: Promise<{ visitId?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canSeePayments(currentUser.permissionLevel)) {
+  if (!canCollectPayments(currentUser.permissionLevel)) {
     redirect("/dashboard");
   }
 

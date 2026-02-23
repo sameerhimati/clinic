@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { Edit, Plus, IndianRupee, AlertTriangle } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { requireAuth } from "@/lib/auth";
-import { canSeePayments, canEditPatients } from "@/lib/permissions";
+import { canCollectPayments, canSeeInternalCosts, canEditPatients } from "@/lib/permissions";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { TreatmentTimeline } from "@/components/treatment-timeline";
@@ -24,7 +24,8 @@ export default async function PatientDetailPage({
   const { id } = await params;
   const patientId = parseInt(id);
   const currentUser = await requireAuth();
-  const showPayments = canSeePayments(currentUser.permissionLevel);
+  const canCollect = canCollectPayments(currentUser.permissionLevel);
+  const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
 
   const patient = await prisma.patient.findUnique({
     where: { id: patientId },
@@ -160,14 +161,14 @@ export default async function PatientDetailPage({
                 {visitCount} visit{visitCount !== 1 ? "s" : ""}
                 {firstVisit && <span> · First: {format(new Date(firstVisit), "MMM yyyy")}</span>}
                 {lastVisit && <span> · Last: {format(new Date(lastVisit), "MMM d, yyyy")}</span>}
-                {showPayments && totalBalance > 0 && (
+                {totalBalance > 0 && (
                   <span className="text-destructive font-medium"> · Outstanding: {"\u20B9"}{totalBalance.toLocaleString("en-IN")}</span>
                 )}
               </p>
             </div>
           </div>
           <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-            {showPayments && totalBalance > 0 && (
+            {canCollect && totalBalance > 0 && (
               <Button size="sm" asChild>
                 <Link href={`/patients/${patient.id}/checkout`}>
                   <IndianRupee className="mr-1 h-3.5 w-3.5" />
@@ -196,8 +197,8 @@ export default async function PatientDetailPage({
         </div>
       </div>
 
-      {/* Payment Summary — compact inline (admin/reception only) */}
-      {showPayments && totalBilled > 0 && (
+      {/* Payment Summary — compact inline */}
+      {totalBilled > 0 && (
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="rounded-lg border px-4 py-2">
             <span className="text-muted-foreground">Billed: </span>
@@ -221,7 +222,7 @@ export default async function PatientDetailPage({
         <h3 className="text-lg font-semibold border-b pb-2 mb-2">Treatment History</h3>
         <TreatmentTimeline
           visits={topLevelVisits as any}
-          showPayments={showPayments}
+          showInternalCosts={showInternalCosts}
           patientId={patient.id}
         />
       </section>
@@ -280,9 +281,8 @@ export default async function PatientDetailPage({
         </Card>
       </section>
 
-      {/* ═══ Receipts (admin/reception only) ═══ */}
-      {showPayments && (
-        <section>
+      {/* ═══ Receipts ═══ */}
+      <section>
           <h3 className="text-lg font-semibold border-b pb-2 mb-2">Receipts</h3>
           <Card>
             <CardContent className="p-0">
@@ -313,8 +313,7 @@ export default async function PatientDetailPage({
               </div>
             </CardContent>
           </Card>
-        </section>
-      )}
+      </section>
     </div>
   );
 }
