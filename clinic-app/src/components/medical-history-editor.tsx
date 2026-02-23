@@ -29,6 +29,7 @@ export function MedicalHistoryEditor({
 }: MedicalHistoryEditorProps) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<number[]>(currentDiseaseIds);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -44,8 +45,10 @@ export function MedicalHistoryEditor({
               variant="ghost"
               size="icon"
               className="h-6 w-6"
+              aria-label="Edit medical history"
               onClick={() => {
                 setSelected(currentDiseaseIds);
+                setError(null);
                 setEditing(true);
               }}
             >
@@ -73,10 +76,15 @@ export function MedicalHistoryEditor({
   }
 
   function handleSave() {
+    setError(null);
     startTransition(async () => {
-      await updatePatientDiseases(patientId, selected);
-      setEditing(false);
-      router.refresh();
+      try {
+        await updatePatientDiseases(patientId, selected);
+        setEditing(false);
+        router.refresh();
+      } catch {
+        setError("Failed to save. Please try again.");
+      }
     });
   }
 
@@ -88,6 +96,7 @@ export function MedicalHistoryEditor({
           variant="ghost"
           size="icon"
           className="h-6 w-6 text-green-600"
+          aria-label="Save medical history"
           onClick={handleSave}
           disabled={isPending}
         >
@@ -97,12 +106,16 @@ export function MedicalHistoryEditor({
           variant="ghost"
           size="icon"
           className="h-6 w-6"
+          aria-label="Cancel editing"
           onClick={() => setEditing(false)}
           disabled={isPending}
         >
           <X className="h-3 w-3" />
         </Button>
       </div>
+      {error && (
+        <p className="text-sm text-destructive mb-2">{error}</p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {allDiseases.map((disease) => (
           <label
@@ -113,7 +126,7 @@ export function MedicalHistoryEditor({
               type="checkbox"
               checked={selected.includes(disease.id)}
               onChange={() => toggle(disease.id)}
-              className="rounded border-gray-300"
+              className="rounded border-border"
             />
             {disease.name}
           </label>

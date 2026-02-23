@@ -3,8 +3,10 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 
 export async function createVisit(formData: FormData) {
+  await requireAuth();
   const patientId = parseInt(formData.get("patientId") as string);
   const operationId = formData.get("operationId") ? parseInt(formData.get("operationId") as string) : null;
   const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;

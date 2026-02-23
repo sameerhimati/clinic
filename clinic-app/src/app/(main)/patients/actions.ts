@@ -3,8 +3,14 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
+import { canEditPatients, isAdmin } from "@/lib/permissions";
 
 export async function createPatient(formData: FormData) {
+  const currentUser = await requireAuth();
+  if (!canEditPatients(currentUser.permissionLevel)) {
+    throw new Error("Insufficient permissions");
+  }
   const data = {
     salutation: formData.get("salutation") as string || undefined,
     name: formData.get("name") as string,
@@ -55,6 +61,11 @@ export async function createPatient(formData: FormData) {
 }
 
 export async function updatePatient(id: number, formData: FormData) {
+  const currentUser = await requireAuth();
+  if (!canEditPatients(currentUser.permissionLevel)) {
+    throw new Error("Insufficient permissions");
+  }
+
   const data = {
     salutation: formData.get("salutation") as string || undefined,
     name: formData.get("name") as string,
@@ -101,16 +112,30 @@ export async function updatePatient(id: number, formData: FormData) {
 }
 
 export async function updatePatientDiseases(patientId: number, diseaseIds: number[]) {
+  const currentUser = await requireAuth();
+  if (!canEditPatients(currentUser.permissionLevel)) {
+    throw new Error("Insufficient permissions");
+  }
+
+  // Validate and deduplicate
+  const uniqueIds = [...new Set(diseaseIds)].filter(id => Number.isInteger(id) && id > 0);
+  if (uniqueIds.length > 50) throw new Error("Too many diseases");
+
   await prisma.patientDisease.deleteMany({ where: { patientId } });
-  if (diseaseIds.length > 0) {
+  if (uniqueIds.length > 0) {
     await prisma.patientDisease.createMany({
-      data: diseaseIds.map((diseaseId) => ({ patientId, diseaseId })),
+      data: uniqueIds.map((diseaseId) => ({ patientId, diseaseId })),
     });
   }
   revalidatePath(`/patients/${patientId}`);
 }
 
 export async function deletePatient(id: number) {
+  const currentUser = await requireAuth();
+  if (!isAdmin(currentUser.permissionLevel)) {
+    throw new Error("Insufficient permissions");
+  }
+
   await prisma.patient.delete({ where: { id } });
   revalidatePath("/patients");
   redirect("/patients");
