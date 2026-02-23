@@ -212,33 +212,44 @@ function StandaloneVisitEntry({
   const report = visit.clinicalReports[0] || null;
   const rate = visit.operationRate || 0;
 
+  const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
+  const billed = rate - visit.discount;
+  const due = billed - paid;
+
   return (
     <div className="py-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 text-sm flex-wrap">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{format(new Date(visit.visitDate), "MMM d, yyyy")}</span>
-          <span className="text-muted-foreground">—</span>
-          <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
-            {visit.stepLabel || visit.operation?.name || "Visit"}
-          </Link>
-          <span className="text-muted-foreground">·</span>
-          <span>{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
-          {showInternalCosts && visit.discount > 0 && (
-            <span className="text-muted-foreground">(disc. {"\u20B9"}{visit.discount.toLocaleString("en-IN")})</span>
-          )}
-          <span className="text-muted-foreground">·</span>
-          <span>Dr. {visit.doctor?.name || "N/A"}</span>
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Link href={`/visits/${visit.id}`} className="hover:underline truncate">
+                {visit.stepLabel || visit.operation?.name || "Visit"}
+              </Link>
+              <span className="text-muted-foreground shrink-0">·</span>
+              <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {due > 0 ? (
+                <Badge variant="destructive" className="text-xs">{"\u20B9"}{due.toLocaleString("en-IN")} due</Badge>
+              ) : billed > 0 ? (
+                <Badge variant="secondary" className="text-xs">Paid</Badge>
+              ) : null}
+              <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
+                <Link href={`/visits/new?followUp=${visit.id}&patientId=${patientId}`}>
+                  F/U ↗
+                </Link>
+              </Button>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1 ml-6">
+            {format(new Date(visit.visitDate), "MMM d, yyyy")}
+            <span> · Dr. {visit.doctor?.name || "N/A"}</span>
+          </div>
         </div>
-        <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
-          <Link href={`/visits/new?followUp=${visit.id}&patientId=${patientId}`}>
-            F/U ↗
-          </Link>
-        </Button>
-      </div>
-      <div className="mt-1.5">
+        {/* Notes section */}
         {report ? (
-          <div className="bg-muted/20 rounded px-2.5 py-1.5">
+          <div className="border-t px-3 py-2">
             <ExpandableNotes report={report} />
             {report.addendums.length > 0 && (
               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -248,7 +259,7 @@ function StandaloneVisitEntry({
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="border-t px-3 py-2 flex items-center gap-2 text-sm">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
             <span className="text-amber-600 text-xs">Notes not recorded</span>
             <QuickNoteForm visitId={visit.id} />
@@ -271,6 +282,8 @@ function ChainTimeline({
   showInternalCosts: boolean;
   patientId: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   // Collect all visits in the chain
   const allVisits = [rootVisit, ...rootVisit.followUps].sort(
     (a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime()
@@ -286,100 +299,118 @@ function ChainTimeline({
   const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
   const totalDue = totalBilled - totalPaid;
 
+  // Date range for collapsed view
+  const firstDate = format(new Date(allVisits[0].visitDate), "MMM d");
+  const lastDate = format(new Date(allVisits[allVisits.length - 1].visitDate), "MMM d, yyyy");
+
   return (
     <div className="py-4">
-      {/* Chain summary header */}
-      <div className="rounded-lg border bg-muted/30 p-3 mb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <span>{rootVisit.operation?.name || "Treatment"}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{allVisits.length} visits</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{uniqueDoctors.length} doctor{uniqueDoctors.length !== 1 ? "s" : ""}</span>
+      {/* Chain card — clickable header */}
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full text-left p-3 hover:bg-accent/50 transition-colors"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+              {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              <span className="truncate">{rootVisit.operation?.name || "Treatment"}</span>
+              <span className="text-muted-foreground shrink-0">·</span>
+              <span className="text-muted-foreground shrink-0">{allVisits.length} visits</span>
+            </div>
+            {totalDue > 0 ? (
+              <Badge variant="destructive" className="text-xs shrink-0">{"\u20B9"}{totalDue.toLocaleString("en-IN")} due</Badge>
+            ) : totalBilled > 0 ? (
+              <Badge variant="secondary" className="text-xs shrink-0">Paid</Badge>
+            ) : null}
           </div>
-          <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
-            <Link href={`/visits/new?followUp=${rootVisit.id}&patientId=${patientId}`}>
-              F/U ↗
-            </Link>
-          </Button>
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {"\u20B9"}{totalBilled.toLocaleString("en-IN")} billed
-          {" · "}{"\u20B9"}{totalPaid.toLocaleString("en-IN")} paid
-          {totalDue > 0 && <span className="text-destructive"> · {"\u20B9"}{totalDue.toLocaleString("en-IN")} due</span>}
-        </div>
-        <div className="flex items-center gap-3 mt-2">
-          {uniqueDoctors.map((d) => (
-            <div key={d.name} className="flex items-center gap-1 text-xs">
-              <span className={`inline-block w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[doctorColorMap.get(d.name) || 0]}`} />
-              <span>Dr. {d.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+          <div className="flex items-center gap-2 mt-1 ml-6 text-xs text-muted-foreground">
+            <span>{firstDate} — {lastDate}</span>
+            <span>·</span>
+            <span>{"\u20B9"}{totalBilled.toLocaleString("en-IN")} billed</span>
+            <span>·</span>
+            {uniqueDoctors.map((d) => (
+              <span key={d.name} className="flex items-center gap-1">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${DOCTOR_DOT_COLORS[doctorColorMap.get(d.name) || 0]}`} />
+                Dr. {d.name}
+              </span>
+            ))}
+          </div>
+        </button>
 
-      {/* Vertical timeline */}
-      <div className="relative pl-6">
-        {allVisits.map((visit, i) => {
-          const isLast = i === allVisits.length - 1;
-          const report = visit.clinicalReports[0] || null;
-          const rate = visit.operationRate || 0;
-          const colorIdx = visit.doctor ? (doctorColorMap.get(visit.doctor.name) || 0) : 0;
+        {/* Expanded: visit timeline + F/U button */}
+        {expanded && (
+          <div className="border-t">
+            <div className="relative pl-8 pr-3 pt-3 pb-1">
+              {allVisits.map((visit, i) => {
+                const isLast = i === allVisits.length - 1;
+                const report = visit.clinicalReports[0] || null;
+                const rate = visit.operationRate || 0;
+                const colorIdx = visit.doctor ? (doctorColorMap.get(visit.doctor.name) || 0) : 0;
 
-          return (
-            <div key={visit.id} className="relative pb-3">
-              {/* Timeline connector line */}
-              {!isLast && (
-                <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${DOCTOR_COLORS[colorIdx].replace("border-", "bg-")}`} />
-              )}
-              {/* Dot */}
-              <div className={`absolute left-[-20px] top-1.5 w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[colorIdx]} ring-2 ring-background`} />
+                return (
+                  <div key={visit.id} className="relative pb-3">
+                    {/* Timeline connector line */}
+                    {!isLast && (
+                      <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${DOCTOR_COLORS[colorIdx].replace("border-", "bg-")}`} />
+                    )}
+                    {/* Dot */}
+                    <div className={`absolute left-[-20px] top-1.5 w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[colorIdx]} ring-2 ring-background`} />
 
-              {/* Visit content */}
-              <div className="pl-1">
-                <div className="flex items-center justify-between flex-wrap gap-1">
-                  <div className="flex items-center gap-2 text-sm flex-wrap">
-                    <span className="font-medium">{format(new Date(visit.visitDate), "MMM d")}</span>
-                    <span className="text-muted-foreground">—</span>
-                    <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
-                      {visit.stepLabel || visit.operation?.name || "Visit"}
-                    </Link>
-                    <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  Dr. {visit.doctor?.name || "N/A"}
-                  {showInternalCosts && visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
-                </div>
-
-                {/* Notes or missing indicator */}
-                <div className="mt-1.5">
-                  {report ? (
-                    <div className="bg-muted/20 rounded px-2.5 py-1.5">
-                      <ExpandableNotes report={report} />
-                      {report.addendums.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <MessageSquarePlus className="h-3 w-3" />
-                          {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
+                    {/* Visit content */}
+                    <div className="pl-1">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
+                          <span className="font-medium">{format(new Date(visit.visitDate), "MMM d")}</span>
+                          <span className="text-muted-foreground">—</span>
+                          <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
+                            {visit.stepLabel || visit.operation?.name || "Visit"}
+                          </Link>
+                          <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
                         </div>
-                      )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        Dr. {visit.doctor?.name || "N/A"}
+                        {showInternalCosts && visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
+                      </div>
+
+                      {/* Notes or missing indicator */}
+                      <div className="mt-1.5">
+                        {report ? (
+                          <div className="bg-muted/20 rounded px-2.5 py-1.5">
+                            <ExpandableNotes report={report} />
+                            {report.addendums.length > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <MessageSquarePlus className="h-3 w-3" />
+                                {report.addendums.length} addendum{report.addendums.length !== 1 ? "s" : ""}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm mt-1">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                            <span className="text-amber-600 text-xs">Notes not recorded</span>
+                            <QuickNoteForm visitId={visit.id} />
+                            <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
+                              Full Notes
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm mt-1">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-amber-600 text-xs">Notes not recorded</span>
-                      <QuickNoteForm visitId={visit.id} />
-                      <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
-                        Full Notes
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+            <div className="border-t px-3 py-2 flex justify-end">
+              <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
+                <Link href={`/visits/new?followUp=${rootVisit.id}&patientId=${patientId}`}>
+                  F/U ↗
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
