@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/db";
 import { createVisit } from "../actions";
 import { VisitForm } from "@/components/visit-form";
+import { requireAuth } from "@/lib/auth";
+import { canSeeInternalCosts } from "@/lib/permissions";
 
 export default async function NewVisitPage({
   searchParams,
 }: {
   searchParams: Promise<{ patientId?: string; followUp?: string }>;
 }) {
+  const currentUser = await requireAuth();
+  const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
   const params = await searchParams;
 
   const [patients, operations, doctors, labs] = await Promise.all([
@@ -85,6 +89,7 @@ export default async function NewVisitPage({
         action={createVisit}
         mode={mode}
         parentVisit={parentVisit}
+        showInternalCosts={showInternalCosts}
       />
     </div>
   );

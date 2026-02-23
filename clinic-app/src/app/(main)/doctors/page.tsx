@@ -12,7 +12,11 @@ export const dynamic = "force-dynamic";
 
 export default async function DoctorsPage() {
   const currentUser = await requireAuth();
-  const isAdmin = canManageSystem(currentUser.permissionLevel);
+  if (!canManageSystem(currentUser.permissionLevel)) {
+    const { redirect } = await import("next/navigation");
+    redirect("/dashboard");
+  }
+  const isAdmin = true;
 
   const doctors = await prisma.doctor.findMany({
     orderBy: [{ isActive: "desc" }, { name: "asc" }],

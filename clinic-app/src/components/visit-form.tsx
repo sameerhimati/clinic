@@ -32,6 +32,7 @@ export function VisitForm({
   action,
   mode = "new",
   parentVisit,
+  showInternalCosts = true,
 }: {
   patients: Patient[];
   operations: Operation[];
@@ -41,6 +42,7 @@ export function VisitForm({
   action: (formData: FormData) => Promise<void>;
   mode?: "new" | "followup";
   parentVisit?: ParentVisit | null;
+  showInternalCosts?: boolean;
 }) {
   const isFollowUp = mode === "followup" && parentVisit;
 
@@ -198,7 +200,7 @@ export function VisitForm({
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
-                  {d.commissionPercent > 0 ? ` (${d.commissionPercent}%)` : ""}
+                  {showInternalCosts && d.commissionPercent > 0 ? ` (${d.commissionPercent}%)` : ""}
                 </option>
               ))}
             </select>

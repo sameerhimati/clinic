@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const currentUser = await requireAuth();
-  const isAdmin = canManageSystem(currentUser.permissionLevel);
+  if (!canManageSystem(currentUser.permissionLevel)) {
+    const { redirect } = await import("next/navigation");
+    redirect("/dashboard");
+  }
+  const isAdmin = true;
   const clinic = await prisma.clinicSettings.findFirst();
 
   return (
