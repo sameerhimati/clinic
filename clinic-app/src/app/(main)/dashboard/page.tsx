@@ -6,10 +6,6 @@ import {
   UserPlus,
   Plus,
   Receipt,
-  ClipboardPlus,
-  Stethoscope,
-  IndianRupee,
-  AlertCircle,
   CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,7 +13,7 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { PatientSearch } from "@/components/patient-search";
-import { StatusBadge, STATUS_CONFIG } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +47,7 @@ async function getAdminDashboardData() {
       _count: true,
     }),
     prisma.visit.findMany({
-      take: 10,
+      take: 5,
       orderBy: { createdAt: "desc" },
       include: {
         patient: { select: { id: true, name: true, code: true } },
@@ -69,9 +65,8 @@ async function getAdminDashboardData() {
     prisma.appointment.findMany({
       where: {
         date: { gte: today, lt: tomorrow },
-        status: { notIn: ["COMPLETED", "CANCELLED", "NO_SHOW"] },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
-      take: 5,
       orderBy: { createdAt: "asc" },
       include: {
         patient: { select: { id: true, name: true, code: true } },
@@ -103,45 +98,21 @@ async function getDoctorDashboardData(doctorId: number) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [todayPatients, recentVisits, todayAppointments] = await Promise.all([
-    prisma.visit.findMany({
-      where: {
-        doctorId,
-        visitDate: { gte: today, lt: tomorrow },
-      },
-      include: {
-        patient: { select: { id: true, name: true, code: true } },
-        operation: { select: { name: true } },
-        clinicalReports: { select: { id: true }, take: 1 },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.visit.findMany({
-      where: { doctorId },
-      take: 10,
-      orderBy: { visitDate: "desc" },
-      include: {
-        patient: { select: { id: true, name: true, code: true } },
-        operation: { select: { name: true } },
-        clinicalReports: { select: { id: true }, take: 1 },
-      },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        doctorId,
-        date: { gte: today, lt: tomorrow },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-      orderBy: { createdAt: "asc" },
-      include: {
-        patient: { select: { id: true, name: true, code: true } },
-        doctor: { select: { name: true } },
-        visit: { select: { id: true } },
-      },
-    }),
-  ]);
+  const todayAppointments = await prisma.appointment.findMany({
+    where: {
+      doctorId,
+      date: { gte: today, lt: tomorrow },
+      status: { notIn: ["CANCELLED", "NO_SHOW"] },
+    },
+    orderBy: { createdAt: "asc" },
+    include: {
+      patient: { select: { id: true, name: true, code: true } },
+      doctor: { select: { name: true } },
+      visit: { select: { id: true } },
+    },
+  });
 
-  return { todayPatients, recentVisits, todayAppointments };
+  return { todayAppointments };
 }
 
 // Status left-border color mapping
@@ -163,30 +134,19 @@ export default async function DashboardPage() {
   if (isDoctor) {
     const data = await getDoctorDashboardData(doctor.id);
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
+        {/* Compact header row */}
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">{greeting}, Dr. {doctor.name}</h2>
-            <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-bold">{greeting}, Dr. {doctor.name}</h2>
+            <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
           </div>
-        </div>
-
-        {/* Large search bar */}
-        <div className="max-w-2xl">
-          <PatientSearch size="large" />
-        </div>
-
-        {/* Quick actions */}
-        <div className="flex flex-wrap gap-2">
-          <Button asChild>
+          <Button size="sm" asChild>
             <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/appointments/new"><CalendarDays className="mr-2 h-4 w-4" />Schedule</Link>
-          </Button>
         </div>
 
-        {/* Today's Schedule */}
+        {/* Schedule as hero — the primary content */}
         <DoctorScheduleWidget
           appointments={data.todayAppointments.map((appt) => ({
             id: appt.id,
@@ -199,70 +159,6 @@ export default async function DashboardPage() {
             reason: appt.reason,
           }))}
         />
-
-        {/* My Patients Today */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              My Patients Today
-              {data.todayPatients.length > 0 && (
-                <Badge variant="secondary">
-                  {data.todayPatients.filter(v => v.clinicalReports.length === 0).length} pending
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="divide-y">
-              {data.todayPatients.map((visit) => {
-                const hasReport = visit.clinicalReports.length > 0;
-                return (
-                  <div key={visit.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <Link href={`/patients/${visit.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
-                        <span className="font-mono text-sm text-muted-foreground">#{visit.patient.code}</span>
-                        {visit.patient.name}
-                      </Link>
-                      <div className="text-sm text-muted-foreground">
-                        {visit.operation?.name || "Visit"}
-                        {hasReport && " — notes complete"}
-                      </div>
-                    </div>
-                    <Button size="sm" variant={hasReport ? "outline" : "default"} asChild>
-                      <Link href={`/visits/${visit.id}/examine`}>
-                        <ClipboardPlus className="mr-2 h-4 w-4" />
-                        {hasReport ? "Edit Notes" : "Examine"}
-                      </Link>
-                    </Button>
-                  </div>
-                );
-              })}
-              {data.todayPatients.length === 0 && (
-                <div className="py-4 text-center text-muted-foreground">No patients assigned to you today</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Visits */}
-        {data.recentVisits.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>My Recent Visits</CardTitle></CardHeader>
-            <CardContent>
-              <div className="divide-y">
-                {data.recentVisits.map((visit) => (
-                  <Link key={visit.id} href={`/patients/${visit.patient.id}`} className="flex items-center justify-between py-2.5 hover:bg-accent -mx-4 px-4 rounded transition-colors">
-                    <div>
-                      <span className="font-mono text-sm text-muted-foreground">#{visit.patient.code}</span>{" "}
-                      <span className="font-medium">{visit.patient.name}</span>
-                      <span className="text-muted-foreground text-sm"> · {visit.operation?.name || "Visit"} · {format(new Date(visit.visitDate), "MMM d")}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   }
@@ -270,21 +166,31 @@ export default async function DashboardPage() {
   // Admin/Reception dashboard
   const data = await getAdminDashboardData();
 
+  // Status counts for appointments
+  const apptCounts: Record<string, number> = {};
+  for (const a of data.todayAppointments) {
+    apptCounts[a.status] = (apptCounts[a.status] || 0) + 1;
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">{greeting}, {doctor.name}</h2>
-          <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+    <div className="space-y-4">
+      {/* Header with inline stats */}
+      <div>
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-lg font-bold">{greeting}, {doctor.name}</h2>
+          <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
         </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          {data.todayVisits} visits today · {"\u20B9"}{data.todayCollections.toLocaleString("en-IN")} collected · {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")} outstanding
+        </p>
       </div>
 
-      {/* Large search bar */}
+      {/* Search bar */}
       <div className="max-w-2xl">
         <PatientSearch size="large" />
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions with hierarchy */}
       <div className="flex flex-wrap gap-2">
         <Button asChild>
           <Link href="/patients/new"><UserPlus className="mr-2 h-4 w-4" />New Patient</Link>
@@ -294,7 +200,7 @@ export default async function DashboardPage() {
         </Button>
         {canCollect && (
           <Button variant="outline" asChild>
-            <Link href="/receipts/new"><Receipt className="mr-2 h-4 w-4" />New Receipt</Link>
+            <Link href="/receipts/new"><Receipt className="mr-2 h-4 w-4" />Receipt</Link>
           </Button>
         )}
         <Button variant="outline" asChild>
@@ -302,37 +208,63 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      {/* Today's Appointments */}
+      {/* Today's Appointments — hero section, no limit */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             Today&apos;s Appointments
+            <Badge variant="secondary" className="text-xs">{data.todayAppointments.length}</Badge>
           </CardTitle>
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/appointments">View All →</Link>
+            <Link href="/appointments">View All &rarr;</Link>
           </Button>
         </CardHeader>
         <CardContent>
           {data.todayAppointments.length > 0 ? (
-            <div className="divide-y">
-              {data.todayAppointments.map((appt) => (
-                <div key={appt.id} className={`flex items-center justify-between py-2.5 border-l-4 pl-3 -ml-2 ${STATUS_BORDER_COLOR[appt.status] || ""}`}>
-                  <div>
-                    <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
-                      <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
-                      {appt.patient.name}
-                    </Link>
-                    <div className="text-sm text-muted-foreground">
-                      {appt.timeSlot && <span>{appt.timeSlot} · </span>}
-                      {appt.doctor && <span>Dr. {appt.doctor.name} · </span>}
-                      {appt.reason || "Appointment"}
+            <>
+              {/* Status summary */}
+              <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                {apptCounts.SCHEDULED && (
+                  <Badge variant="outline" className="border-blue-300 text-blue-700">
+                    {apptCounts.SCHEDULED} scheduled
+                  </Badge>
+                )}
+                {apptCounts.ARRIVED && (
+                  <Badge variant="outline" className="border-amber-300 text-amber-700">
+                    {apptCounts.ARRIVED} arrived
+                  </Badge>
+                )}
+                {apptCounts.IN_PROGRESS && (
+                  <Badge variant="outline" className="border-blue-400 text-blue-800">
+                    {apptCounts.IN_PROGRESS} in progress
+                  </Badge>
+                )}
+                {apptCounts.COMPLETED && (
+                  <Badge variant="outline" className="border-green-300 text-green-700">
+                    {apptCounts.COMPLETED} completed
+                  </Badge>
+                )}
+              </div>
+              <div className="divide-y">
+                {data.todayAppointments.map((appt) => (
+                  <div key={appt.id} className={`flex items-center justify-between py-2.5 border-l-4 pl-3 -ml-2 ${STATUS_BORDER_COLOR[appt.status] || ""}`}>
+                    <div>
+                      <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
+                        <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
+                        {appt.patient.name}
+                      </Link>
+                      <div className="text-sm text-muted-foreground">
+                        {appt.timeSlot && <span>{appt.timeSlot} · </span>}
+                        {appt.doctor && <span>Dr. {appt.doctor.name} · </span>}
+                        {appt.reason || "Appointment"}
+                      </div>
                     </div>
+                    <StatusBadge status={appt.status} />
                   </div>
-                  <StatusBadge status={appt.status} />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="py-4 text-center text-muted-foreground">
               No appointments scheduled today.{" "}
@@ -342,86 +274,53 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Stats row - mini stat cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-primary/10 p-2">
-              <Stethoscope className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Today</div>
-              <div className="text-lg font-bold">{data.todayVisits} visits</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-primary/10 p-2">
-              <IndianRupee className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Collections</div>
-              <div className="text-lg font-bold">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-destructive/10 p-2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Outstanding</div>
-              <div className="text-lg font-bold text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Visits */}
-      <Card>
-        <CardHeader><CardTitle>Recent Visits</CardTitle></CardHeader>
-        <CardContent>
-          <div className="divide-y">
-            {data.recentVisits.map((visit) => {
-              const billed = (visit.operationRate || 0) - visit.discount;
-              const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-              const balance = billed - paid;
-              return (
-                <div key={visit.id} className="flex items-center justify-between py-2.5">
-                  <div>
-                    <Link href={`/patients/${visit.patientId}`} className="font-medium hover:underline flex items-center gap-2">
-                      <span className="font-mono text-sm text-muted-foreground">#{visit.patient.code}</span>
-                      {visit.patient.name}
-                    </Link>
-                    <div className="text-sm text-muted-foreground">
-                      {visit.operation?.name || "N/A"}
-                      {visit.doctor && ` · Dr. ${visit.doctor.name}`}
-                      {" · "}{format(new Date(visit.visitDate), "MMM d")}
+      {/* Recent Visits — de-emphasized */}
+      {data.recentVisits.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-muted-foreground text-base font-medium">Recent Visits</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {data.recentVisits.map((visit) => {
+                const billed = (visit.operationRate || 0) - visit.discount;
+                const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
+                const balance = billed - paid;
+                return (
+                  <div key={visit.id} className="flex items-center justify-between py-2.5">
+                    <div>
+                      <Link href={`/patients/${visit.patientId}`} className="font-medium hover:underline flex items-center gap-2">
+                        <span className="font-mono text-sm text-muted-foreground">#{visit.patient.code}</span>
+                        {visit.patient.name}
+                      </Link>
+                      <div className="text-sm text-muted-foreground">
+                        {visit.operation?.name || "N/A"}
+                        {visit.doctor && ` · Dr. ${visit.doctor.name}`}
+                        {" · "}{format(new Date(visit.visitDate), "MMM d")}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <div className="text-sm font-medium">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
-                      {balance > 0 ? (
-                        <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">Paid</Badge>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="text-sm font-medium">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
+                        {balance > 0 ? (
+                          <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Paid</Badge>
+                        )}
+                      </div>
+                      {canCollect && balance > 0 && (
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/patients/${visit.patient.id}/checkout`}>Pay</Link>
+                        </Button>
                       )}
                     </div>
-                    {canCollect && balance > 0 && (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/patients/${visit.patient.id}/checkout`}>Pay</Link>
-                      </Button>
-                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
