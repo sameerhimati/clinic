@@ -97,7 +97,7 @@ export default async function PatientsPage({
                 <Link
                   key={patient.id}
                   href={`/patients/${patient.id}`}
-                  className={`flex items-center justify-between p-4 hover:bg-accent transition-colors ${isExactMatch ? "bg-accent/50" : ""}`}
+                  className={`flex items-center justify-between px-4 py-2.5 hover:bg-accent transition-colors ${isExactMatch ? "bg-accent/50" : ""}`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-mono font-bold text-primary text-base">

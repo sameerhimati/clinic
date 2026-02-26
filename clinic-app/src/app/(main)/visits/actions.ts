@@ -21,6 +21,23 @@ export async function createVisit(formData: FormData) {
 
   if (!patientId) throw new Error("Patient is required");
 
+  // Server-side discount validation — enforce tier limits by role
+  const rawDiscount = isDoctor ? 0 : (parseFloat(formData.get("discount") as string) || 0);
+  const rawRate = isDoctor
+    ? (operationId ? (await prisma.operation.findUnique({ where: { id: operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
+    : (parseFloat(formData.get("operationRate") as string) || 0);
+
+  let validatedDiscount = rawDiscount;
+  if (!isDoctor && rawRate > 0 && rawDiscount > 0) {
+    const discountPercent = (rawDiscount / rawRate) * 100;
+    // L3 (doctor): max 10%, L2 (reception): max 15%, L0/L1 (admin): unlimited
+    const maxPercent = currentUser.permissionLevel >= 3 ? 10 : currentUser.permissionLevel >= 2 ? 15 : 100;
+    if (discountPercent > maxPercent + 0.5) { // 0.5% tolerance for rounding
+      throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
+    }
+    validatedDiscount = Math.min(rawDiscount, rawRate); // Can't exceed rate
+  }
+
   // Auto-generate case number
   const maxCase = await prisma.visit.aggregate({ _max: { caseNo: true } });
   const nextCaseNo = (maxCase._max.caseNo || 80000) + 1;
@@ -56,10 +73,8 @@ export async function createVisit(formData: FormData) {
       parentVisitId: resolvedParentId,
       stepLabel,
       operationId,
-      operationRate: isDoctor
-        ? (operationId ? (await prisma.operation.findUnique({ where: { id: operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
-        : (parseFloat(formData.get("operationRate") as string) || 0),
-      discount: isDoctor ? 0 : (parseFloat(formData.get("discount") as string) || 0),
+      operationRate: rawRate,
+      discount: validatedDiscount,
       doctorId,
       assistingDoctorId: assistingDoctorId || null,
       doctorCommissionPercent: commPercent,

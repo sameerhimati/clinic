@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**. 33 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**, **Tariff Card Integration (65 SDH procedures with auto-fill pricing, tiered discounts, visit form overhaul, terminology consistency)**. 34 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -105,6 +105,17 @@ When ready to go live with real data:
   - Recent visits table (last 20, date-filtered): patient, operation, visit type, exam status
   - Follow-up pipeline: treatment chains with step count, last visit date, exam status
   - No financial data shown — purely clinical
+
+---
+
+## UX Audit & Tariff Integration [DONE]
+
+- [x] **Tariff Card Integration** — 65 procedures from SDH Tariff Card (50 adult + 10 pedo + 5 utility), `defaultMinFee` = tariff rate
+- [x] **Tariff Auto-Fill** — Visit form auto-fills rate on treatment selection, shows tariff reference inline
+- [x] **Tiered Discount System** — Role-based tiers (10%/15%/20%) with server-side validation, admin custom amounts
+- [x] **Visit Form Overhaul** — Reordered fields, collapsible lab section, removed card bloat
+- [x] **Terminology Consistency** — "Operation/Procedure" → "Treatment" across all pages
+- [x] **UX Cleanup** — Removed verbose descriptions, tightened table rows, simplified section headers, cleaned empty states
 
 ---
 

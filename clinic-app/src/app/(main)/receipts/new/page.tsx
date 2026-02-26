@@ -58,12 +58,8 @@ export default async function NewReceiptPage({
       <h2 className="text-2xl font-bold">New Receipt</h2>
 
       {pendingVisits.length === 0 ? (
-        <div className="rounded-md border bg-muted/50 p-8 text-center">
-          <p className="text-lg font-medium">No pending bills</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            All visits have been fully paid. Receipts can only be created for
-            visits with outstanding balance.
-          </p>
+        <div className="rounded-md border bg-muted/50 p-6 text-center text-muted-foreground">
+          No pending bills
         </div>
       ) : (
         <ReceiptForm

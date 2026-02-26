@@ -156,8 +156,7 @@ export default async function PatientDetailPage({
       <div className="sticky top-14 z-30 bg-background border-b shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] -mx-4 px-4 md:-mx-6 md:px-6 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-primary text-primary-foreground rounded-lg px-3 py-1.5 text-center shrink-0">
-              <div className="text-[10px] uppercase tracking-wide opacity-80">Patient</div>
+            <div className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center shrink-0">
               <div className="text-xl font-bold font-mono">#{patient.code}</div>
             </div>
             <div className="min-w-0">
@@ -253,15 +252,12 @@ export default async function PatientDetailPage({
       {/* ═══ Upcoming Appointments ═══ */}
       {upcomingAppointments.length > 0 && (
         <section>
-          <h3 className="text-lg font-semibold border-b pb-2 mb-2 flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Upcoming Appointments
-          </h3>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Upcoming Appointments</h3>
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
                 {upcomingAppointments.map((appt) => (
-                  <div key={appt.id} className="flex items-center justify-between p-4">
+                  <div key={appt.id} className="flex items-center justify-between px-4 py-2.5">
                     <div>
                       <div className="font-medium">
                         {format(new Date(appt.date), "MMM d, yyyy")}
@@ -283,7 +279,7 @@ export default async function PatientDetailPage({
 
       {/* ═══ Treatment History ═══ */}
       <section>
-        <h3 className="text-lg font-semibold border-b pb-2 mb-2">Treatment History</h3>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Treatment History</h3>
         <TreatmentTimeline
           visits={topLevelVisits as any}
           showInternalCosts={showInternalCosts}
@@ -293,7 +289,7 @@ export default async function PatientDetailPage({
 
       {/* ═══ Files & Images ═══ */}
       <section>
-        <h3 className="text-lg font-semibold border-b pb-2 mb-2">Files & Images ({patient.files.length})</h3>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Files ({patient.files.length})</h3>
         <div className="space-y-4">
           <FileUpload patientId={patient.id} />
           <FileGallery
@@ -305,7 +301,7 @@ export default async function PatientDetailPage({
 
       {/* ═══ Patient Information ═══ */}
       <section>
-        <h3 className="text-lg font-semibold border-b pb-2 mb-2">Patient Information</h3>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Patient Information</h3>
         <Card>
           <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -344,13 +340,13 @@ export default async function PatientDetailPage({
 
       {/* ═══ Receipts — hidden for doctors ═══ */}
       {currentUser.permissionLevel <= 2 && <section>
-          <h3 className="text-lg font-semibold border-b pb-2 mb-2">Receipts</h3>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Receipts</h3>
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
                 {patient.visits.flatMap((visit) =>
                   visit.receipts.map((receipt) => (
-                    <div key={receipt.id} className="flex items-center justify-between p-4">
+                    <div key={receipt.id} className="flex items-center justify-between px-4 py-2.5">
                       <div>
                         <div className="font-medium flex items-center gap-2">
                           {receipt.receiptNo && (
@@ -369,7 +365,7 @@ export default async function PatientDetailPage({
                   ))
                 )}
                 {patient.visits.flatMap((v) => v.receipts).length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">No receipts recorded</div>
+                  <div className="p-4 text-center text-sm text-muted-foreground">No receipts</div>
                 )}
               </div>
             </CardContent>

@@ -34,7 +34,7 @@ export default async function OperationsPage() {
         <ArrowLeft className="h-3 w-3" /> Settings
       </Link>
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Operations / Procedures</h2>
+        <h2 className="text-2xl font-bold">Treatments & Tariff</h2>
       </div>
 
       {/* Add new operation */}
@@ -55,11 +55,8 @@ export default async function OperationsPage() {
                       {!op.isActive && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                     </div>
                     <div className="flex items-center gap-3">
-                      {op.defaultMinFee != null && (
-                        <span className="text-muted-foreground">{"\u20B9"}{op.defaultMinFee}</span>
-                      )}
-                      {op.defaultMaxFee != null && (
-                        <span className="text-muted-foreground">- {"\u20B9"}{op.defaultMaxFee}</span>
+                      {op.defaultMinFee != null && op.defaultMinFee > 0 && (
+                        <span className="font-mono text-sm tabular-nums">{"\u20B9"}{op.defaultMinFee.toLocaleString("en-IN")}</span>
                       )}
                       <form action={toggleOperationActive}>
                         <input type="hidden" name="id" value={op.id} />

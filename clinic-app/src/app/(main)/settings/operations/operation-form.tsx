@@ -16,14 +16,14 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
   if (!open) {
     return (
       <Button variant="outline" onClick={() => setOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />Add Operation
+        <Plus className="mr-2 h-4 w-4" />Add Treatment
       </Button>
     );
   }
 
   return (
     <Card>
-      <CardHeader><CardTitle>New Operation</CardTitle></CardHeader>
+      <CardHeader><CardTitle>New Treatment</CardTitle></CardHeader>
       <CardContent>
         <form
           action={(formData) => {
@@ -40,25 +40,20 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
         >
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
-            <Input name="name" required placeholder="e.g., VENEER" />
+            <Input name="name" required placeholder="e.g., Veneers" />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
-            <Input name="category" list="categories" placeholder="e.g., Cosmetic" />
+            <Input name="category" list="categories" placeholder="e.g., Prosthodontics" />
             <datalist id="categories">
               {categories.map((c) => <option key={c} value={c} />)}
             </datalist>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="defaultMinFee">Default Min Fee (₹)</Label>
-            <Input name="defaultMinFee" type="number" step="0.01" min="0" />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="defaultMaxFee">Default Max Fee (₹)</Label>
-            <Input name="defaultMaxFee" type="number" step="0.01" min="0" />
+            <Label htmlFor="defaultMinFee">Tariff Rate (₹)</Label>
+            <Input name="defaultMinFee" type="number" step="1" min="0" />
           </div>
 
           <div className="sm:col-span-2 flex gap-2">

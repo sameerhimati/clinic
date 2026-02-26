@@ -307,7 +307,7 @@ export default async function VisitDetailPage({
       <Card>
         <CardHeader><CardTitle>Visit Details</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <DetailRow label="Operation" value={visit.operation?.name} />
+          <DetailRow label="Treatment" value={visit.operation?.name} />
           {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
           <DetailRow label="Doctor" value={visit.doctor?.name} />
           {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}

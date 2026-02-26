@@ -26,10 +26,7 @@ export default async function SettingsPage() {
           <Link href="/settings/operations" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
             <div className="flex items-center gap-3">
               <Stethoscope className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Operations / Procedures</div>
-                <div className="text-sm text-muted-foreground">Manage dental procedures and fee schedules</div>
-              </div>
+              <div className="font-medium">Treatments & Tariff</div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
@@ -37,10 +34,7 @@ export default async function SettingsPage() {
           <Link href="/settings/labs" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
             <div className="flex items-center gap-3">
               <FlaskConical className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Labs & Lab Rates</div>
-                <div className="text-sm text-muted-foreground">Manage dental labs and their rate cards</div>
-              </div>
+              <div className="font-medium">Labs & Lab Rates</div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
@@ -48,10 +42,7 @@ export default async function SettingsPage() {
           <Link href="/settings/rooms" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
             <div className="flex items-center gap-3">
               <DoorOpen className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Rooms</div>
-                <div className="text-sm text-muted-foreground">Manage OP rooms for appointment scheduling</div>
-              </div>
+              <div className="font-medium">Rooms</div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
@@ -111,7 +102,7 @@ async function DatabaseStats() {
       <SettingRow label="Visits" value={visits.toLocaleString()} />
       <SettingRow label="Receipts" value={receipts.toLocaleString()} />
       <SettingRow label="Doctors" value={doctors.toLocaleString()} />
-      <SettingRow label="Operations" value={operations.toLocaleString()} />
+      <SettingRow label="Treatments" value={operations.toLocaleString()} />
     </>
   );
 }

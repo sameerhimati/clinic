@@ -1,40 +1,33 @@
 # Session Handoff
-> Last updated: 2026-02-23 (Session 8)
+> Last updated: 2026-02-26 (Session 13 — UX Audit & Tariff Integration)
 
 ## Completed This Session
-- [x] **Form loading states** — all 8 forms (patient, visit, appointment, doctor, receipt, operation, lab, lab-rate) converted to `useTransition` + `toast.error()` pattern; buttons show pending text and disable during submission
-- [x] **PatientSearch in visit form** — replaced `<select>` dropdown (unusable at 40K patients) with `PatientSearch` component; removed bulk `prisma.patient.findMany()` from the page; follow-up mode shows read-only Badge
-- [x] **AlertDialog safety** — replaced `window.confirm()` with shadcn AlertDialog for patient delete (cascade warning) and file delete; added `useTransition` loading state to delete-patient
-- [x] **Password field fix** — `type="password"` (was `type="text"`), blank-on-edit preserves existing password (server action spreads conditionally)
-- [x] **Toast errors** — replaced `alert()` with `toast.error()` in appointment-day-view status changes
-- [x] **Back links on create pages** — patients/new, visits/new (context-aware), receipts/new, doctors/new, commission report, outstanding report
-- [x] **Shared StatusBadge** — extracted to `src/components/status-badge.tsx`, replaced inline ternary badges in dashboard (2×) and patient detail (1×)
-- [x] **Date filter labels** — added "From"/"To" labels on visits, receipts, commission, outstanding pages
-- [x] **Dashboard empty state** — "Today's Appointments" card always renders; shows "No appointments scheduled today" + "Schedule one" link when empty (both admin and doctor views)
-- [x] **Commission table tablet** — TDS and Net columns hidden on mobile (`hidden md:table-cell`)
-- [x] **Sidebar persistence** — collapsed state saved to `localStorage`
-- [x] **Roadmap updated** with new "UX: Form Feedback, Safety & Consistency" section
+- [x] **Tariff Card Integration** — Replaced 114 legacy operations with 65 procedures from SDH Tariff Card (50 adult + 10 pedo + 5 utility). `defaultMinFee` set to exact tariff amounts. Operation names match tariff card verbatim (e.g., "Root Canal Treatment" not "RCT", "Ceramic Crown - PFM" not "CER CROWN").
+- [x] **Tariff Auto-Fill in Visit Form** — Selecting a treatment auto-fills the Rate field with its tariff price. Tariff reference shown inline ("Tariff: ₹7,000") — click to reset. Amber indicator when rate differs from tariff.
+- [x] **Tiered Discount System** — Replaced free-text discount with role-based tier buttons: [No Discount] [10%] [15%] [20%]. L3 doctors: max 10%. L2 reception: max 15%. Admin: all tiers + Custom flat amount. Auto-calculates discount amount + live net amount summary. Server-side validation in `createVisit` rejects unauthorized discount tiers.
+- [x] **Visit Form UX Overhaul** — Reordered fields: Patient → Treatment → Rate+Discount → Doctor → Lab → Notes. Lab section collapsed by default ("Add Lab Work" toggle). Removed unnecessary Card wrappers and section headers. Single flat form layout.
+- [x] **Seed Data Updated** — All visit/receipt amounts updated to tariff prices. Categories: General, Restorative, Endodontics, Prosthodontics, Periodontics, Surgery, Orthodontics, Implants, Pedo.
+- [x] **Terminology Consistency** — "Operation/Procedure" → "Treatment" across: visit detail, settings page, operations admin page, operation create form. Settings page now shows "Treatments & Tariff".
+- [x] **UX Cleanup** — Reports page: removed card descriptions. Settings page: removed descriptive subtexts. Receipts/new: simplified empty state. Patient detail: section headers simplified to uppercase tracking-wide labels. Patient list + detail: tightened row padding for denser lists. Patient header: removed redundant "Patient" label above code.
 
 ## Current State
 - **Branch:** main
-- **Last commit:** (pending — changes staged but not yet committed)
-- **Build:** passing (31 routes, zero errors)
-- **Uncommitted changes:** yes — 25 modified + 2 new files (status-badge.tsx, alert-dialog.tsx)
+- **Build:** passing (34 routes, zero errors)
+- **Seed:** 65 operations (tariff-matched), 50 patients, 49+ visits, 10 appointments
 - **Blockers:** none
 
 ## Next Session Should
-1. **CF-4: Legacy data import** — write import script for `CLINIC.SQL` → SQLite, map patient codes (P_CODE 1–40427), case numbers (H_CASE_NO 1–80316), receipt numbers (R_NO 1–20178), validate integrity
-2. **Phase 4: Remaining reports** — Operations Report, Lab Details Report, Discount Report, Receipts Report, Doctor-Patient Report (all with date range filters + print layouts)
-3. **P3-4: Appointment enhancements** — drag-and-drop rescheduling, recurring templates for ortho adjustments
-4. **Form validation** — add zod schemas for client + server validation (currently only HTML5 required + server-side checks)
+1. **Continue UX audit** — Examine form, appointment form, doctor list/form, checkout flow, commission/outstanding reports all untouched
+2. **CF-4: Legacy data import** — write import script for `CLINIC.SQL` → SQLite
+3. **Phase 4: Remaining reports** — Operations Report, Lab Details, Discount Report, Receipts Report
+4. **Form validation** — add zod schemas for client + server validation
 
 ## Context to Remember
-- **VisitForm prop change** — `patients: Patient[]` prop removed, replaced with `defaultPatient?: SelectedPatient | null`. The page no longer loads all patients; uses `PatientSearch` with API-backed search instead. Any other caller of `VisitForm` must update accordingly (currently only `visits/new/page.tsx` uses it)
-- **Doctor password update logic** — `updateDoctor` in `doctors/actions.ts` now uses spread conditional: empty password string is excluded from the Prisma update, preserving existing password. `createDoctor` still sets password to null if empty (no login access)
-- **AlertDialog added** — installed via `bunx shadcn add alert-dialog`, creates `src/components/ui/alert-dialog.tsx`
-- **StatusBadge extraction** — `STATUS_CONFIG` and `StatusBadge` are now in `src/components/status-badge.tsx`. The `appointment-day-view.tsx` imports from there. Dashboard and patient detail also import it
-- **Sidebar localStorage key** — `"sidebar-collapsed"` stores `"true"` or `"false"`. Read on mount via `useEffect`, saved on toggle
-- **Visit form follow-up patient fetch** — when `followUp` param is present but `patientId` is not, the page fetches the patient from `rootVisit.patientId` to pass as `defaultPatient`
+- **Discount tiers** — `DISCOUNT_TIERS` array in `visit-form.tsx` defines tiers with `minLevel` (the highest permission level that can use the tier — lower number = more access). Server validation in `createVisit` uses `maxPercent` calculation.
+- **Tariff rate tracking** — `tariffRate` state in VisitForm tracks the `defaultMinFee` of the selected operation. Shown as inline label, amber when rate differs.
+- **Lab section collapsible** — `showLabSection` state in VisitForm. Defaults to false. "Add Lab Work" button expands it.
+- **Operations seed codes preserved** — Legacy codes (1, 7, 15, etc.) kept for backward compatibility. New procedures use codes 120+.
+- **`defaultMaxFee` deprecated** — Tariff card uses single price, not min/max range. `defaultMinFee` is THE tariff rate. Form label says "Tariff Rate (₹)".
 
 ## Start Command
 ```
