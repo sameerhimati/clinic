@@ -6,13 +6,16 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 
 export async function createVisit(formData: FormData) {
-  await requireAuth();
+  const currentUser = await requireAuth();
+  const isDoctor = currentUser.permissionLevel === 3;
   const patientId = parseInt(formData.get("patientId") as string);
   const operationId = formData.get("operationId") ? parseInt(formData.get("operationId") as string) : null;
-  const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
-  const assistingDoctorId = formData.get("assistingDoctorId") ? parseInt(formData.get("assistingDoctorId") as string) : null;
-  const labId = formData.get("labId") ? parseInt(formData.get("labId") as string) : null;
-  const labRateId = formData.get("labRateId") ? parseInt(formData.get("labRateId") as string) : null;
+
+  // Server-side enforcement: doctors can only set themselves, and cannot control financial/lab fields
+  const doctorId = isDoctor ? currentUser.id : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
+  const assistingDoctorId = isDoctor ? null : (formData.get("assistingDoctorId") ? parseInt(formData.get("assistingDoctorId") as string) : null);
+  const labId = isDoctor ? null : (formData.get("labId") ? parseInt(formData.get("labId") as string) : null);
+  const labRateId = isDoctor ? null : (formData.get("labRateId") ? parseInt(formData.get("labRateId") as string) : null);
   const visitType = (formData.get("visitType") as string) || "NEW";
   const parentVisitId = formData.get("parentVisitId") ? parseInt(formData.get("parentVisitId") as string) : null;
 
@@ -53,15 +56,17 @@ export async function createVisit(formData: FormData) {
       parentVisitId: resolvedParentId,
       stepLabel,
       operationId,
-      operationRate: parseFloat(formData.get("operationRate") as string) || 0,
-      discount: parseFloat(formData.get("discount") as string) || 0,
+      operationRate: isDoctor
+        ? (operationId ? (await prisma.operation.findUnique({ where: { id: operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
+        : (parseFloat(formData.get("operationRate") as string) || 0),
+      discount: isDoctor ? 0 : (parseFloat(formData.get("discount") as string) || 0),
       doctorId,
       assistingDoctorId: assistingDoctorId || null,
       doctorCommissionPercent: commPercent,
       labId,
       labRateId,
-      labRateAmount: parseFloat(formData.get("labRateAmount") as string) || 0,
-      labQuantity: parseFloat(formData.get("labQuantity") as string) || 1,
+      labRateAmount: isDoctor ? 0 : (parseFloat(formData.get("labRateAmount") as string) || 0),
+      labQuantity: isDoctor ? 1 : (parseFloat(formData.get("labQuantity") as string) || 1),
       notes: (formData.get("notes") as string) || null,
     },
   });

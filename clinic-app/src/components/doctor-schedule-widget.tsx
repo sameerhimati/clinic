@@ -91,57 +91,69 @@ export function DoctorScheduleWidget({
             <div className="px-4 py-1.5 text-xs font-semibold text-primary/70 uppercase tracking-wider bg-muted/50">
               {period}
             </div>
-            <div className="divide-y">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
               {periodAppts.map((appt) => {
                 const isCompleted = appt.status === "COMPLETED";
+                const isCancelled = appt.status === "CANCELLED" || appt.status === "NO_SHOW";
                 const isNext = nextUp?.id === appt.id;
                 return (
                   <div
                     key={appt.id}
-                    className={`flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-accent transition-colors ${
-                      isCompleted ? "opacity-50" : ""
+                    className={`rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors ${
+                      isCompleted || isCancelled ? "opacity-50" : ""
                     } ${isNext ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
                     onClick={() => router.push(`/patients/${appt.patientId}`)}
                   >
-                    <span className="text-muted-foreground text-xs w-16 shrink-0">
-                      {appt.timeSlot || "—"}
-                    </span>
-                    <span className="min-w-0 truncate flex-1">
-                      <span className="font-mono text-muted-foreground mr-1">
-                        #{appt.patientCode}
-                      </span>
-                      <span className={`font-medium ${isCompleted ? "line-through" : ""}`}>{appt.patientName}</span>
-                      {isNext && (
-                        <Badge variant="default" className="ml-2 text-[10px] px-1.5 py-0">NEXT</Badge>
-                      )}
-                    </span>
-                    <StatusBadge status={appt.status} />
-                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                      {appt.status === "SCHEDULED" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => handleStatusChange(appt.id, "ARRIVED")}
-                          disabled={isPending}
-                        >
-                          Arrived
-                        </Button>
-                      )}
-                      {appt.status === "ARRIVED" && (
-                        <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-                          <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
-                            Start Visit
-                          </Link>
-                        </Button>
-                      )}
-                      {appt.status === "IN_PROGRESS" && appt.visitId && (
-                        <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-                          <Link href={`/visits/${appt.visitId}/examine`}>
-                            Examine
-                          </Link>
-                        </Button>
-                      )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-muted-foreground">
+                            {appt.timeSlot || "—"}
+                          </span>
+                          <StatusBadge status={appt.status} />
+                          {isNext && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">NEXT</Badge>
+                          )}
+                        </div>
+                        <div className="truncate">
+                          <span className="font-mono text-xs text-muted-foreground mr-1">
+                            #{appt.patientCode}
+                          </span>
+                          <span className={`font-medium text-sm ${isCompleted ? "line-through" : ""}`}>
+                            {appt.patientName}
+                          </span>
+                        </div>
+                        {appt.reason && (
+                          <div className="text-xs text-muted-foreground truncate mt-0.5">{appt.reason}</div>
+                        )}
+                      </div>
+                      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {appt.status === "SCHEDULED" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => handleStatusChange(appt.id, "ARRIVED")}
+                            disabled={isPending}
+                          >
+                            Arrived
+                          </Button>
+                        )}
+                        {appt.status === "ARRIVED" && (
+                          <Button size="sm" variant="default" className="h-7 text-xs" asChild>
+                            <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
+                              Start Visit
+                            </Link>
+                          </Button>
+                        )}
+                        {appt.status === "IN_PROGRESS" && appt.visitId && (
+                          <Button size="sm" variant="default" className="h-7 text-xs" asChild>
+                            <Link href={`/visits/${appt.visitId}/examine`}>
+                              Examine
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

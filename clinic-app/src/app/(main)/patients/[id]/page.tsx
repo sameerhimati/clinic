@@ -198,18 +198,23 @@ export default async function PatientDetailPage({
                 </Link>
               </Button>
             )}
-            <Button size="sm" variant="outline" asChild>
-              <Link href={`/visits/new?patientId=${patient.id}`}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                New Visit
-              </Link>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <Link href={`/appointments/new?patientId=${patient.id}`}>
-                <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                Schedule
-              </Link>
-            </Button>
+            {/* New Visit + Schedule — reception/admin only */}
+            {currentUser.permissionLevel <= 2 && (
+              <>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/visits/new?patientId=${patient.id}`}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    New Visit
+                  </Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/appointments/new?patientId=${patient.id}`}>
+                    <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                    Schedule
+                  </Link>
+                </Button>
+              </>
+            )}
             {canEditPatients(currentUser.permissionLevel) && (
               <>
                 <Button variant="outline" size="sm" asChild>
@@ -337,8 +342,8 @@ export default async function PatientDetailPage({
         </Card>
       </section>
 
-      {/* ═══ Receipts ═══ */}
-      <section>
+      {/* ═══ Receipts — hidden for doctors ═══ */}
+      {currentUser.permissionLevel <= 2 && <section>
           <h3 className="text-lg font-semibold border-b pb-2 mb-2">Receipts</h3>
           <Card>
             <CardContent className="p-0">
@@ -369,7 +374,7 @@ export default async function PatientDetailPage({
               </div>
             </CardContent>
           </Card>
-      </section>
+      </section>}
     </div>
   );
 }

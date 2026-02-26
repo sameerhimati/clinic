@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
-import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
+import { updateAppointmentStatus, claimAppointment } from "@/app/(main)/appointments/actions";
 import { StatusBadge } from "@/components/status-badge";
 
 type Appointment = {
@@ -167,11 +167,13 @@ function AppointmentCard({
   compact,
   showDoctorName,
   onStatusChange,
+  onClaim,
 }: {
   appt: Appointment;
   compact?: boolean;
   showDoctorName?: boolean;
   onStatusChange: (id: number, status: string, reason?: string) => void;
+  onClaim?: (id: number) => void;
 }) {
   const router = useRouter();
   const isCancelled = appt.status === "CANCELLED";
@@ -215,6 +217,19 @@ function AppointmentCard({
       <div className="flex items-center gap-1 flex-wrap">
         <StatusBadge status={appt.status} />
         <PrimaryAction appt={appt} onStatusChange={onStatusChange} />
+        {onClaim && !appt.doctorId && appt.status === "ARRIVED" && (
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim(appt.id);
+            }}
+          >
+            Claim
+          </Button>
+        )}
       </div>
       {appt.cancelReason && (
         <div className="text-muted-foreground italic">
@@ -357,6 +372,18 @@ export function AppointmentDayView({
     });
   }
 
+  function handleClaim(appointmentId: number) {
+    startTransition(async () => {
+      try {
+        await claimAppointment(appointmentId);
+        toast.success("Appointment claimed");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to claim");
+      }
+    });
+  }
+
   function handleCancelConfirm() {
     if (!cancelDialogId || !cancelReason.trim()) return;
     startTransition(async () => {
@@ -378,12 +405,14 @@ export function AppointmentDayView({
           <CalendarDays className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-2xl font-bold">Appointments</h2>
         </div>
-        <Button asChild>
-          <Link href="/appointments/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Schedule
-          </Link>
-        </Button>
+        {!isDoctor && (
+          <Button asChild>
+            <Link href="/appointments/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Schedule
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Date navigation */}
@@ -564,6 +593,7 @@ export function AppointmentDayView({
                             compact
                             showDoctorName={viewMode === "room"}
                             onStatusChange={handleStatusChange}
+                            onClaim={isDoctor ? handleClaim : undefined}
                           />
                         ))}
                       </div>
@@ -587,6 +617,7 @@ export function AppointmentDayView({
                     appt={appt}
                     showDoctorName={viewMode === "room"}
                     onStatusChange={handleStatusChange}
+                    onClaim={isDoctor ? handleClaim : undefined}
                   />
                 ))}
               </div>
@@ -642,6 +673,16 @@ export function AppointmentDayView({
                       )}
                       <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                         <PrimaryAction appt={appt} onStatusChange={handleStatusChange} />
+                        {isDoctor && !appt.doctorId && appt.status === "ARRIVED" && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-7 text-xs"
+                            onClick={() => handleClaim(appt.id)}
+                          >
+                            Claim
+                          </Button>
+                        )}
                       </div>
                       {appt.cancelReason && (
                         <div className="text-xs text-muted-foreground italic">

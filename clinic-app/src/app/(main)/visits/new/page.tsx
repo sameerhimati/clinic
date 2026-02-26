@@ -125,12 +125,13 @@ export default async function NewVisitPage({
         doctors={doctors}
         labs={labs}
         defaultPatient={defaultPatient}
-        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : undefined}
+        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : (currentUser.permissionLevel === 3 ? currentUser.id : undefined)}
         action={createVisit}
         mode={mode}
         parentVisit={parentVisit}
         showInternalCosts={showInternalCosts}
         appointmentId={appointment?.id}
+        permissionLevel={currentUser.permissionLevel}
       />
     </div>
   );
