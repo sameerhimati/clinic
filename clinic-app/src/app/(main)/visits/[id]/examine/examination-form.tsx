@@ -351,9 +351,14 @@ export function ExaminationForm({
                       : "bg-muted hover:bg-accent"
                   }`}
                   onClick={() => {
-                    const parts = complaint.toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
-                    if (parts.includes(c)) return; // already selected
-                    setComplaint(complaint ? complaint + ", " + c : c);
+                    const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
+                    const upperParts = parts.map(s => s.toUpperCase());
+                    if (upperParts.includes(c)) {
+                      // Deselect: remove this complaint
+                      setComplaint(parts.filter((_, i) => upperParts[i] !== c).join(", "));
+                    } else {
+                      setComplaint(complaint ? complaint + ", " + c : c);
+                    }
                   }}
                 >
                   {c}

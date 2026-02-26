@@ -571,7 +571,7 @@ export function VisitForm({
         <Textarea name="notes" rows={2} placeholder="Optional visit notes..." />
       </div>
 
-      <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+      <Button type="submit" disabled={isPending || !selectedPatient} className="w-full sm:w-auto">
         {isPending ? "Creating..." : (isFollowUp ? "Create Follow-up" : "Create Visit")}
       </Button>
     </form>

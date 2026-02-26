@@ -84,11 +84,10 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
   if (!appointment) throw new Error("Appointment not found");
   if (appointment.status !== "SCHEDULED") throw new Error("Can only edit scheduled appointments");
 
-  const dateStr = formData.get("date") as string;
-  if (!dateStr) throw new Error("Date is required");
+  const parsed = parseFormData(appointmentSchema, formData);
 
   // Validate date is today or future
-  const updateDate = new Date(dateStr);
+  const updateDate = new Date(parsed.date);
   updateDate.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -97,21 +96,17 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
   // L3 doctors can only assign appointments to themselves
   const doctorId = currentUser.permissionLevel === 3
     ? currentUser.id
-    : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
-  const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
-  const timeSlot = (formData.get("timeSlot") as string) || null;
-  const reason = (formData.get("reason") as string) || null;
-  const notes = (formData.get("notes") as string) || null;
+    : (parsed.doctorId || null);
 
   await prisma.appointment.update({
     where: { id: appointmentId },
     data: {
-      date: new Date(dateStr),
+      date: updateDate,
       doctorId: doctorId || null,
-      roomId: roomId || null,
-      timeSlot,
-      reason,
-      notes,
+      roomId: parsed.roomId || null,
+      timeSlot: parsed.timeSlot,
+      reason: parsed.reason,
+      notes: parsed.notes,
     },
   });
 
