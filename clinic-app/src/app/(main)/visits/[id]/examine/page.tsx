@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
 import { requireAuth } from "@/lib/auth";
 import { isReportLocked, hoursUntilAutoLock, isAdmin } from "@/lib/permissions";
+import { todayString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -46,11 +46,46 @@ export default async function ExaminePage({
   const canUnlock = isAdmin(currentUser.permissionLevel);
   const hoursLeft = existingReport && !locked ? hoursUntilAutoLock(existingReport) : 0;
 
+  // Compute next patient for "Save & Next" (D2)
+  // Find today's appointments for this doctor, filter to ARRIVED+SCHEDULED, exclude current patient
+  let nextPatientId: number | null = null;
+  let nextPatientCode: number | null = null;
+  if (currentUser.permissionLevel === 3) {
+    const today = todayString();
+    const todayDate = new Date(today);
+    const tomorrowDate = new Date(todayDate.getTime() + 86400000);
+
+    const queueAppointments = await prisma.appointment.findMany({
+      where: {
+        doctorId: currentUser.id,
+        date: { gte: todayDate, lt: tomorrowDate },
+        status: { in: ["ARRIVED", "SCHEDULED"] },
+        patientId: { not: visit.patientId },
+      },
+      include: {
+        patient: { select: { id: true, code: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // ARRIVED first, then SCHEDULED
+    const arrived = queueAppointments.filter(a => a.status === "ARRIVED");
+    const scheduled = queueAppointments.filter(a => a.status === "SCHEDULED");
+    const nextAppt = arrived[0] || scheduled[0];
+    if (nextAppt) {
+      nextPatientId = nextAppt.patient.id;
+      nextPatientCode = nextAppt.patient.code;
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
-      <Link href={`/visits/${visitId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Case #{visit.caseNo || visit.id}
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Patients", href: "/patients" },
+        { label: visit.patient.name, href: `/patients/${visit.patient.id}` },
+        { label: `Case #${visit.caseNo || visit.id}`, href: `/visits/${visitId}` },
+        { label: "Examination" },
+      ]} />
       <div>
         <h2 className="text-2xl font-bold">
           Clinical Examination — Case #{visit.caseNo || visit.id}
@@ -69,6 +104,7 @@ export default async function ExaminePage({
 
       <ExaminationForm
         visitId={visitId}
+        patientId={visit.patientId}
         defaultDoctorId={visit.doctorId}
         defaultDoctorName={visit.doctor?.name || null}
         existingReport={existingReport ? {
@@ -96,6 +132,8 @@ export default async function ExaminePage({
         lockedByName={existingReport?.lockedBy?.name ?? null}
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
         permissionLevel={currentUser.permissionLevel}
+        nextPatientId={nextPatientId}
+        nextPatientCode={nextPatientCode}
       />
     </div>
   );

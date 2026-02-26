@@ -119,34 +119,14 @@ async function main() {
   // LABS (28 dental laboratories)
   // ==========================================
   const labs = [
-    { code: 1, name: "MURALI DENTAL LAB" },
-    { code: 2, name: "VIJAYA LAB" },
-    { code: 3, name: "UZHAIR LAB" },
-    { code: 4, name: "TOOTH SHADES" },
-    { code: 5, name: "MAHENDRANATH REDDY" },
-    { code: 6, name: "M.M. ALI" },
-    { code: 7, name: "SAI DENTAL LAB" },
-    { code: 8, name: "DENTAL AVENUE" },
-    { code: 9, name: "GLOBAL ESTHETICS" },
-    { code: 10, name: "MAJID LAB" },
-    { code: 11, name: "VENKAT LAB" },
-    { code: 12, name: "ESHWAR (ORTHO) DENTAL LAB" },
-    { code: 13, name: "ADVANTAGE / ARTISAN DENTAL LAB" },
-    { code: 14, name: "KATARA DENTAL (Pune & Hyd)" },
-    { code: 15, name: "VENKAIAH DENTAL LAB" },
-    { code: 16, name: "VITALIUM LAB" },
-    { code: 17, name: "KNACK DENTAL LAB" },
-    { code: 18, name: "SHIVAM DANTAKALA" },
-    { code: 19, name: "SOUTHMAN DENTAL LAB" },
-    { code: 20, name: "SUDHA DENTAL LAB" },
-    { code: 21, name: "K.L. DENTAL LAB" },
-    { code: 22, name: "INDIAN DENTAL LAB" },
-    { code: 23, name: "DIVYA DENTAL LAB" },
-    { code: 24, name: "K.P. DENTAL LAB" },
-    { code: 25, name: "LAKSHMI DENTAL LAB" },
-    { code: 26, name: "AL-ZUBAIDI DENTAL LAB" },
-    { code: 27, name: "DENTCARE DENTAL LAB" },
-    { code: 28, name: "CONFIDENCE DENTAL LAB" },
+    { code: 1, name: "Dentcare Pvt Ltd" },
+    { code: 2, name: "Knack Dental" },
+    { code: 3, name: "Divya Dental" },
+    { code: 4, name: "Confidence Dental" },
+    { code: 5, name: "Illusion Dental" },
+    { code: 6, name: "MM Ortho" },
+    { code: 7, name: "Invisalign" },
+    { code: 8, name: "Dento Crafts Digital" },
   ];
   await prisma.lab.createMany({ data: labs });
 
@@ -273,7 +253,7 @@ async function main() {
   const xray = await prisma.operation.findFirst({ where: { code: 31 } });       // X-Ray (IOPA)
   const flap = await prisma.operation.findFirst({ where: { code: 4 } });        // Flap Surgery
 
-  const lab7 = await prisma.lab.findFirst({ where: { code: 7 } });
+  const lab7 = await prisma.lab.findFirst({ where: { code: 1 } }); // Dentcare Pvt Ltd
 
   const today = new Date();
   const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000);
@@ -286,7 +266,7 @@ async function main() {
   const ncBridge = await prisma.operation.findFirst({ where: { code: 21 } });    // Bridge (Ceramic)
 
   // Look up labs for scenarios
-  const lab14 = await prisma.lab.findFirst({ where: { code: 14 } }); // KATARA DENTAL
+  const lab14 = await prisma.lab.findFirst({ where: { code: 2 } }); // Knack Dental
 
   const visits = [
     // Today's visits (tariff prices)
@@ -743,37 +723,85 @@ async function main() {
   // LAB RATES (sample for SAI DENTAL LAB - lab 7)
   // ==========================================
   const labRates = [
-    { labId: 7, itemCode: 1, itemName: "CER CROWN", rate: 550 },
-    { labId: 7, itemCode: 2, itemName: "N.C CROWN", rate: 160 },
-    { labId: 7, itemCode: 3, itemName: "CER BRIDGE", rate: 550 },
-    { labId: 7, itemCode: 4, itemName: "CER FACING", rate: 400 },
-    { labId: 7, itemCode: 6, itemName: "TEMPORARY", rate: 40 },
-    { labId: 7, itemCode: 7, itemName: "BLEACHING TRAY", rate: 500 },
-    { labId: 7, itemCode: 8, itemName: "C.D.", rate: 0 },
-    { labId: 7, itemCode: 9, itemName: "RPD", rate: 0 },
-    { labId: 7, itemCode: 10, itemName: "SPLINT", rate: 0 },
-    { labId: 7, itemCode: 11, itemName: "3D CERAMIC", rate: 800 },
-    { labId: 7, itemCode: 12, itemName: "REPAIR", rate: 0 },
-    { labId: 7, itemCode: 13, itemName: "NIGHT GUARD", rate: 0 },
-    { labId: 7, itemCode: 14, itemName: "ALL CERAMIC", rate: 0 },
-    { labId: 7, itemCode: 15, itemName: "APPLIANCE", rate: 0 },
-    { labId: 7, itemCode: 16, itemName: "3D DESIGN CERAMIC", rate: 900 },
-    { labId: 7, itemCode: 17, itemName: "VALPLAST", rate: 0 },
-    { labId: 7, itemCode: 18, itemName: "F.P.D.", rate: 0 },
-    { labId: 7, itemCode: 19, itemName: "LAMINATES", rate: 0 },
-    { labId: 7, itemCode: 20, itemName: "COPING", rate: 0 },
-    // A few for other labs
-    { labId: 2, itemCode: 1, itemName: "CER CROWN", rate: 600 },
-    { labId: 2, itemCode: 2, itemName: "N.C CROWN", rate: 160 },
-    { labId: 2, itemCode: 3, itemName: "CER FACING", rate: 430 },
-    { labId: 2, itemCode: 4, itemName: "CER BRIDGE", rate: 600 },
-    { labId: 6, itemCode: 1, itemName: "CER CROWN", rate: 500 },
-    { labId: 6, itemCode: 2, itemName: "CER FACING", rate: 400 },
-    { labId: 6, itemCode: 3, itemName: "CER BRIDGE", rate: 500 },
-    { labId: 6, itemCode: 4, itemName: "N.C CROWN", rate: 150 },
-    { labId: 9, itemCode: 1, itemName: "CER CROWN", rate: 600 },
-    { labId: 9, itemCode: 2, itemName: "CER BRIDGE", rate: 600 },
-    { labId: 9, itemCode: 3, itemName: "CER FACING", rate: 400 },
+    // --- Dentcare Pvt Ltd (code 1) — 15 items ---
+    { labId: 1, itemCode: 1, itemName: "DC Zir Smile-Zirconia", rate: 1800 },
+    { labId: 1, itemCode: 2, itemName: "DC Zir Core-Zirconia", rate: 1800 },
+    { labId: 1, itemCode: 3, itemName: "DC Solid Plus-Zirconia", rate: 2300 },
+    { labId: 1, itemCode: 4, itemName: "DC Bruxcare-Zirconia", rate: 3200 },
+    { labId: 1, itemCode: 5, itemName: "DC Ultra Plus-Zirconia", rate: 3400 },
+    { labId: 1, itemCode: 6, itemName: "DC DMLS Crown", rate: 1800 },
+    { labId: 1, itemCode: 7, itemName: "DC PFM Crown", rate: 1500 },
+    { labId: 1, itemCode: 8, itemName: "DC Implant Crown", rate: 4500 },
+    { labId: 1, itemCode: 9, itemName: "DC Flexible RPD", rate: 2300 },
+    { labId: 1, itemCode: 10, itemName: "DC Upper CD", rate: 4800 },
+    { labId: 1, itemCode: 11, itemName: "DC Lower CD", rate: 4800 },
+    { labId: 1, itemCode: 12, itemName: "DC Complete Denture", rate: 9500 },
+    { labId: 1, itemCode: 13, itemName: "DC Upper CD-BPS", rate: 7000 },
+    { labId: 1, itemCode: 14, itemName: "DC Lower CD-BPS", rate: 7000 },
+    { labId: 1, itemCode: 15, itemName: "DC Complete Denture-BPS", rate: 13000 },
+    // --- Knack Dental (code 2) — 14 items ---
+    { labId: 2, itemCode: 1, itemName: "KDL Zirconia", rate: 2000 },
+    { labId: 2, itemCode: 2, itemName: "KDL E Max Crown", rate: 2200 },
+    { labId: 2, itemCode: 3, itemName: "KDL DMLS Crown", rate: 900 },
+    { labId: 2, itemCode: 4, itemName: "KDL PFM Crown", rate: 650 },
+    { labId: 2, itemCode: 5, itemName: "KDL Surgical Guide", rate: 3000 },
+    { labId: 2, itemCode: 6, itemName: "KDL Screw Retained Crown", rate: 2800 },
+    { labId: 2, itemCode: 7, itemName: "KDL Implant Crown", rate: 650 },
+    { labId: 2, itemCode: 8, itemName: "KDL Ceramic Facing", rate: 500 },
+    { labId: 2, itemCode: 9, itemName: "KDL NC Crown", rate: 400 },
+    { labId: 2, itemCode: 10, itemName: "KDL Temporary", rate: 200 },
+    { labId: 2, itemCode: 11, itemName: "KDL Night Guard", rate: 650 },
+    { labId: 2, itemCode: 12, itemName: "KDL Retainer", rate: 700 },
+    { labId: 2, itemCode: 13, itemName: "KDL Flexible RPD", rate: 2300 },
+    { labId: 2, itemCode: 14, itemName: "KDL BPS Denture", rate: 11000 },
+    // --- Divya Dental (code 3) — 10 items ---
+    { labId: 3, itemCode: 1, itemName: "DD RPD", rate: 200 },
+    { labId: 3, itemCode: 2, itemName: "DD Upper CD", rate: 2800 },
+    { labId: 3, itemCode: 3, itemName: "DD Lower CD", rate: 2800 },
+    { labId: 3, itemCode: 4, itemName: "DD Complete Denture", rate: 5500 },
+    { labId: 3, itemCode: 5, itemName: "DD Upper CD-BPS", rate: 5600 },
+    { labId: 3, itemCode: 6, itemName: "DD Lower CD-BPS", rate: 5600 },
+    { labId: 3, itemCode: 7, itemName: "DD Complete Denture-BPS", rate: 11000 },
+    { labId: 3, itemCode: 8, itemName: "DD Flexible RPD", rate: 2000 },
+    { labId: 3, itemCode: 9, itemName: "DD Night Guard", rate: 1000 },
+    { labId: 3, itemCode: 10, itemName: "DD Retainer", rate: 500 },
+    // --- Confidence Dental (code 4) — 9 items ---
+    { labId: 4, itemCode: 1, itemName: "CDL Zirconia", rate: 1800 },
+    { labId: 4, itemCode: 2, itemName: "CDL DMLS Crown", rate: 800 },
+    { labId: 4, itemCode: 3, itemName: "CDL PFM Crown", rate: 500 },
+    { labId: 4, itemCode: 4, itemName: "CDL Implant Crown", rate: 2500 },
+    { labId: 4, itemCode: 5, itemName: "CDL Ceramic Facing", rate: 450 },
+    { labId: 4, itemCode: 6, itemName: "CDL NC Crown", rate: 300 },
+    { labId: 4, itemCode: 7, itemName: "CDL Temporary", rate: 150 },
+    { labId: 4, itemCode: 8, itemName: "CDL Night Guard", rate: 500 },
+    { labId: 4, itemCode: 9, itemName: "CDL Retainer", rate: 500 },
+    // --- Illusion Dental (code 5) — 8 items ---
+    { labId: 5, itemCode: 1, itemName: "ILSN Zirconia", rate: 2200 },
+    { labId: 5, itemCode: 2, itemName: "ILSN DMLS Crown", rate: 1400 },
+    { labId: 5, itemCode: 3, itemName: "ILSN PFM Crown", rate: 1100 },
+    { labId: 5, itemCode: 4, itemName: "ILSN Implant Crown", rate: 4000 },
+    { labId: 5, itemCode: 5, itemName: "ILSN E Max", rate: 2500 },
+    { labId: 5, itemCode: 6, itemName: "ILSN FLX Aligners", rate: 30000 },
+    { labId: 5, itemCode: 7, itemName: "ILSN FLX Ultra Aligners", rate: 59000 },
+    { labId: 5, itemCode: 8, itemName: "ILSN FLX Unlimited Aligners", rate: 120000 },
+    // --- MM Ortho (code 6) — 5 items ---
+    { labId: 6, itemCode: 1, itemName: "MM Retainer", rate: 750 },
+    { labId: 6, itemCode: 2, itemName: "MM Space Maintainer", rate: 1400 },
+    { labId: 6, itemCode: 3, itemName: "MM Twin Block", rate: 2500 },
+    { labId: 6, itemCode: 4, itemName: "MM Bite Block", rate: 3500 },
+    { labId: 6, itemCode: 5, itemName: "MM TPA", rate: 3000 },
+    // --- Invisalign (code 7) — 5 items ---
+    { labId: 7, itemCode: 1, itemName: "INV Scanning", rate: 3000 },
+    { labId: 7, itemCode: 2, itemName: "INV Lite", rate: 110000 },
+    { labId: 7, itemCode: 3, itemName: "INV Moderate", rate: 160000 },
+    { labId: 7, itemCode: 4, itemName: "INV Comprehensive", rate: 190000 },
+    { labId: 7, itemCode: 5, itemName: "INV Retainer", rate: 23000 },
+    // --- Dento Crafts Digital (code 8) — 5 items ---
+    { labId: 8, itemCode: 1, itemName: "DCD Surgical Guide", rate: 5000 },
+    { labId: 8, itemCode: 2, itemName: "DCD Guide Sleeves", rate: 400 },
+    { labId: 8, itemCode: 3, itemName: "DCD DMLS Bar", rate: 4500 },
+    { labId: 8, itemCode: 4, itemName: "DCD Temporary", rate: 500 },
+    { labId: 8, itemCode: 5, itemName: "DCD Acrylic", rate: 300 },
   ];
   // Lab IDs are auto-incremented, need to map code to actual IDs
   for (const lr of labRates) {

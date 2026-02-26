@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import { DoctorForm } from "@/components/doctor-form";
@@ -26,9 +25,10 @@ export default async function EditDoctorPage({
 
   return (
     <div className="space-y-4">
-      <Link href="/doctors" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Doctors
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Doctors", href: "/doctors" },
+        { label: doctor.name },
+      ]} />
       <h2 className="text-2xl font-bold">Edit Doctor: {doctor.name}</h2>
       <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
     </div>

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { format } from "date-fns";
 import { amountInWords } from "@/lib/amount-in-words";
 import { PrintButton } from "./print-button";
@@ -46,9 +45,12 @@ export default async function ReceiptPrintPage({
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <Link href="/receipts" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2 print:hidden">
-        <ArrowLeft className="h-3 w-3" /> Receipts
-      </Link>
+      <div className="print:hidden">
+        <Breadcrumbs items={[
+          { label: "Receipts", href: "/receipts" },
+          { label: `Receipt #${receipt.receiptNo || receipt.id}` },
+        ]} />
+      </div>
       <PrintButton />
 
       <div className="border rounded-lg p-8 bg-white print:border-none print:p-0" id="receipt">

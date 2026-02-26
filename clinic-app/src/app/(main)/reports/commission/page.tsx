@@ -16,9 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Search, ArrowLeft } from "lucide-react";
+import { Search } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { dateToString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
@@ -142,9 +143,10 @@ export default async function CommissionReportPage({
 
   return (
     <div className="space-y-6">
-      <Link href="/reports" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Reports
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Reports", href: "/reports" },
+        { label: "Commission" },
+      ]} />
       <h2 className="text-2xl font-bold">Doctor Commission Report</h2>
 
       {/* Filters */}

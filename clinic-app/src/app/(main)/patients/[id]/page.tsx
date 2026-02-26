@@ -1,22 +1,12 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Edit, Plus, IndianRupee, AlertTriangle, ArrowLeft, CalendarDays } from "lucide-react";
-import { DeletePatientButton } from "./delete-button";
 import { requireAuth } from "@/lib/auth";
-import { canCollectPayments, canSeeInternalCosts, canEditPatients } from "@/lib/permissions";
+import { canCollectPayments, canSeeInternalCosts, canEditPatients, isAdmin as checkIsAdmin } from "@/lib/permissions";
 import { calcBilled, calcPaid } from "@/lib/billing";
-import { FileUpload } from "@/components/file-upload";
-import { FileGallery } from "@/components/file-gallery";
-import { TreatmentTimeline, type VisitWithRelations } from "@/components/treatment-timeline";
-import { MedicalHistoryEditor } from "@/components/medical-history-editor";
-import { StatusBadge } from "@/components/status-badge";
-import { InfoRow } from "@/components/detail-row";
+import { PatientPageClient, type PatientPageData } from "./patient-page-client";
+import type { VisitWithRelations } from "@/components/treatment-timeline";
+import { todayString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -30,88 +20,123 @@ export default async function PatientDetailPage({
   const currentUser = await requireAuth();
   const canCollect = canCollectPayments(currentUser.permissionLevel);
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
+  const canEdit = canEditPatients(currentUser.permissionLevel);
+  const userIsAdmin = checkIsAdmin(currentUser.permissionLevel);
 
-  const patient = await prisma.patient.findUnique({
-    where: { id: patientId },
-    include: {
-      diseases: { include: { disease: true } },
-      visits: {
-        orderBy: { visitDate: "desc" },
-        include: {
-          operation: { select: { name: true } },
-          doctor: { select: { id: true, name: true } },
-          lab: { select: { name: true } },
-          receipts: { select: { id: true, receiptNo: true, amount: true, paymentMode: true, receiptDate: true } },
-          clinicalReports: {
-            include: {
-              doctor: { select: { name: true } },
-              addendums: {
-                include: { doctor: { select: { name: true } } },
-                orderBy: { createdAt: "asc" },
-              },
-            },
-            orderBy: { reportDate: "desc" },
-            take: 1,
-          },
-          files: {
-            include: { uploadedBy: true },
-            orderBy: { createdAt: "desc" },
-          },
-          followUps: {
-            orderBy: { visitDate: "asc" },
-            include: {
-              operation: { select: { name: true } },
-              doctor: { select: { id: true, name: true } },
-              lab: { select: { name: true } },
-              clinicalReports: {
-                include: {
-                  doctor: { select: { name: true } },
-                  addendums: {
-                    include: { doctor: { select: { name: true } } },
-                    orderBy: { createdAt: "asc" },
-                  },
+  const today = todayString();
+
+  const [patient, todayAppointments, futureAppointments, operations, doctors, labs, allDiseases] = await Promise.all([
+    prisma.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        diseases: { include: { disease: true } },
+        visits: {
+          orderBy: { visitDate: "desc" },
+          include: {
+            operation: { select: { name: true } },
+            doctor: { select: { id: true, name: true } },
+            lab: { select: { name: true } },
+            receipts: { select: { id: true, receiptNo: true, amount: true, paymentMode: true, receiptDate: true } },
+            clinicalReports: {
+              include: {
+                doctor: { select: { name: true } },
+                addendums: {
+                  include: { doctor: { select: { name: true } } },
+                  orderBy: { createdAt: "asc" },
                 },
-                orderBy: { reportDate: "desc" },
-                take: 1,
               },
-              files: {
-                include: { uploadedBy: true },
-                orderBy: { createdAt: "desc" },
+              orderBy: { reportDate: "desc" },
+              take: 1,
+            },
+            files: {
+              include: { uploadedBy: true },
+              orderBy: { createdAt: "desc" },
+            },
+            followUps: {
+              orderBy: { visitDate: "asc" },
+              include: {
+                operation: { select: { name: true } },
+                doctor: { select: { id: true, name: true } },
+                lab: { select: { name: true } },
+                clinicalReports: {
+                  include: {
+                    doctor: { select: { name: true } },
+                    addendums: {
+                      include: { doctor: { select: { name: true } } },
+                      orderBy: { createdAt: "asc" },
+                    },
+                  },
+                  orderBy: { reportDate: "desc" },
+                  take: 1,
+                },
+                files: {
+                  include: { uploadedBy: true },
+                  orderBy: { createdAt: "desc" },
+                },
+                followUps: { select: { id: true } },
+                receipts: { select: { amount: true } },
               },
-              followUps: { select: { id: true } },
-              receipts: { select: { amount: true } },
             },
           },
         },
-      },
-      files: {
-        include: {
-          uploadedBy: true,
-          visit: { include: { operation: true } },
+        files: {
+          include: {
+            uploadedBy: true,
+            visit: { include: { operation: true } },
+          },
+          orderBy: { createdAt: "desc" },
         },
-        orderBy: { createdAt: "desc" },
       },
-    },
-  });
+    }),
+    // Today's appointments for this patient
+    prisma.appointment.findMany({
+      where: {
+        patientId,
+        date: { gte: new Date(today), lt: new Date(new Date(today).getTime() + 86400000) },
+        status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] },
+      },
+      include: { doctor: { select: { name: true } }, visit: { select: { id: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    // Future appointments (not today)
+    prisma.appointment.findMany({
+      where: {
+        patientId,
+        date: { gt: new Date(new Date(today).getTime() + 86400000) },
+        status: { in: ["SCHEDULED"] },
+      },
+      include: { doctor: { select: { name: true } } },
+      orderBy: { date: "asc" },
+      take: 3,
+    }),
+    // Operations for Quick Visit
+    prisma.operation.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, category: true, defaultMinFee: true },
+    }),
+    // Doctors for Quick Visit
+    prisma.doctor.findMany({
+      where: { permissionLevel: 3 },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, commissionPercent: true },
+    }),
+    // Labs for Quick Visit
+    prisma.lab.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      include: { rates: { orderBy: { itemName: "asc" }, select: { id: true, itemName: true, rate: true } } },
+    }),
+    // All diseases for inline editor
+    canEdit ? prisma.disease.findMany({ orderBy: { id: "asc" } }) : Promise.resolve([]),
+  ]);
 
   if (!patient) notFound();
-
-  // Upcoming appointments
-  const upcomingAppointments = await prisma.appointment.findMany({
-    where: {
-      patientId: patientId,
-      status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] },
-    },
-    include: {
-      doctor: { select: { name: true } },
-    },
-    orderBy: { date: "asc" },
-  });
 
   // Filter to only top-level visits
   const topLevelVisits = patient.visits.filter((v) => v.parentVisitId === null);
 
-  // Calculate totals (all visits)
+  // Calculate totals
   let totalBilled = 0;
   let totalPaid = 0;
   for (const visit of patient.visits) {
@@ -124,6 +149,9 @@ export default async function PatientDetailPage({
   const visitCount = patient.visits.length;
   const firstVisit = patient.visits.length > 0 ? patient.visits[patient.visits.length - 1].visitDate : null;
   const lastVisit = patient.visits.length > 0 ? patient.visits[0].visitDate : null;
+
+  // Count visits missing clinical notes
+  const missingNotesCount = patient.visits.filter(v => v.clinicalReports.length === 0).length;
 
   // Calculate age
   let ageDisplay: string | null = null;
@@ -144,237 +172,96 @@ export default async function PatientDetailPage({
     ageDisplay = patient.gender === "M" ? "Male" : "Female";
   }
 
-  // Fetch all diseases for inline editor
-  const allDiseases = canEditPatients(currentUser.permissionLevel)
-    ? await prisma.disease.findMany({ orderBy: { id: "asc" } })
-    : [];
+  // Pick the most actionable today appointment
+  const todayAppointment = todayAppointments.length > 0
+    ? (() => {
+        const arrived = todayAppointments.find(a => a.status === "ARRIVED");
+        const inProgress = todayAppointments.find(a => a.status === "IN_PROGRESS");
+        const scheduled = todayAppointments.find(a => a.status === "SCHEDULED");
+        const appt = inProgress || arrived || scheduled || todayAppointments[0];
+        return {
+          id: appt.id,
+          status: appt.status,
+          visitId: appt.visit?.id || null,
+          timeSlot: appt.timeSlot,
+          doctorName: appt.doctor?.name || null,
+          reason: appt.reason,
+        };
+      })()
+    : null;
 
-  return (
-    <div className="space-y-6">
-      <Link href="/patients" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Patients
-      </Link>
-      {/* Patient Header — Sticky */}
-      <div className="sticky top-14 z-30 bg-background border-b shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] -mx-4 px-4 md:-mx-6 md:px-6 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center shrink-0">
-              <div className="text-xl font-bold font-mono">#{patient.code}</div>
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold truncate">
-                {patient.salutation && `${patient.salutation}. `}
-                {patient.name}
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                {ageDisplay && <span>{ageDisplay}</span>}
-                {patient.bloodGroup && <span> · Blood: {patient.bloodGroup}</span>}
-                {patient.mobile && <span> · {patient.mobile}</span>}
-                {patient.phone && !patient.mobile && <span> · {patient.phone}</span>}
-              </p>
-              {patient.diseases.length > 0 && (
-                <p className="text-sm mt-0.5 flex items-center gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                  <span className="text-destructive font-medium">
-                    {patient.diseases.map((pd) => pd.disease.name).join(", ")}
-                  </span>
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {visitCount} visit{visitCount !== 1 ? "s" : ""}
-                {firstVisit && <span> · First: {format(new Date(firstVisit), "MMM yyyy")}</span>}
-                {lastVisit && <span> · Last: {format(new Date(lastVisit), "MMM d, yyyy")}</span>}
-                {totalBalance > 0 && (
-                  <span className="text-destructive font-medium"> · Outstanding: {"\u20B9"}{totalBalance.toLocaleString("en-IN")}</span>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-            {canCollect && totalBalance > 0 && (
-              <Button size="sm" asChild>
-                <Link href={`/patients/${patient.id}/checkout`}>
-                  <IndianRupee className="mr-1 h-3.5 w-3.5" />
-                  Collect
-                </Link>
-              </Button>
-            )}
-            {/* New Visit + Schedule — reception/admin only */}
-            {currentUser.permissionLevel <= 2 && (
-              <>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={`/visits/new?patientId=${patient.id}`}>
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    New Visit
-                  </Link>
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={`/appointments/new?patientId=${patient.id}`}>
-                    <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                    Schedule
-                  </Link>
-                </Button>
-              </>
-            )}
-            {canEditPatients(currentUser.permissionLevel) && (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/patients/${patient.id}/edit`}>
-                    <Edit className="mr-1 h-3.5 w-3.5" />
-                    Edit
-                  </Link>
-                </Button>
-                <DeletePatientButton patientId={patient.id} patientName={patient.name} />
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Payment Summary — compact inline */}
-      {totalBilled > 0 && (
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="rounded-lg border px-4 py-2">
-            <span className="text-muted-foreground">Billed: </span>
-            <span className="font-bold">{"\u20B9"}{totalBilled.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="rounded-lg border px-4 py-2">
-            <span className="text-muted-foreground">Paid: </span>
-            <span className="font-bold text-green-600">{"\u20B9"}{totalPaid.toLocaleString("en-IN")}</span>
-          </div>
-          {totalBalance > 0 && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-2">
-              <span className="text-muted-foreground">Balance: </span>
-              <span className="font-bold text-destructive">{"\u20B9"}{totalBalance.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ Upcoming Appointments ═══ */}
-      {upcomingAppointments.length > 0 && (
-        <section>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Upcoming Appointments</h3>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {upcomingAppointments.map((appt) => (
-                  <div key={appt.id} className="flex items-center justify-between px-4 py-2.5">
-                    <div>
-                      <div className="font-medium">
-                        {format(new Date(appt.date), "MMM d, yyyy")}
-                        {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {appt.doctor && <span>Dr. {appt.doctor.name}</span>}
-                        {appt.reason && <span> · {appt.reason}</span>}
-                      </div>
-                    </div>
-                    <StatusBadge status={appt.status} />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {/* ═══ Treatment History ═══ */}
-      <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Treatment History</h3>
-        <TreatmentTimeline
-          visits={topLevelVisits as VisitWithRelations[]}
-          showInternalCosts={showInternalCosts}
-          patientId={patient.id}
-        />
-      </section>
-
-      {/* ═══ Files & Images ═══ */}
-      <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Files ({patient.files.length})</h3>
-        <div className="space-y-4">
-          <FileUpload patientId={patient.id} />
-          <FileGallery
-            files={patient.files}
-            canDelete={currentUser.permissionLevel <= 2}
-          />
-        </div>
-      </section>
-
-      {/* ═══ Patient Information ═══ */}
-      <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Patient Information</h3>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
-              <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
-              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "MMM d, yyyy") : null} />
-              <InfoRow label="Occupation" value={patient.occupation} />
-              <InfoRow label="Mobile" value={patient.mobile} />
-              <InfoRow label="Phone" value={patient.phone} />
-              <InfoRow label="Email" value={patient.email} />
-              <Separator className="sm:col-span-2" />
-              <InfoRow label="Address" value={[patient.addressLine1, patient.addressLine2, patient.addressLine3].filter(Boolean).join(", ")} />
-              <InfoRow label="City" value={patient.city} />
-              <InfoRow label="Pincode" value={patient.pincode} />
-              <Separator className="sm:col-span-2" />
-              <InfoRow label="Referring Physician" value={patient.referringPhysician} />
-              <InfoRow label="Physician Phone" value={patient.physicianPhone} />
-              {patient.remarks && (
-                <div className="sm:col-span-2">
-                  <div className="text-sm text-muted-foreground">Remarks</div>
-                  <div className="mt-0.5">{patient.remarks}</div>
-                </div>
-              )}
-            </div>
-            {/* Medical History */}
-            <MedicalHistoryEditor
-              patientId={patient.id}
-              currentDiseaseIds={patient.diseases.map((pd) => pd.diseaseId)}
-              allDiseases={allDiseases}
-              canEdit={canEditPatients(currentUser.permissionLevel)}
-              diseaseNames={patient.diseases.map((pd) => pd.disease.name)}
-            />
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* ═══ Receipts — hidden for doctors ═══ */}
-      {currentUser.permissionLevel <= 2 && <section>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Receipts</h3>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {patient.visits.flatMap((visit) =>
-                  visit.receipts.map((receipt) => (
-                    <div key={receipt.id} className="flex items-center justify-between px-4 py-2.5">
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {receipt.receiptNo && (
-                            <span className="font-mono text-sm text-muted-foreground">Rcpt #{receipt.receiptNo}</span>
-                          )}
-                          {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {format(new Date(receipt.receiptDate), "MMM d, yyyy")} · Case #{visit.caseNo} · {visit.operation?.name || "Visit"} · {receipt.paymentMode}
-                        </div>
-                      </div>
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/receipts/${receipt.id}/print`}>Print</Link>
-                      </Button>
-                    </div>
-                  ))
-                )}
-                {patient.visits.flatMap((v) => v.receipts).length === 0 && (
-                  <div className="p-4 text-center text-sm text-muted-foreground">No receipts</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-      </section>}
-    </div>
+  // Flatten receipts
+  const receipts = patient.visits.flatMap((visit) =>
+    visit.receipts.map((receipt) => ({
+      id: receipt.id,
+      receiptNo: receipt.receiptNo,
+      amount: receipt.amount,
+      paymentMode: receipt.paymentMode,
+      receiptDate: receipt.receiptDate,
+      visitCaseNo: visit.caseNo,
+      visitOperationName: visit.operation?.name || null,
+    }))
   );
-}
 
-// InfoRow imported from @/components/detail-row
+  const pageData: PatientPageData = {
+    patient: {
+      id: patient.id,
+      code: patient.code,
+      name: patient.name,
+      salutation: patient.salutation,
+      gender: patient.gender,
+      dateOfBirth: patient.dateOfBirth,
+      ageAtRegistration: patient.ageAtRegistration,
+      bloodGroup: patient.bloodGroup,
+      mobile: patient.mobile,
+      phone: patient.phone,
+      email: patient.email,
+      fatherHusbandName: patient.fatherHusbandName,
+      occupation: patient.occupation,
+      addressLine1: patient.addressLine1,
+      addressLine2: patient.addressLine2,
+      addressLine3: patient.addressLine3,
+      city: patient.city,
+      pincode: patient.pincode,
+      referringPhysician: patient.referringPhysician,
+      physicianPhone: patient.physicianPhone,
+      remarks: patient.remarks,
+      createdAt: patient.createdAt,
+      diseases: patient.diseases,
+    },
+    topLevelVisits: topLevelVisits as VisitWithRelations[],
+    totalBilled,
+    totalPaid,
+    totalBalance,
+    visitCount,
+    firstVisit,
+    lastVisit,
+    ageDisplay,
+    missingNotesCount,
+    todayAppointment,
+    futureAppointments: futureAppointments.map(a => ({
+      id: a.id,
+      date: a.date,
+      timeSlot: a.timeSlot,
+      doctorName: a.doctor?.name || null,
+      status: a.status,
+    })),
+    files: patient.files as PatientPageData["files"],
+    receipts,
+    allDiseases,
+    operations,
+    doctors,
+    labs,
+    currentUser: {
+      id: currentUser.id,
+      name: currentUser.name,
+      permissionLevel: currentUser.permissionLevel,
+    },
+    canCollect,
+    showInternalCosts,
+    canEdit,
+    isAdmin: userIsAdmin,
+  };
+
+  return <PatientPageClient data={pageData} />;
+}

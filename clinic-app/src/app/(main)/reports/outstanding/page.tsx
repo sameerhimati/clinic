@@ -15,8 +15,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
-import { Search, ArrowLeft } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -74,9 +75,10 @@ export default async function OutstandingReportPage({
 
   return (
     <div className="space-y-6">
-      <Link href="/reports" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Reports
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Reports", href: "/reports" },
+        { label: "Outstanding" },
+      ]} />
       <h2 className="text-2xl font-bold">Outstanding Dues Report</h2>
 
       <form className="flex flex-wrap gap-2">

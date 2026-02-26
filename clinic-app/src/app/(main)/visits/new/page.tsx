@@ -5,8 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { canSeeInternalCosts } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export default async function NewVisitPage({
   searchParams,
@@ -101,12 +100,17 @@ export default async function NewVisitPage({
 
   return (
     <div className="max-w-3xl space-y-4">
-      <Link
-        href={defaultPatient ? `/patients/${defaultPatient.id}` : "/visits"}
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2"
-      >
-        <ArrowLeft className="h-3 w-3" /> {defaultPatient ? defaultPatient.name : "Visits"}
-      </Link>
+      <Breadcrumbs items={defaultPatient
+        ? [
+            { label: "Patients", href: "/patients" },
+            { label: defaultPatient.name, href: `/patients/${defaultPatient.id}` },
+            { label: mode === "followup" ? "Follow-up" : "New Visit" },
+          ]
+        : [
+            { label: "Visits", href: "/visits" },
+            { label: "New Visit" },
+          ]
+      } />
       <h2 className="text-2xl font-bold">
         {mode === "followup" ? "New Follow-up Visit" : "New Visit"}
       </h2>

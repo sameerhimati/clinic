@@ -2,12 +2,11 @@ import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LabRateCreateForm } from "./lab-rate-form";
 import { toggleLabRateActive, updateLab } from "../actions";
 
@@ -33,9 +32,11 @@ export default async function LabDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link href="/settings/labs" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Labs
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Settings", href: "/settings" },
+        { label: "Labs", href: "/settings/labs" },
+        { label: lab.name },
+      ]} />
       <div className="flex items-center gap-4">
         <h2 className="text-2xl font-bold">{lab.name}</h2>
         {lab.code != null && <Badge variant="secondary">#{lab.code}</Badge>}

@@ -124,8 +124,18 @@ export default async function PatientsPage({
               );
             })}
             {patients.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground">
-                No patients found
+              <div className="p-8 text-center space-y-3">
+                <p className="text-muted-foreground">
+                  {query ? `No patients matching "${query}"` : "No patients registered yet"}
+                </p>
+                {!query && (
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/patients/new">
+                      <UserPlus className="mr-1 h-3.5 w-3.5" />
+                      Register First Patient
+                    </Link>
+                  </Button>
+                )}
               </div>
             )}
           </div>

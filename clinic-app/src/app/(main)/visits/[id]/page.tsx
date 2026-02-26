@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, ArrowLeft, CalendarDays, ChevronRight } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, ChevronRight } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { DetailRow } from "@/components/detail-row";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -85,9 +86,11 @@ export default async function VisitDetailPage({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <Link href={`/patients/${visit.patientId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> {visit.patient.salutation ? `${visit.patient.salutation}. ` : ""}{visit.patient.name}
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Patients", href: "/patients" },
+        { label: visit.patient.name, href: `/patients/${visit.patientId}` },
+        { label: `Case #${visit.caseNo || visit.id}` },
+      ]} />
       {/* Post-create CTA */}
       {newVisit === "1" && !clinicalReport && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">

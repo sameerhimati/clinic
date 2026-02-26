@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock } from "lucide-react";
+import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
 import { toast } from "sonner";
@@ -80,6 +80,12 @@ export type VisitWithRelations = {
   files: FileRecord[];
   followUps: VisitWithRelations[];
   receipts: { amount: number }[];
+};
+
+export type FollowUpContext = {
+  rootVisitId: number;
+  operationName: string;
+  doctorId: number | null;
 };
 
 function QuickNoteForm({ visitId }: { visitId: number }) {
@@ -200,15 +206,77 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
   );
 }
 
+/** Check if a chain is "active" — has balance due or latest visit missing notes */
+function isChainActive(allVisits: VisitWithRelations[]): boolean {
+  const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - v.discount, 0);
+  const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
+  if (totalBilled - totalPaid > 0) return true;
+  const latest = allVisits[allVisits.length - 1];
+  if (latest && latest.clinicalReports.length === 0) return true;
+  return false;
+}
+
+/** Check if chain should auto-expand */
+function shouldAutoExpand(
+  allVisits: VisitWithRelations[],
+  activeVisitId?: number
+): boolean {
+  // If chain contains the active appointment's visit
+  if (activeVisitId && allVisits.some(v => v.id === activeVisitId)) return true;
+  // If any visit in chain is within last 14 days
+  const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  if (allVisits.some(v => new Date(v.visitDate).getTime() > twoWeeksAgo)) return true;
+  return false;
+}
+
+function FollowUpButton({
+  rootVisit,
+  patientId,
+  onAddFollowUp,
+}: {
+  rootVisit: VisitWithRelations;
+  patientId: number;
+  onAddFollowUp?: (ctx: FollowUpContext) => void;
+}) {
+  if (onAddFollowUp) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-xs h-7"
+        onClick={() => onAddFollowUp({
+          rootVisitId: rootVisit.id,
+          operationName: rootVisit.operation?.name || "Visit",
+          doctorId: rootVisit.doctor?.id || null,
+        })}
+      >
+        <Plus className="h-3 w-3 mr-1" />
+        Follow-up
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
+      <Link href={`/visits/new?followUp=${rootVisit.id}&patientId=${patientId}`}>
+        <Plus className="h-3 w-3 mr-1" />
+        Follow-up
+      </Link>
+    </Button>
+  );
+}
+
 function StandaloneVisitEntry({
   visit,
   showInternalCosts,
   patientId,
+  onAddFollowUp,
 }: {
   visit: VisitWithRelations;
   showInternalCosts: boolean;
   patientId: number;
+  onAddFollowUp?: (ctx: FollowUpContext) => void;
 }) {
+  const router = useRouter();
   const report = visit.clinicalReports[0] || null;
   const rate = visit.operationRate || 0;
 
@@ -219,27 +287,26 @@ function StandaloneVisitEntry({
   return (
     <div className="py-4">
       <div className="rounded-lg border bg-card overflow-hidden">
-        <div className="p-3">
+        <div
+          className="p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => router.push(`/visits/${visit.id}`)}
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-medium min-w-0">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Link href={`/visits/${visit.id}`} className="hover:underline truncate">
+              <span className="truncate">
                 {visit.stepLabel || visit.operation?.name || "Visit"}
-              </Link>
+              </span>
               <span className="text-muted-foreground shrink-0">·</span>
               <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               {due > 0 ? (
                 <Badge variant="destructive" className="text-xs">{"\u20B9"}{due.toLocaleString("en-IN")} due</Badge>
               ) : billed > 0 ? (
                 <Badge variant="secondary" className="text-xs">Paid</Badge>
               ) : null}
-              <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
-                <Link href={`/visits/new?followUp=${visit.id}&patientId=${patientId}`}>
-                  F/U ↗
-                </Link>
-              </Button>
+              <FollowUpButton rootVisit={visit} patientId={patientId} onAddFollowUp={onAddFollowUp} />
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-1 ml-6">
@@ -277,17 +344,25 @@ function ChainTimeline({
   rootVisit,
   showInternalCosts,
   patientId,
+  activeVisitId,
+  onAddFollowUp,
 }: {
   rootVisit: VisitWithRelations;
   showInternalCosts: boolean;
   patientId: number;
+  activeVisitId?: number;
+  onAddFollowUp?: (ctx: FollowUpContext) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   // Collect all visits in the chain
   const allVisits = [rootVisit, ...rootVisit.followUps].sort(
     (a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime()
   );
+
+  const autoExpand = shouldAutoExpand(allVisits, activeVisitId);
+  const [expanded, setExpanded] = useState(autoExpand);
+  const active = isChainActive(allVisits);
 
   // Build doctor color map
   const uniqueDoctors = [...new Map(allVisits.filter(v => v.doctor).map(v => [v.doctor!.name, v.doctor!])).values()];
@@ -305,8 +380,8 @@ function ChainTimeline({
 
   return (
     <div className="py-4">
-      {/* Chain card — clickable header */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      {/* Chain card — active chains get left border accent */}
+      <div className={`rounded-lg border bg-card overflow-hidden ${active ? "border-l-2 border-l-primary" : ""}`}>
         <button
           onClick={() => setExpanded(!expanded)}
           className="w-full text-left p-3 hover:bg-accent/50 transition-colors"
@@ -338,7 +413,7 @@ function ChainTimeline({
           </div>
         </button>
 
-        {/* Expanded: visit timeline + F/U button */}
+        {/* Expanded: visit timeline + follow-up button */}
         {expanded && (
           <div className="border-t">
             <div className="relative pl-8 pr-3 pt-3 pb-1">
@@ -357,15 +432,18 @@ function ChainTimeline({
                     {/* Dot */}
                     <div className={`absolute left-[-20px] top-1.5 w-2 h-2 rounded-full ${DOCTOR_DOT_COLORS[colorIdx]} ring-2 ring-background`} />
 
-                    {/* Visit content */}
-                    <div className="pl-1">
+                    {/* Visit content — clickable */}
+                    <div
+                      className="pl-1 cursor-pointer hover:bg-accent/30 rounded-md -ml-1 px-1 transition-colors"
+                      onClick={() => router.push(`/visits/${visit.id}`)}
+                    >
                       <div className="flex items-center justify-between flex-wrap gap-1">
                         <div className="flex items-center gap-2 text-sm flex-wrap">
                           <span className="font-medium">{format(new Date(visit.visitDate), "MMM d")}</span>
                           <span className="text-muted-foreground">—</span>
-                          <Link href={`/visits/${visit.id}`} className="hover:underline font-medium">
+                          <span className="font-medium">
                             {visit.stepLabel || visit.operation?.name || "Visit"}
-                          </Link>
+                          </span>
                           <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
                         </div>
                       </div>
@@ -387,7 +465,7 @@ function ChainTimeline({
                             )}
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-sm mt-1">
+                          <div className="flex items-center gap-2 text-sm mt-1" onClick={(e) => e.stopPropagation()}>
                             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                             <span className="text-amber-600 text-xs">Notes not recorded</span>
                             <QuickNoteForm visitId={visit.id} />
@@ -403,11 +481,7 @@ function ChainTimeline({
               })}
             </div>
             <div className="border-t px-3 py-2 flex justify-end">
-              <Button size="sm" variant="ghost" className="text-xs h-7" asChild>
-                <Link href={`/visits/new?followUp=${rootVisit.id}&patientId=${patientId}`}>
-                  F/U ↗
-                </Link>
-              </Button>
+              <FollowUpButton rootVisit={rootVisit} patientId={patientId} onAddFollowUp={onAddFollowUp} />
             </div>
           </div>
         )}
@@ -420,13 +494,27 @@ export function TreatmentTimeline({
   visits,
   showInternalCosts,
   patientId,
+  activeVisitId,
+  onAddFollowUp,
 }: {
   visits: VisitWithRelations[];
   showInternalCosts: boolean;
   patientId: number;
+  activeVisitId?: number;
+  onAddFollowUp?: (ctx: FollowUpContext) => void;
 }) {
   if (visits.length === 0) {
-    return <div className="text-center text-muted-foreground py-8">No visits recorded</div>;
+    return (
+      <div className="text-center py-8 space-y-3">
+        <p className="text-muted-foreground">No visits recorded</p>
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/visits/new?patientId=${patientId}`}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Record First Visit
+          </Link>
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -441,6 +529,8 @@ export function TreatmentTimeline({
               rootVisit={visit}
               showInternalCosts={showInternalCosts}
               patientId={patientId}
+              activeVisitId={activeVisitId}
+              onAddFollowUp={onAddFollowUp}
             />
           );
         }
@@ -451,6 +541,7 @@ export function TreatmentTimeline({
             visit={visit}
             showInternalCosts={showInternalCosts}
             patientId={patientId}
+            onAddFollowUp={onAddFollowUp}
           />
         );
       })}

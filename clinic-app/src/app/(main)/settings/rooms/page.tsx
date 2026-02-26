@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,10 @@ export default async function RoomsPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
-        <ArrowLeft className="h-3 w-3" /> Settings
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Settings", href: "/settings" },
+        { label: "Rooms" },
+      ]} />
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Rooms</h2>
       </div>

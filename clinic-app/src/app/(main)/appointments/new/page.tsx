@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { AppointmentForm } from "@/components/appointment-form";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export default async function NewAppointmentPage({
   searchParams,
@@ -51,12 +50,10 @@ export default async function NewAppointmentPage({
 
   return (
     <div className="max-w-3xl space-y-4">
-      <Link
-        href="/appointments"
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-      >
-        <ArrowLeft className="h-3 w-3" /> Appointments
-      </Link>
+      <Breadcrumbs items={[
+        { label: "Appointments", href: "/appointments" },
+        { label: "Schedule" },
+      ]} />
       <h2 className="text-2xl font-bold">Schedule Appointment</h2>
       <AppointmentForm
         doctors={doctors}

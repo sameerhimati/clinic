@@ -54,6 +54,7 @@ type Addendum = {
 
 export function ExaminationForm({
   visitId,
+  patientId,
   defaultDoctorId,
   defaultDoctorName,
   existingReport,
@@ -65,8 +66,11 @@ export function ExaminationForm({
   lockedByName,
   lockedAt,
   permissionLevel,
+  nextPatientId,
+  nextPatientCode,
 }: {
   visitId: number;
+  patientId?: number;
   defaultDoctorId: number | null;
   defaultDoctorName: string | null;
   existingReport: ExistingReport | null;
@@ -78,6 +82,8 @@ export function ExaminationForm({
   lockedByName: string | null;
   lockedAt: string | null;
   permissionLevel?: number;
+  nextPatientId?: number | null;
+  nextPatientCode?: number | null;
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -125,7 +131,9 @@ export function ExaminationForm({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  async function handleSave(redirectTarget: "detail" | "print") {
+  const isDoctor = permissionLevel === 3;
+
+  async function handleSave(redirectTarget: "detail" | "print" | "next-patient") {
     startTransition(async () => {
       try {
         const result = await saveExamination(visitId, {
@@ -156,6 +164,11 @@ export function ExaminationForm({
         }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
+        } else if (redirectTarget === "next-patient" && nextPatientId) {
+          router.push(`/patients/${nextPatientId}`);
+        } else if (isDoctor && patientId) {
+          // Doctors go to patient page instead of visit detail
+          router.push(`/patients/${patientId}`);
         } else {
           router.push(`/visits/${visitId}`);
         }
@@ -454,7 +467,7 @@ export function ExaminationForm({
         </Card>
       )}
 
-      {/* Sticky save bar — simplified to Save + Print */}
+      {/* Sticky save bar */}
       <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t -mx-4 px-4 md:-mx-6 md:px-6 py-3 flex gap-3 justify-between items-center z-20">
         <div>
           {existingReport && (
@@ -484,6 +497,15 @@ export function ExaminationForm({
           >
             {isPending ? "Saving..." : "Save"}
           </Button>
+          {nextPatientId && (
+            <Button
+              onClick={() => handleSave("next-patient")}
+              disabled={isPending}
+              variant="default"
+            >
+              {isPending ? "Saving..." : `Save & Next → #${nextPatientCode || ""}`}
+            </Button>
+          )}
         </div>
       </div>
     </div>

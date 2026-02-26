@@ -5,6 +5,7 @@ import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { logout } from "@/app/login/logout-action";
 import { PatientSearch } from "@/components/patient-search";
+import { QueueIndicator } from "@/components/queue-indicator";
 
 export function Topbar() {
   const { doctor } = useAuth();
@@ -13,6 +14,7 @@ export function Topbar() {
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6 print:hidden">
       <div className="flex items-center gap-2 shrink-0 md:ml-0 ml-12">
         <h1 className="text-sm font-semibold hidden lg:block">SDH</h1>
+        <QueueIndicator permissionLevel={doctor.permissionLevel} />
       </div>
 
       <div className="flex-1 max-w-lg mx-auto">

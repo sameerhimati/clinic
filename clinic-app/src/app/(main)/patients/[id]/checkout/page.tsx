@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CheckoutForm } from "./checkout-form";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
@@ -93,12 +92,11 @@ export default async function CheckoutPage({
     <div className="max-w-3xl space-y-6">
       {/* Header */}
       <div>
-        <Link
-          href={`/patients/${patient.id}`}
-          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2"
-        >
-          <ArrowLeft className="h-3 w-3" /> Back to patient
-        </Link>
+        <Breadcrumbs items={[
+          { label: "Patients", href: "/patients" },
+          { label: patient.name, href: `/patients/${patient.id}` },
+          { label: "Checkout" },
+        ]} />
         <div className="flex items-center gap-4">
           <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-center">
             <div className="text-xs uppercase tracking-wide opacity-80">

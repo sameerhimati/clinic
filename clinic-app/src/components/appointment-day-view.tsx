@@ -23,6 +23,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "luc
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus, claimAppointment } from "@/app/(main)/appointments/actions";
+import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { VALID_TRANSITIONS } from "@/lib/appointment-status";
 
@@ -53,9 +54,13 @@ type ColumnRoom = { id: number; name: string };
 function PrimaryAction({
   appt,
   onStatusChange,
+  onExamine,
+  isDoctor,
 }: {
   appt: Appointment;
   onStatusChange: (id: number, status: string) => void;
+  onExamine?: (patientId: number, appointmentId: number) => void;
+  isDoctor?: boolean;
 }) {
   if (appt.status === "SCHEDULED") {
     return (
@@ -73,6 +78,22 @@ function PrimaryAction({
     );
   }
   if (appt.status === "ARRIVED") {
+    // Doctors get one-click "Examine" — creates visit + opens exam form
+    if (isDoctor && onExamine) {
+      return (
+        <Button
+          size="sm"
+          variant="default"
+          className="h-7 text-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExamine(appt.patientId, appt.id);
+          }}
+        >
+          Examine
+        </Button>
+      );
+    }
     return (
       <Button size="sm" variant="default" className="h-7 text-xs" asChild>
         <Link
@@ -155,12 +176,16 @@ function AppointmentCard({
   showDoctorName,
   onStatusChange,
   onClaim,
+  onExamine,
+  isDoctor,
 }: {
   appt: Appointment;
   compact?: boolean;
   showDoctorName?: boolean;
   onStatusChange: (id: number, status: string, reason?: string) => void;
   onClaim?: (id: number) => void;
+  onExamine?: (patientId: number, appointmentId: number) => void;
+  isDoctor?: boolean;
 }) {
   const router = useRouter();
   const isCancelled = appt.status === "CANCELLED";
@@ -203,7 +228,7 @@ function AppointmentCard({
       )}
       <div className="flex items-center gap-1 flex-wrap">
         <StatusBadge status={appt.status} />
-        <PrimaryAction appt={appt} onStatusChange={onStatusChange} />
+        <PrimaryAction appt={appt} onStatusChange={onStatusChange} onExamine={onExamine} isDoctor={isDoctor} />
         {onClaim && !appt.doctorId && appt.status === "ARRIVED" && (
           <Button
             size="sm"
@@ -380,6 +405,17 @@ export function AppointmentDayView({
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to cancel");
+      }
+    });
+  }
+
+  function handleExamine(patientId: number, appointmentId: number) {
+    startTransition(async () => {
+      try {
+        const result = await createVisitAndExamine(patientId, appointmentId);
+        router.push(`/visits/${result.visitId}/examine`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to create visit");
       }
     });
   }
@@ -581,6 +617,8 @@ export function AppointmentDayView({
                             showDoctorName={viewMode === "room"}
                             onStatusChange={handleStatusChange}
                             onClaim={isDoctor ? handleClaim : undefined}
+                            onExamine={isDoctor ? handleExamine : undefined}
+                            isDoctor={isDoctor}
                           />
                         ))}
                       </div>
@@ -659,7 +697,7 @@ export function AppointmentDayView({
                         <div className="text-muted-foreground">{appt.reason}</div>
                       )}
                       <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                        <PrimaryAction appt={appt} onStatusChange={handleStatusChange} />
+                        <PrimaryAction appt={appt} onStatusChange={handleStatusChange} onExamine={isDoctor ? handleExamine : undefined} isDoctor={isDoctor} />
                         {isDoctor && !appt.doctorId && appt.status === "ARRIVED" && (
                           <Button
                             size="sm"

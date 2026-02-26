@@ -13,8 +13,8 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
-import { StatusBadge } from "@/components/status-badge";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
+import { DashboardAppointmentList } from "./dashboard-appointments";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +71,7 @@ async function getAdminDashboardData() {
       include: {
         patient: { select: { id: true, name: true, code: true } },
         doctor: { select: { name: true } },
+        visit: { select: { id: true } },
       },
     }),
   ]);
@@ -113,15 +114,6 @@ async function getDoctorDashboardData(doctorId: number) {
   return { todayAppointments };
 }
 
-// Status left-border color mapping
-const STATUS_BORDER_COLOR: Record<string, string> = {
-  SCHEDULED: "border-l-blue-400",
-  ARRIVED: "border-l-amber-400",
-  IN_PROGRESS: "border-l-blue-600",
-  COMPLETED: "border-l-green-400",
-  CANCELLED: "border-l-gray-300",
-  NO_SHOW: "border-l-red-400",
-};
 
 export default async function DashboardPage() {
   const doctor = await requireAuth();
@@ -164,12 +156,6 @@ export default async function DashboardPage() {
   // Admin/Reception dashboard
   const data = await getAdminDashboardData();
 
-  // Status counts for appointments
-  const apptCounts: Record<string, number> = {};
-  for (const a of data.todayAppointments) {
-    apptCounts[a.status] = (apptCounts[a.status] || 0) + 1;
-  }
-
   return (
     <div className="space-y-4">
       {/* Header with inline stats */}
@@ -178,9 +164,19 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-bold">{greeting}, {doctor.name}</h2>
           <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          {data.todayVisits} visits today · {"\u20B9"}{data.todayCollections.toLocaleString("en-IN")} collected · {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")} outstanding
-        </p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Link href="/visits" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm hover:bg-accent transition-colors">
+            {data.todayVisits} visits today
+          </Link>
+          <Link href="/reports/commission" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-green-700 hover:bg-accent transition-colors">
+            {"\u20B9"}{data.todayCollections.toLocaleString("en-IN")} collected
+          </Link>
+          {data.totalOutstanding > 0 && (
+            <Link href="/reports/outstanding" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-destructive hover:bg-accent transition-colors">
+              {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")} outstanding
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Quick actions */}
@@ -201,77 +197,29 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      {/* Today's Appointments — hero section, no limit */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Today&apos;s Appointments
-            <Badge variant="secondary" className="text-xs">{data.todayAppointments.length}</Badge>
-          </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/appointments">View All &rarr;</Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {data.todayAppointments.length > 0 ? (
-            <>
-              {/* Status summary */}
-              <div className="flex flex-wrap gap-2 mb-3 text-xs">
-                {apptCounts.SCHEDULED && (
-                  <Badge variant="outline" className="border-blue-300 text-blue-700">
-                    {apptCounts.SCHEDULED} scheduled
-                  </Badge>
-                )}
-                {apptCounts.ARRIVED && (
-                  <Badge variant="outline" className="border-amber-300 text-amber-700">
-                    {apptCounts.ARRIVED} arrived
-                  </Badge>
-                )}
-                {apptCounts.IN_PROGRESS && (
-                  <Badge variant="outline" className="border-blue-400 text-blue-800">
-                    {apptCounts.IN_PROGRESS} in progress
-                  </Badge>
-                )}
-                {apptCounts.COMPLETED && (
-                  <Badge variant="outline" className="border-green-300 text-green-700">
-                    {apptCounts.COMPLETED} completed
-                  </Badge>
-                )}
-              </div>
-              <div className="divide-y">
-                {data.todayAppointments.map((appt) => (
-                  <div key={appt.id} className={`flex items-center justify-between py-2.5 border-l-4 pl-3 -ml-2 ${STATUS_BORDER_COLOR[appt.status] || ""}`}>
-                    <div>
-                      <Link href={`/patients/${appt.patient.id}`} className="font-medium hover:underline flex items-center gap-2">
-                        <span className="font-mono text-sm text-muted-foreground">#{appt.patient.code}</span>
-                        {appt.patient.name}
-                      </Link>
-                      <div className="text-sm text-muted-foreground">
-                        {appt.timeSlot && <span>{appt.timeSlot} · </span>}
-                        {appt.doctor && <span>Dr. {appt.doctor.name} · </span>}
-                        {appt.reason || "Appointment"}
-                      </div>
-                    </div>
-                    <StatusBadge status={appt.status} />
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="py-4 text-center text-muted-foreground">
-              No appointments scheduled today.{" "}
-              <Link href="/appointments/new" className="text-primary hover:underline">Schedule one</Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Today's Appointments — hero section with inline actions */}
+      <DashboardAppointmentList
+        appointments={data.todayAppointments.map((appt) => ({
+          id: appt.id,
+          patientId: appt.patient.id,
+          patientCode: appt.patient.code,
+          patientName: appt.patient.name,
+          doctorName: appt.doctor?.name || null,
+          visitId: appt.visit?.id || null,
+          timeSlot: appt.timeSlot,
+          status: appt.status,
+          reason: appt.reason,
+        }))}
+      />
 
       {/* Recent Visits — de-emphasized */}
       {data.recentVisits.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-muted-foreground text-base font-medium">Recent Visits</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/visits">View All &rarr;</Link>
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="divide-y">

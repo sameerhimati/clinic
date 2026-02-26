@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, CheckCircle2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
+import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
 
 type ScheduleAppointment = {
@@ -37,6 +38,17 @@ export function DoctorScheduleWidget({
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update status");
+      }
+    });
+  }
+
+  function handleExamine(patientId: number, appointmentId: number) {
+    startTransition(async () => {
+      try {
+        const result = await createVisitAndExamine(patientId, appointmentId);
+        router.push(`/visits/${result.visitId}/examine`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to create visit");
       }
     });
   }
@@ -99,7 +111,7 @@ export function DoctorScheduleWidget({
                 return (
                   <div
                     key={appt.id}
-                    className={`rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors ${
+                    className={`group rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors ${
                       isCompleted || isCancelled ? "opacity-50" : ""
                     } ${isNext ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
                     onClick={() => router.push(`/patients/${appt.patientId}`)}
@@ -140,10 +152,14 @@ export function DoctorScheduleWidget({
                           </Button>
                         )}
                         {appt.status === "ARRIVED" && (
-                          <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-                            <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
-                              Start Visit
-                            </Link>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-7 text-xs"
+                            onClick={() => handleExamine(appt.patientId, appt.id)}
+                            disabled={isPending}
+                          >
+                            {isPending ? "..." : "Examine"}
                           </Button>
                         )}
                         {appt.status === "IN_PROGRESS" && appt.visitId && (
@@ -154,6 +170,7 @@ export function DoctorScheduleWidget({
                           </Button>
                         )}
                       </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-center" />
                     </div>
                   </div>
                 );

@@ -12,9 +12,9 @@ import { X, Search, Check, ChevronsUpDown, ChevronDown, Lock } from "lucide-reac
 import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
-type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
-type Doctor = { id: number; name: string; commissionPercent: number };
-type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
+export type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
+export type Doctor = { id: number; name: string; commissionPercent: number };
+export type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
 
 type ParentVisit = {
   id: number;
@@ -39,7 +39,7 @@ function formatINR(amount: number): string {
 }
 
 // --- Operation Combobox ---
-function OperationCombobox({
+export function OperationCombobox({
   operations,
   defaultOperationId,
   onSelect,
