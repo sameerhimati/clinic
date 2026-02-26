@@ -23,7 +23,10 @@ export async function createAppointment(formData: FormData) {
   appointmentDate.setHours(0, 0, 0, 0);
   if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
 
-  const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  // L3 doctors can only create appointments for themselves
+  const doctorId = currentUser.permissionLevel === 3
+    ? currentUser.id
+    : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
   const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
   const timeSlot = (formData.get("timeSlot") as string) || null;
   const reason = (formData.get("reason") as string) || null;
@@ -87,7 +90,7 @@ export async function updateAppointmentStatus(
 }
 
 export async function updateAppointment(appointmentId: number, formData: FormData) {
-  await requireAuth();
+  const currentUser = await requireAuth();
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -98,7 +101,10 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
   const dateStr = formData.get("date") as string;
   if (!dateStr) throw new Error("Date is required");
 
-  const doctorId = formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null;
+  // L3 doctors can only assign appointments to themselves
+  const doctorId = currentUser.permissionLevel === 3
+    ? currentUser.id
+    : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
   const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
   const timeSlot = (formData.get("timeSlot") as string) || null;
   const reason = (formData.get("reason") as string) || null;
@@ -114,6 +120,25 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
       reason,
       notes,
     },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+}
+
+export async function claimAppointment(appointmentId: number) {
+  const currentUser = await requireAuth();
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+  if (appointment.doctorId) throw new Error("Appointment already assigned to a doctor");
+  if (appointment.status !== "ARRIVED") throw new Error("Can only claim arrived appointments");
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { doctorId: currentUser.id },
   });
 
   revalidatePath("/appointments");

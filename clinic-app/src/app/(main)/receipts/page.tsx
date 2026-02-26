@@ -8,6 +8,7 @@ import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function ReceiptsPage({
 }) {
   const currentUser = await requireAuth();
   const canCollect = canCollectPayments(currentUser.permissionLevel);
+  if (!canCollect) redirect("/dashboard");
 
   const params = await searchParams;
   const page = parseInt(params.page || "1");

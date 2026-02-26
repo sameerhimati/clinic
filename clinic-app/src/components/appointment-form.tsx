@@ -23,6 +23,8 @@ export function AppointmentForm({
   defaultDoctorId,
   defaultDate,
   defaultReason,
+  permissionLevel,
+  currentDoctorName,
 }: {
   doctors: Doctor[];
   rooms?: RoomOption[];
@@ -30,7 +32,10 @@ export function AppointmentForm({
   defaultDoctorId?: number;
   defaultDate?: string;
   defaultReason?: string;
+  permissionLevel?: number;
+  currentDoctorName?: string;
 }) {
+  const isDoctor = permissionLevel === 3;
   const [selectedPatient, setSelectedPatient] = useState<DefaultPatient | null>(
     defaultPatient || null
   );
@@ -71,38 +76,50 @@ export function AppointmentForm({
                   {selectedPatient.salutation && `${selectedPatient.salutation}. `}
                   {selectedPatient.name}
                 </Badge>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPatient(null)}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Change
-                </Button>
+                {!isDoctor && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedPatient(null)}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Change
+                  </Button>
+                )}
               </div>
             ) : (
               <PatientSearch onSelect={setSelectedPatient} />
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="doctorId">Doctor</Label>
-            <select
-              name="doctorId"
-              defaultValue={defaultDoctorId || ""}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              <option value="">Unassigned</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isDoctor ? (
+            <div className="space-y-2">
+              <Label>Doctor</Label>
+              <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                Dr. {currentDoctorName}
+              </Badge>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="doctorId">Doctor</Label>
+              <select
+                name="doctorId"
+                defaultValue={defaultDoctorId || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">Unassigned</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {rooms && rooms.length > 0 && (
+          {!isDoctor && rooms && rooms.length > 0 && (
             <div className="space-y-2">
               <Label htmlFor="roomId">Room</Label>
               <select

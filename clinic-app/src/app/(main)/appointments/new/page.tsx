@@ -14,7 +14,7 @@ export default async function NewAppointmentPage({
     visitId?: string;
   }>;
 }) {
-  await requireAuth();
+  const currentUser = await requireAuth();
   const params = await searchParams;
 
   const [doctors, rooms] = await Promise.all([
@@ -62,9 +62,11 @@ export default async function NewAppointmentPage({
         doctors={doctors}
         rooms={rooms}
         defaultPatient={defaultPatient}
-        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : undefined}
+        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : currentUser.permissionLevel === 3 ? currentUser.id : undefined}
         defaultDate={params.date}
         defaultReason={defaultReason}
+        permissionLevel={currentUser.permissionLevel}
+        currentDoctorName={currentUser.name}
       />
     </div>
   );

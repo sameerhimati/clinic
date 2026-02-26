@@ -1,72 +1,68 @@
 # Session Handoff
-> Last updated: 2026-02-23 (post-review)
+> Last updated: 2026-02-23 (Session 12)
 
 ## Completed This Session
-- [x] UI/UX Humanization pass (5 tasks):
-  - Color system overhaul: blue-tinted oklch palette, dropped dark mode entirely
-  - Stripped all `dark:` prefixes from 24 files (UI components + app pages)
-  - Visual hierarchy: card shadows, sidebar inset-shadow active state, topbar frosted glass, StatusBadge text-xs
-  - Dashboard redesign: stat cards with icon circles, status-colored appointment borders, promoted actions
-  - DoctorScheduleWidget: "Next Up" with blue left border + bg, larger action buttons
-  - Appointment day view: segmented control toggles, thin progress bar, larger touch targets
-  - Patient detail: sticky header shadow, uppercase info labels, stronger balance pill
-  - Examination form consolidated from 6 cards → 2, sticky save bar, "Save & Next Patient" button
-  - Reviewer + security scanner pass — fixed 7 bugs
+- [x] Receipt URL guards: `/receipts`, `/receipts/[id]/print` now redirect L3 doctors to `/dashboard` (server-side)
+- [x] Exam form: Estimate field hidden for L3 doctors (UI + server-side data stripping)
+- [x] Appointment form: role-aware for L3 (doctor auto-set, room hidden, patient Change hidden)
+- [x] Appointment actions: server-side doctorId enforcement for L3 in `createAppointment` + `updateAppointment`
+- [x] Visits nav hidden from L3 sidebar + `/visits` redirects L3 to dashboard
+- [x] New `/my-activity` page: doctor-only clinical activity report (summary cards, recent visits, follow-up pipeline)
+- [x] Sidebar `exactPermission` support: "My Activity" only visible to L3 doctors
+- [x] Dead code cleanup: removed unreachable L3 branch in visits page
+- [x] Reviewer pass — all critical findings addressed
 
 ## Current State
 - **Branch:** main
-- **Last commit:** c3127a2 UI/UX humanization: blue-tinted theme, visual hierarchy, exam form consolidation
-- **Build:** passing (32 routes, zero errors)
-- **Uncommitted changes:** no
+- **Last commit:** (uncommitted — all changes staged for commit)
+- **Build:** passing (33 routes, zero errors)
+- **Uncommitted changes:** yes — 12 files modified/created
 - **Blockers:** none
+
+## Files Changed
+- `src/app/(main)/receipts/page.tsx` — added redirect guard
+- `src/app/(main)/receipts/[id]/print/page.tsx` — added canCollectPayments guard
+- `src/app/(main)/visits/[id]/examine/examination-form.tsx` — permissionLevel prop, hide Estimate
+- `src/app/(main)/visits/[id]/examine/page.tsx` — pass permissionLevel, strip estimate data for L3
+- `src/components/appointment-form.tsx` — role-aware doctor/room/patient fields
+- `src/app/(main)/appointments/new/page.tsx` — pass permissionLevel, auto-set doctorId
+- `src/app/(main)/appointments/actions.ts` — server-side doctorId enforcement for L3
+- `src/components/sidebar.tsx` — Visits minPermission:2, exactPermission support, My Activity nav
+- `src/app/(main)/visits/page.tsx` — L3 redirect, dead code cleanup
+- **NEW** `src/app/(main)/my-activity/page.tsx` — doctor's clinical activity report
 
 ## Next Session Should
 
-### Priority 1: Doctor Dashboard UX Rework (user feedback from screenshot review)
+### Priority 1: Commit & Test
+- Commit all changes (5 logical commits as planned, or single squash)
+- Test all three login roles end-to-end:
+  - **SURENDER / doctor** (L3): no Visits/Receipts in sidebar, has "My Activity", exam form has no Estimate, appointment form auto-sets doctor
+  - **MURALIDHAR / admin** (L2): all pages work as before, Estimate visible, full appointment form
+  - **KAZIM / admin** (L1): settings, doctor management, reports
 
-The doctor dashboard (login: SURENDER/doctor or RAMANA REDDY/doctor, L3) has several issues identified during user testing:
+### Priority 2: Known Technical Debt
+- **Unbounded `outstandingVisits` query** in admin dashboard — fetches ALL visits to compute outstanding
+- **Server-side date ranges** — UTC-unsafe `new Date()` + `setHours(0,0,0,0)` pattern in dashboard
+- **`minPermission` naming** in sidebar is semantically inverted (now also has `exactPermission`)
+- **Follow-up pipeline** in My Activity ignores date filter (intentional — shows all active chains)
+- **Date input validation** in My Activity page: `new Date(params.from)` with no `isNaN` guard
 
-**Problems to fix:**
-
-1. **"Receipts" should not appear in sidebar for doctors (L3).** Doctors don't collect payments — the sidebar nav should hide Receipts for permissionLevel === 3, just like Reports/Settings are already hidden. File: `src/components/sidebar.tsx`, add `minPermission: 2` to the Receipts nav item.
-
-2. **"Next Up" and "My Schedule" feel like the same section — no visual separation.** Looking at the screenshot, the doctor sees: Next Up card (with one patient) → My Schedule card (with the same patient listed again) → My Patients Today (same patient again). It's three cards showing the same data with no clear purpose distinction. Fix: Merge "Next Up" into the schedule view as a highlighted row rather than a separate card. The schedule should be THE primary section, with the next patient visually emphasized within it (e.g. highlighted row, "NEXT" badge). Don't duplicate the same patient across 3 sections.
-
-3. **Schedule should be the default/primary view on the doctor dashboard, not buried below greeting + search + actions.** The doctor's #1 question when they open the app is "who's next?" — the schedule should be immediately visible, above or alongside the search bar. Move it up. The greeting can be smaller or inline with the topbar.
-
-4. **"My Patients Today" and "My Recent Visits" are redundant with the schedule.** "My Patients Today" shows the same patients as the schedule. "My Recent Visits" is a long list that pushes everything down. Consider: remove "My Patients Today" entirely (the schedule already shows today's patients with actions), and either remove "My Recent Visits" or move it to a separate sidebar tab / collapsible section so it doesn't dominate the view.
-
-5. **Patient detail page needs to feel like a complete chart** — when a doctor clicks into a patient from the schedule, they should immediately see the full patient history, past treatments, etc. in a scannable format. Currently the treatment timeline works but verify it feels right for a doctor doing a quick chart review before examining.
-
-**Approach:** Use the reviewer and security-scanner agents (spin them up in parallel) to audit the changes. Iterate based on their feedback before committing.
-
-### Priority 2: Test All Three Login Roles
-The previous session only tested the doctor view. Explicitly test:
-- **MURALIDHAR / admin** (L2 receptionist) — dashboard, patient flow, checkout, appointments
-- **SURENDER / doctor** (L3) — dashboard, schedule, examine flow, Save & Next
-- **KAZIM / admin** (L1 admin) — settings, doctor management, reports
-
-Look for: broken layouts, missing data, permission leaks, visual inconsistencies between roles.
-
-### Priority 3 (if time): Other Improvements
+### Priority 3: Remaining Roadmap
 - Security hardening (plain-text passwords, unsigned session cookie, ownership guards)
-- Outstanding balance aggregation performance at legacy scale
-- Print stylesheet with new blue theme
+- Print stylesheet with blue theme
 - Mobile responsiveness audit
+- Real data import (CF-4 on roadmap)
 
 ## Context to Remember
-- Light-only theme: ALL `dark:` prefixes removed, no `.dark` block in globals.css — don't re-add
-- Color system uses oklch in Tailwind 4 `@theme` inline block — primary is `oklch(0.50 0.14 250)`
-- Sidebar active state uses `shadow-[inset_3px_0_0_var(--color-primary)]` to avoid layout shift
-- Exam form "Save & Next Patient" queries appointments with `timeSlotSortKey()` for chronological ordering
-- `StatusBadge` bumped to `text-xs` — don't shrink back to `text-[10px]`
-- `PatientSearch` large variant has `rounded-xl border-2 shadow`
-- Sidebar nav items use `minPermission` to hide items by role (lower number = more access)
-- `DoctorScheduleWidget` is in `src/components/doctor-schedule-widget.tsx`, used only on doctor dashboard
-- Doctor dashboard is the `isDoctor` branch in `src/app/(main)/dashboard/page.tsx`
+- Light-only theme: ALL `dark:` prefixes removed — don't re-add
+- Date navigation uses locale-safe `addDays()` helper — never use `.toISOString()` for date strings
+- Sidebar has two visibility fields: `minPermission` (≤N can see) and `exactPermission` (only N can see)
+- L3 doctors see: Dashboard, Patients, Appointments, My Activity
+- L3 doctors don't see: Visits, Receipts, Reports, Doctors, Settings
+- Estimate field: stripped server-side for L3 (not just hidden in UI)
+- Appointment actions enforce `doctorId = currentUser.id` for L3 server-side
 - `bun` is the package manager (`$HOME/.bun/bin` must be in PATH)
-- Build: `export PATH="$HOME/.bun/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH" && bun run build`
-- DB is SQLite via Prisma, seeded with `bun prisma/seed.ts`
+- Build: `export PATH="$HOME/.bun/bin:/usr/bin:/bin:/usr/local/bin:$PATH" && bun run build`
 - Seed logins: KAZIM/admin (L1), MURALIDHAR/admin (L2), SURENDER/doctor (L3), RAMANA REDDY/doctor (L3)
 
 ## Start Command

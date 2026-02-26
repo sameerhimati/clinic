@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
-
-
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +17,12 @@ export default async function VisitsPage({
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string; page?: string }>;
 }) {
   const currentDoctor = await requireAuth();
+  if (currentDoctor.permissionLevel === 3) redirect("/dashboard");
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;
 
-  // For doctors (permissionLevel 3), default to their own visits unless they explicitly clear it
-  const effectiveDoctorId =
-    params.doctorId !== undefined
-      ? params.doctorId
-      : currentDoctor.permissionLevel === 3
-        ? String(currentDoctor.id)
-        : "";
+  const effectiveDoctorId = params.doctorId || "";
 
   const where: Record<string, unknown> = {};
   if (params.from || params.to) {

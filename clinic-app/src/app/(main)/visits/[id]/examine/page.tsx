@@ -38,46 +38,13 @@ export default async function ExaminePage({
         orderBy: { createdAt: "asc" },
       },
       lockedBy: { select: { name: true } },
+      doctor: { select: { name: true } },
     },
-  });
-
-  // Load active doctors for the doctor dropdown
-  const doctors = await prisma.doctor.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
   });
 
   const locked = existingReport ? isReportLocked(existingReport) : false;
   const canUnlock = isAdmin(currentUser.permissionLevel);
   const hoursLeft = existingReport && !locked ? hoursUntilAutoLock(existingReport) : 0;
-
-  // Query next patient: find next ARRIVED or IN_PROGRESS appointment for the current doctor today
-  let nextVisitId: number | null = null;
-  if (currentUser.permissionLevel === 3) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const nextAppointments = await prisma.appointment.findMany({
-      where: {
-        doctorId: currentUser.id,
-        date: { gte: today, lt: tomorrow },
-        status: { in: ["ARRIVED", "IN_PROGRESS"] },
-        visitId: { not: visitId },
-        visit: { isNot: null },
-      },
-      select: { visitId: true, timeSlot: true },
-    });
-
-    // Sort by time slot to pick the chronologically next patient
-    if (nextAppointments.length > 0) {
-      const { timeSlotSortKey } = await import("@/lib/time-slots");
-      nextAppointments.sort((a, b) => timeSlotSortKey(a.timeSlot) - timeSlotSortKey(b.timeSlot));
-      nextVisitId = nextAppointments[0].visitId;
-    }
-  }
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -92,27 +59,28 @@ export default async function ExaminePage({
           <span className="font-mono">#{visit.patient.code}</span>{" "}
           {visit.patient.salutation && `${visit.patient.salutation}. `}
           {visit.patient.name}
-          {visit.patient.gender && ` · ${visit.patient.gender === "M" ? "Male" : "Female"}`}
-          {visit.patient.ageAtRegistration && ` · ${visit.patient.ageAtRegistration} yrs`}
+          {visit.patient.gender && ` \u00b7 ${visit.patient.gender === "M" ? "Male" : "Female"}`}
+          {visit.patient.ageAtRegistration && ` \u00b7 ${visit.patient.ageAtRegistration} yrs`}
         </p>
         <p className="text-sm text-muted-foreground">
-          {visit.operation?.name || "Visit"} · {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} · {format(new Date(visit.visitDate), "MMM d, yyyy")}
+          {visit.operation?.name || "Visit"} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "MMM d, yyyy")}
         </p>
       </div>
 
       <ExaminationForm
         visitId={visitId}
-        doctors={doctors}
         defaultDoctorId={visit.doctorId}
+        defaultDoctorName={visit.doctor?.name || null}
         existingReport={existingReport ? {
           id: existingReport.id,
           doctorId: existingReport.doctorId,
+          doctorName: existingReport.doctor.name,
           reportDate: format(new Date(existingReport.reportDate), "yyyy-MM-dd"),
           complaint: existingReport.complaint,
           examination: existingReport.examination,
           diagnosis: existingReport.diagnosis,
           treatmentNotes: existingReport.treatmentNotes,
-          estimate: existingReport.estimate,
+          estimate: currentUser.permissionLevel <= 2 ? existingReport.estimate : null,
           medication: existingReport.medication,
         } : null}
         isLocked={locked}
@@ -127,7 +95,7 @@ export default async function ExaminePage({
         })) ?? []}
         lockedByName={existingReport?.lockedBy?.name ?? null}
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
-        nextVisitId={nextVisitId}
+        permissionLevel={currentUser.permissionLevel}
       />
     </div>
   );

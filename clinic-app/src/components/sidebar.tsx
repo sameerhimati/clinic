@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -26,17 +27,19 @@ type NavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   minPermission?: number; // max permissionLevel allowed (lower = more access)
+  exactPermission?: number; // only show for this exact permissionLevel
 };
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/patients", label: "Patients", icon: Users },
-  { href: "/visits", label: "Visits", icon: Stethoscope },
+  { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 2 },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
   { href: "/doctors", label: "Doctors", icon: UserCog, minPermission: 1 },
   { href: "/reports", label: "Reports", icon: BarChart3, minPermission: 2 },
   { href: "/settings", label: "Settings", icon: Settings, minPermission: 1 },
+  { href: "/my-activity", label: "My Activity", icon: Activity, exactPermission: 3 },
 ];
 
 function NavItems({
@@ -49,9 +52,11 @@ function NavItems({
   permissionLevel: number;
 }) {
   const pathname = usePathname();
-  const filtered = navItems.filter(
-    (item) => !item.minPermission || permissionLevel <= item.minPermission
-  );
+  const filtered = navItems.filter((item) => {
+    if (item.exactPermission !== undefined) return permissionLevel === item.exactPermission;
+    if (item.minPermission !== undefined) return permissionLevel <= item.minPermission;
+    return true;
+  });
 
   return (
     <nav className="flex flex-col gap-1 p-2">

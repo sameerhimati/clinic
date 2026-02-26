@@ -4,21 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
 import { saveExamination, finalizeReport, unlockReport, addAddendum } from "./actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
-import { Lock, Unlock, Clock, MessageSquarePlus, ChevronRight } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer } from "lucide-react";
 import { format } from "date-fns";
 
 const COMMON_COMPLAINTS = [
@@ -43,6 +35,7 @@ const COMMON_COMPLAINTS = [
 type ExistingReport = {
   id: number;
   doctorId: number;
+  doctorName: string;
   reportDate: string;
   complaint: string | null;
   examination: string | null;
@@ -61,8 +54,8 @@ type Addendum = {
 
 export function ExaminationForm({
   visitId,
-  doctors,
   defaultDoctorId,
+  defaultDoctorName,
   existingReport,
   isLocked,
   canUnlock,
@@ -71,11 +64,11 @@ export function ExaminationForm({
   addendums,
   lockedByName,
   lockedAt,
-  nextVisitId,
+  permissionLevel,
 }: {
   visitId: number;
-  doctors: { id: number; name: string }[];
   defaultDoctorId: number | null;
+  defaultDoctorName: string | null;
   existingReport: ExistingReport | null;
   isLocked: boolean;
   canUnlock: boolean;
@@ -84,18 +77,19 @@ export function ExaminationForm({
   addendums: Addendum[];
   lockedByName: string | null;
   lockedAt: string | null;
-  nextVisitId: number | null;
+  permissionLevel?: number;
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [doctorId, setDoctorId] = useState(
-    String(existingReport?.doctorId || defaultDoctorId || currentDoctor.id)
-  );
-  const [reportDate, setReportDate] = useState(
-    existingReport?.reportDate || new Date().toISOString().split("T")[0]
-  );
+  // Auto-set doctor: use existing report's doctor, then visit's doctor, then current user
+  const doctorId = existingReport?.doctorId || defaultDoctorId || currentDoctor.id;
+  const doctorName = existingReport?.doctorName || defaultDoctorName || currentDoctor.name;
+
+  // Auto-set report date: preserve existing, default to today for new (local time)
+  const reportDate = existingReport?.reportDate || format(new Date(), "yyyy-MM-dd");
+
   const [complaint, setComplaint] = useState(existingReport?.complaint || "");
   const [examination, setExamination] = useState(existingReport?.examination || "");
   const [diagnosis, setDiagnosis] = useState(existingReport?.diagnosis || "");
@@ -104,11 +98,11 @@ export function ExaminationForm({
   const [medication, setMedication] = useState(existingReport?.medication || "");
   const [addendumText, setAddendumText] = useState("");
 
-  async function handleSave(redirectTarget: "detail" | "print" | "next") {
+  async function handleSave(redirectTarget: "detail" | "print") {
     startTransition(async () => {
       try {
         const result = await saveExamination(visitId, {
-          doctorId: parseInt(doctorId),
+          doctorId,
           reportDate,
           complaint: complaint || null,
           examination: examination || null,
@@ -135,8 +129,6 @@ export function ExaminationForm({
         }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
-        } else if (redirectTarget === "next" && nextVisitId) {
-          router.push(`/visits/${nextVisitId}/examine`);
         } else {
           router.push(`/visits/${visitId}`);
         }
@@ -217,7 +209,7 @@ export function ExaminationForm({
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="text-xs text-muted-foreground">
-              By Dr. {doctors.find(d => d.id === existingReport.doctorId)?.name} · {existingReport.reportDate}
+              By Dr. {existingReport.doctorName} {"\u00b7"} {existingReport.reportDate}
             </div>
             {existingReport.complaint && (
               <div><span className="text-muted-foreground font-medium">Complaint: </span><span className="whitespace-pre-wrap">{existingReport.complaint}</span></div>
@@ -231,7 +223,7 @@ export function ExaminationForm({
             {existingReport.treatmentNotes && (
               <div><span className="text-muted-foreground font-medium">Treatment: </span><span className="whitespace-pre-wrap">{existingReport.treatmentNotes}</span></div>
             )}
-            {existingReport.estimate && (
+            {existingReport.estimate && (!permissionLevel || permissionLevel <= 2) && (
               <div><span className="text-muted-foreground font-medium">Estimate: </span><span className="whitespace-pre-wrap">{existingReport.estimate}</span></div>
             )}
             {existingReport.medication && (
@@ -251,7 +243,7 @@ export function ExaminationForm({
                 <div key={a.id} className="rounded-md border p-3 text-sm">
                   <div className="whitespace-pre-wrap">{a.content}</div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Dr. {a.doctorName} · {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
                   </div>
                 </div>
               ))}
@@ -307,30 +299,10 @@ export function ExaminationForm({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Doctor</Label>
-          <Select value={doctorId} onValueChange={setDoctorId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {doctors.map((doc) => (
-                <SelectItem key={doc.id} value={String(doc.id)}>
-                  {doc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Report Date</Label>
-          <Input
-            type="date"
-            value={reportDate}
-            onChange={(e) => setReportDate(e.target.value)}
-          />
-        </div>
+      {/* Doctor info (read-only) */}
+      <div className="text-sm text-muted-foreground">
+        Recording as <span className="font-medium text-foreground">Dr. {doctorName}</span>
+        {" \u00b7 "}{reportDate}
       </div>
 
       {/* Card 1: Clinical Assessment */}
@@ -409,15 +381,17 @@ export function ExaminationForm({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Estimate</Label>
-            <Textarea
-              placeholder="Enter cost estimate..."
-              value={estimate}
-              onChange={(e) => setEstimate(e.target.value)}
-              rows={2}
-            />
-          </div>
+          {(!permissionLevel || permissionLevel <= 2) && (
+            <div className="space-y-2">
+              <Label>Estimate</Label>
+              <Textarea
+                placeholder="Enter cost estimate..."
+                value={estimate}
+                onChange={(e) => setEstimate(e.target.value)}
+                rows={2}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Medication Prescribed</Label>
@@ -442,7 +416,7 @@ export function ExaminationForm({
               <div key={a.id} className="rounded-md border p-3 text-sm">
                 <div className="whitespace-pre-wrap">{a.content}</div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Dr. {a.doctorName} · {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                  Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
                 </div>
               </div>
             ))}
@@ -450,7 +424,7 @@ export function ExaminationForm({
         </Card>
       )}
 
-      {/* Sticky save bar */}
+      {/* Sticky save bar — simplified to Save + Print */}
       <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t -mx-4 px-4 md:-mx-6 md:px-6 py-3 flex gap-3 justify-between items-center z-20">
         <div>
           {existingReport && (
@@ -465,38 +439,21 @@ export function ExaminationForm({
             </Button>
           )}
         </div>
-        <div className="flex gap-3 flex-wrap justify-end">
-          <Button
-            variant="outline"
-            onClick={() => handleSave("detail")}
-            disabled={isPending}
-          >
-            {isPending ? "Saving..." : "Save"}
-          </Button>
+        <div className="flex gap-3">
           <Button
             variant="outline"
             onClick={() => handleSave("print")}
             disabled={isPending}
           >
-            Save & Print
+            <Printer className="mr-1 h-3.5 w-3.5" />
+            Print
           </Button>
-          {nextVisitId && (
-            <Button
-              onClick={() => handleSave("next")}
-              disabled={isPending}
-            >
-              {isPending ? "Saving..." : "Save & Next Patient"}
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          )}
-          {!nextVisitId && (
-            <Button
-              onClick={() => handleSave("detail")}
-              disabled={isPending}
-            >
-              {isPending ? "Saving..." : "Save Examination"}
-            </Button>
-          )}
+          <Button
+            onClick={() => handleSave("detail")}
+            disabled={isPending}
+          >
+            {isPending ? "Saving..." : "Save"}
+          </Button>
         </div>
       </div>
     </div>
