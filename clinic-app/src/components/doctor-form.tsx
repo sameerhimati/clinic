@@ -77,9 +77,10 @@ export function DoctorForm({
           <div className="space-y-2">
             <Label htmlFor="designationId">Designation</Label>
             <select
+              id="designationId"
               name="designationId"
               defaultValue={doctor?.designationId || ""}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <option value="">Select...</option>
               {designations.map((d) => (
@@ -89,16 +90,17 @@ export function DoctorForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="permissionLevel">Permission Level</Label>
+            <Label htmlFor="permissionLevel">Role</Label>
             <select
+              id="permissionLevel"
               name="permissionLevel"
               defaultValue={doctor?.permissionLevel ?? 3}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
-              <option value="0">0 — SYSADM</option>
-              <option value="1">1 — Admin</option>
-              <option value="2">2 — Reception</option>
-              <option value="3">3 — Doctor</option>
+              <option value="0">SysAdmin</option>
+              <option value="1">Admin</option>
+              <option value="2">Reception</option>
+              <option value="3">Doctor</option>
             </select>
           </div>
         </CardContent>

@@ -178,45 +178,40 @@ export default async function CommissionReportPage({
         )}
       </form>
 
-      {/* Summary Cards */}
+      {/* Summary Table */}
       {doctorTotals.size > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-2">
           <h3 className="text-lg font-semibold">Summary</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from(doctorTotals.entries()).map(([name, totals]) => (
-              <Card key={name}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Dr. {name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Received</span>
-                    <span>{"\u20B9"}{totals.received.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lab Cost</span>
-                    <span>{"\u20B9"}{totals.labCost.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>Commission</span>
-                    <span>{"\u20B9"}{totals.commission.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-destructive">
-                    <span>TDS</span>
-                    <span>- {"\u20B9"}{totals.tds.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between font-bold border-t pt-1">
-                    <span>Net Payable</span>
-                    <span>{"\u20B9"}{totals.net.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Clinic Share</span>
-                    <span>{"\u20B9"}{totals.clinic.toLocaleString("en-IN")}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Doctor</TableHead>
+                    <TableHead className="text-right">Received</TableHead>
+                    <TableHead className="text-right">Lab Cost</TableHead>
+                    <TableHead className="text-right">Commission</TableHead>
+                    <TableHead className="text-right">TDS</TableHead>
+                    <TableHead className="text-right font-bold">Net Payable</TableHead>
+                    <TableHead className="text-right">Clinic Share</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from(doctorTotals.entries()).map(([name, totals]) => (
+                    <TableRow key={name}>
+                      <TableCell className="font-medium">Dr. {name}</TableCell>
+                      <TableCell className="text-right">{"\u20B9"}{totals.received.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">{"\u20B9"}{totals.labCost.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">{"\u20B9"}{totals.commission.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right text-destructive">{totals.tds > 0 ? `-\u20B9${totals.tds.toLocaleString("en-IN")}` : "-"}</TableCell>
+                      <TableCell className="text-right font-bold">{"\u20B9"}{totals.net.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{"\u20B9"}{totals.clinic.toLocaleString("en-IN")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
       )}
 

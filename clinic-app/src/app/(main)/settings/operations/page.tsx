@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OperationCreateForm } from "./operation-form";
-import { toggleOperationActive, updateOperation } from "./actions";
+import { OperationInlineEdit } from "./operation-inline-edit";
+import { toggleOperationActive } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +56,7 @@ export default async function OperationsPage() {
                       {!op.isActive && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                     </div>
                     <div className="flex items-center gap-3">
-                      {op.defaultMinFee != null && op.defaultMinFee > 0 && (
-                        <span className="font-mono text-sm tabular-nums">{"\u20B9"}{op.defaultMinFee.toLocaleString("en-IN")}</span>
-                      )}
+                      <OperationInlineEdit id={op.id} currentFee={op.defaultMinFee} />
                       <form action={toggleOperationActive}>
                         <input type="hidden" name="id" value={op.id} />
                         <Button size="sm" variant="ghost" type="submit" className="h-7 text-xs">

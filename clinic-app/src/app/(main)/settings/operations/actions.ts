@@ -28,17 +28,21 @@ export async function updateOperation(formData: FormData) {
   await requireAdmin();
 
   const id = parseInt(formData.get("id") as string);
+  const data: Record<string, unknown> = {};
 
-  await prisma.operation.update({
-    where: { id },
-    data: {
-      name: (formData.get("name") as string).trim(),
-      category: (formData.get("category") as string)?.trim() || null,
-      defaultMinFee: formData.get("defaultMinFee") ? parseFloat(formData.get("defaultMinFee") as string) : null,
-      defaultMaxFee: formData.get("defaultMaxFee") ? parseFloat(formData.get("defaultMaxFee") as string) : null,
-    },
-  });
+  // Support partial updates — only set fields that are present in the form
+  if (formData.has("name")) data.name = (formData.get("name") as string).trim();
+  if (formData.has("category")) data.category = (formData.get("category") as string)?.trim() || null;
+  if (formData.has("defaultMinFee")) {
+    const val = formData.get("defaultMinFee") as string;
+    data.defaultMinFee = val ? parseFloat(val) : null;
+  }
+  if (formData.has("defaultMaxFee")) {
+    const val = formData.get("defaultMaxFee") as string;
+    data.defaultMaxFee = val ? parseFloat(val) : null;
+  }
 
+  await prisma.operation.update({ where: { id }, data });
   revalidatePath("/settings/operations");
 }
 

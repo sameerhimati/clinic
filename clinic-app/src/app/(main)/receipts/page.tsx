@@ -105,14 +105,12 @@ export default async function ReceiptsPage({
                   <div className="font-medium flex items-center gap-2">
                     {receipt.receiptNo && (
                       <span className="font-mono text-sm text-muted-foreground">
-                        #{receipt.receiptNo}
+                        R#{receipt.receiptNo}
                       </span>
                     )}
-                    {receipt.visit.patient.code && (
-                      <span className="font-mono text-sm text-muted-foreground">
-                        #{receipt.visit.patient.code}
-                      </span>
-                    )}
+                    <span className="font-mono text-sm text-muted-foreground">
+                      #{receipt.visit.patient.code}
+                    </span>
                     {receipt.visit.patient.name}
                   </div>
                   <div className="text-sm text-muted-foreground">

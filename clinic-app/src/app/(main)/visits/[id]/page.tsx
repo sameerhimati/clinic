@@ -287,38 +287,38 @@ export default async function VisitDetailPage({
         </Card>
       )}
 
-      {/* Visit Details */}
-      <Card>
-        <CardHeader><CardTitle>Visit Details</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <DetailRow label="Treatment" value={visit.operation?.name} />
-          {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
-          <DetailRow label="Doctor" value={visit.doctor?.name} />
-          {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
-          {showInternalCosts && visit.doctorCommissionPercent != null && (
-            <DetailRow label="Commission %" value={`${visit.doctorCommissionPercent}%`} />
-          )}
-          {!isDoctor && (
-            <>
-              <Separator />
-              {visit.lab && <DetailRow label="Lab" value={visit.lab.name} />}
-              {visit.labRate && <DetailRow label="Lab Item" value={visit.labRate.itemName} />}
-              {showInternalCosts && visit.labRateAmount > 0 && (
-                <DetailRow label="Lab Rate" value={`\u20B9${visit.labRateAmount.toLocaleString("en-IN")} \u00d7 ${visit.labQuantity}`} />
-              )}
-            </>
-          )}
-          {visit.notes && (
-            <>
-              <Separator />
-              <div>
-                <div className="text-sm text-muted-foreground">Notes</div>
-                <div className="mt-1 whitespace-pre-wrap">{visit.notes}</div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {/* Visit Details — only fields not in header */}
+      {(visit.stepLabel || visit.assistingDoctor || (showInternalCosts && visit.doctorCommissionPercent != null) || (!isDoctor && (visit.lab || visit.labRate)) || visit.notes) && (
+        <Card>
+          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
+            {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
+            {showInternalCosts && visit.doctorCommissionPercent != null && (
+              <DetailRow label="Commission %" value={`${visit.doctorCommissionPercent}%`} />
+            )}
+            {!isDoctor && (visit.lab || visit.labRate) && (
+              <>
+                <Separator />
+                {visit.lab && <DetailRow label="Lab" value={visit.lab.name} />}
+                {visit.labRate && <DetailRow label="Lab Item" value={visit.labRate.itemName} />}
+                {showInternalCosts && visit.labRateAmount > 0 && (
+                  <DetailRow label="Lab Rate" value={`\u20B9${visit.labRateAmount.toLocaleString("en-IN")} \u00d7 ${visit.labQuantity}`} />
+                )}
+              </>
+            )}
+            {visit.notes && (
+              <>
+                <Separator />
+                <div>
+                  <div className="text-sm text-muted-foreground">Notes</div>
+                  <div className="mt-1 whitespace-pre-wrap">{visit.notes}</div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Files */}
       <Card>
