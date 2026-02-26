@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (column-per-doctor timetable, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**. 31 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**. 33 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -89,6 +89,22 @@ When ready to go live with real data:
 - [ ] Online booking: patients request slots, reception confirms based on availability
 - [ ] SMS/WhatsApp appointment reminders
 - [ ] Recurring appointment templates (e.g., weekly ortho adjustments)
+
+---
+
+## UX Cleanup & Doctor Activity [DONE]
+
+- [x] Receipt URL guards: `/receipts`, `/receipts/[id]/print` redirect L3 to dashboard (server-side)
+- [x] Estimate field hidden from L3 doctors in exam form (UI + server-side data stripping)
+- [x] Role-aware appointment form: doctor auto-set, room hidden, patient Change hidden for L3
+- [x] Server-side doctorId enforcement in `createAppointment` + `updateAppointment` for L3
+- [x] Visits nav hidden from L3 sidebar + `/visits` redirects L3 to dashboard
+- [x] Sidebar `exactPermission` support for doctor-only nav items
+- [x] **My Activity page** (`/my-activity`): L3 doctor-only clinical activity report
+  - Summary cards: total visits, new/follow-up split, exams completed/pending
+  - Recent visits table (last 20, date-filtered): patient, operation, visit type, exam status
+  - Follow-up pipeline: treatment chains with step count, last visit date, exam status
+  - No financial data shown — purely clinical
 
 ---
 
