@@ -91,7 +91,7 @@ export default async function OutstandingReportPage({
         <select
           name="doctorId"
           defaultValue={params.doctorId || ""}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           <option value="">All Doctors</option>
           {doctors.map((d) => (
@@ -101,20 +101,18 @@ export default async function OutstandingReportPage({
           ))}
         </select>
         <Button type="submit" variant="secondary" size="sm">
-          <Search className="mr-2 h-4 w-4" /> Generate
+          <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
+        {(params.from || params.to || params.doctorId) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/reports/outstanding">Clear</Link>
+          </Button>
+        )}
       </form>
 
-      <div className="flex gap-4">
-        <Card className="flex-1">
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Outstanding</div>
-            <div className="text-2xl font-bold text-destructive">
-              {"\u20B9"}{totalOutstanding.toLocaleString("en-IN")}
-            </div>
-            <div className="text-sm text-muted-foreground">{outstanding.length} case(s)</div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-destructive font-bold text-lg">{"\u20B9"}{totalOutstanding.toLocaleString("en-IN")}</span>
+        <span className="text-muted-foreground">outstanding across {outstanding.length} {outstanding.length === 1 ? "case" : "cases"}</span>
       </div>
 
       {outstanding.length > 0 ? (
@@ -127,7 +125,7 @@ export default async function OutstandingReportPage({
                   <TableHead>Case #</TableHead>
                   <TableHead>Patient</TableHead>
                   <TableHead>Mobile</TableHead>
-                  <TableHead>Operation</TableHead>
+                  <TableHead>Treatment</TableHead>
                   <TableHead>Doctor</TableHead>
                   <TableHead className="text-right">Billed</TableHead>
                   <TableHead className="text-right">Paid</TableHead>
@@ -151,10 +149,10 @@ export default async function OutstandingReportPage({
                     <TableCell>{row.patient.mobile || "-"}</TableCell>
                     <TableCell>{row.operation?.name || "-"}</TableCell>
                     <TableCell>{row.doctor?.name || "-"}</TableCell>
-                    <TableCell className="text-right">{row.billed.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className="text-right">{row.paid.toLocaleString("en-IN")}</TableCell>
+                    <TableCell className="text-right">{"\u20B9"}{row.billed.toLocaleString("en-IN")}</TableCell>
+                    <TableCell className="text-right">{"\u20B9"}{row.paid.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right font-medium text-destructive">
-                      {row.balance.toLocaleString("en-IN")}
+                      {"\u20B9"}{row.balance.toLocaleString("en-IN")}
                     </TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" asChild>

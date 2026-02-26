@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
 import { LabRateCreateForm } from "./lab-rate-form";
 import { toggleLabRateActive, updateLab } from "../actions";
@@ -32,10 +33,10 @@ export default async function LabDetailPage({
 
   return (
     <div className="space-y-6">
+      <Link href="/settings/labs" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+        <ArrowLeft className="h-3 w-3" /> Labs
+      </Link>
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/settings/labs"><ArrowLeft className="mr-1 h-4 w-4" />Labs</Link>
-        </Button>
         <h2 className="text-2xl font-bold">{lab.name}</h2>
         {lab.code != null && <Badge variant="secondary">#{lab.code}</Badge>}
       </div>
@@ -48,15 +49,15 @@ export default async function LabDetailPage({
             <input type="hidden" name="id" value={lab.id} />
             <div className="space-y-2 sm:col-span-2">
               <label className="text-sm font-medium">Name</label>
-              <input name="name" defaultValue={lab.name} required className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" />
+              <Input name="name" defaultValue={lab.name} required />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Phone</label>
-              <input name="contactPhone" defaultValue={lab.contactPhone || ""} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" />
+              <Input name="contactPhone" defaultValue={lab.contactPhone || ""} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
-              <input name="contactEmail" defaultValue={lab.contactEmail || ""} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm" />
+              <Input name="contactEmail" defaultValue={lab.contactEmail || ""} />
             </div>
             <div className="sm:col-span-2">
               <Button type="submit" size="sm">Save</Button>

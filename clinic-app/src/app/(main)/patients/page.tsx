@@ -72,11 +72,16 @@ export default async function PatientsPage({
           />
         </div>
         <Button type="submit" variant="secondary">
-          Search
+          Filter
         </Button>
+        {query && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/patients">Clear</Link>
+          </Button>
+        )}
       </form>
 
-      <p className="text-sm text-muted-foreground">{total} patient(s) found</p>
+      <p className="text-sm text-muted-foreground">{total} {total === 1 ? "patient" : "patients"} found</p>
 
       {/* Patient List */}
       <Card>
@@ -112,7 +117,7 @@ export default async function PatientsPage({
                   </div>
                   <div className="text-right">
                     <Badge variant="secondary">
-                      {patient._count.visits} visit(s)
+                      {patient._count.visits} {patient._count.visits === 1 ? "visit" : "visits"}
                     </Badge>
                   </div>
                 </Link>

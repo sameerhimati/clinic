@@ -29,7 +29,7 @@ export default async function EditDoctorPage({
       <Link href="/doctors" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
         <ArrowLeft className="h-3 w-3" /> Doctors
       </Link>
-      <h2 className="text-2xl font-bold">Edit Doctor — {doctor.name}</h2>
+      <h2 className="text-2xl font-bold">Edit Doctor: {doctor.name}</h2>
       <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
     </div>
   );

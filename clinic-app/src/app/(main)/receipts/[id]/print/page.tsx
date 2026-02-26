@@ -112,7 +112,7 @@ export default async function ReceiptPrintPage({
         <table className="w-full text-sm mb-4">
           <tbody>
             <tr>
-              <td className="py-1 text-muted-foreground">Operation Rate</td>
+              <td className="py-1 text-muted-foreground">Treatment Fee</td>
               <td className="py-1 text-right">{"\u20B9"}{(receipt.visit.operationRate || 0).toLocaleString("en-IN")}</td>
             </tr>
             {receipt.visit.discount > 0 && (

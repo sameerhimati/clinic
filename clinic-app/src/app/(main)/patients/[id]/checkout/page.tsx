@@ -102,7 +102,7 @@ export default async function CheckoutPage({
         <div className="flex items-center gap-4">
           <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-center">
             <div className="text-xs uppercase tracking-wide opacity-80">
-              Checkout
+              Bill Payment
             </div>
             <div className="text-2xl font-bold font-mono">#{patient.code}</div>
           </div>
@@ -114,7 +114,7 @@ export default async function CheckoutPage({
             <p className="text-muted-foreground">
               Outstanding: {"\u20B9"}
               {totalOutstanding.toLocaleString("en-IN")} across{" "}
-              {outstandingVisits.length} visit(s)
+              {outstandingVisits.length} {outstandingVisits.length === 1 ? "visit" : "visits"}
             </p>
           </div>
         </div>

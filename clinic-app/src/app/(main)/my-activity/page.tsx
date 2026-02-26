@@ -93,6 +93,11 @@ export default async function MyActivityPage({
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
+        {(params.from || params.to) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/my-activity">Clear</Link>
+          </Button>
+        )}
       </form>
 
       {/* Summary Cards */}
@@ -121,7 +126,7 @@ export default async function MyActivityPage({
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <CheckCircle2 className="h-4 w-4" />
-              Exams Done
+              Notes Written
             </div>
             <div className="text-2xl font-bold mt-1">{examsCompleted}</div>
           </CardContent>
@@ -130,7 +135,7 @@ export default async function MyActivityPage({
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Clock className="h-4 w-4" />
-              Exams Pending
+              Notes Pending
             </div>
             <div className="text-2xl font-bold mt-1">{examsPending}</div>
           </CardContent>

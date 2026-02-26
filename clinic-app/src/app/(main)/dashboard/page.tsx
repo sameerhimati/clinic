@@ -13,7 +13,6 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
-import { PatientSearch } from "@/components/patient-search";
 import { StatusBadge } from "@/components/status-badge";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 
@@ -137,7 +136,7 @@ export default async function DashboardPage() {
         {/* Compact header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-lg font-bold">{greeting}, Dr. {doctor.name}</h2>
+            <h2 className="text-2xl font-bold">{greeting}, Dr. {doctor.name}</h2>
             <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
           </div>
           <Button size="sm" asChild>
@@ -176,7 +175,7 @@ export default async function DashboardPage() {
       {/* Header with inline stats */}
       <div>
         <div className="flex items-baseline gap-2">
-          <h2 className="text-lg font-bold">{greeting}, {doctor.name}</h2>
+          <h2 className="text-2xl font-bold">{greeting}, {doctor.name}</h2>
           <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
@@ -184,12 +183,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Search bar */}
-      <div className="max-w-2xl">
-        <PatientSearch size="large" />
-      </div>
-
-      {/* Quick actions with hierarchy */}
+      {/* Quick actions */}
       <div className="flex flex-wrap gap-2">
         <Button asChild>
           <Link href="/patients/new"><UserPlus className="mr-2 h-4 w-4" />New Patient</Link>

@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import { toggleDoctorActive } from "./actions";
+import { roleName } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -58,11 +59,11 @@ export default async function DoctorsPage() {
                       <span>Fixed: {"\u20B9"}{doctor.commissionRate}</span>
                     )}
                     {doctor.tdsPercent > 0 && <span>TDS: {doctor.tdsPercent}%</span>}
-                    <span>Level: {doctor.permissionLevel}</span>
+                    <span>{roleName(doctor.permissionLevel)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{doctor._count.visits} visit(s)</Badge>
+                  <Badge variant="secondary">{doctor._count.visits} {doctor._count.visits === 1 ? "visit" : "visits"}</Badge>
                   {doctor.mobile && (
                     <span className="text-sm text-muted-foreground hidden sm:inline">{doctor.mobile}</span>
                   )}

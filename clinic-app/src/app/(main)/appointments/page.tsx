@@ -100,7 +100,9 @@ export default async function AppointmentsPage({
   }));
 
   return (
-    <AppointmentDayView
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Appointments</h2>
+      <AppointmentDayView
       dateStr={dateStr}
       appointments={serialized}
       columnDoctors={columnDoctors}
@@ -108,5 +110,6 @@ export default async function AppointmentsPage({
       currentUserId={currentUser.id}
       permissionLevel={currentUser.permissionLevel}
     />
+    </div>
   );
 }

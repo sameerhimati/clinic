@@ -52,7 +52,7 @@ export default async function NewReceiptPage({
     .filter((v) => v.balance > 0);
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <Link href="/receipts" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
         <ArrowLeft className="h-3 w-3" /> Receipts
       </Link>

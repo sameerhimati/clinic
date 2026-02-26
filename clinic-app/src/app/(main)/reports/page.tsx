@@ -19,7 +19,10 @@ export default async function ReportsPage() {
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="flex items-center gap-3 pt-6">
               <BarChart3 className="h-5 w-5 text-muted-foreground shrink-0" />
-              <span className="font-medium">Doctor Commission</span>
+              <div>
+                <div className="font-medium">Doctor Commission</div>
+                <div className="text-sm text-muted-foreground">Payments, lab costs, TDS & net payable by doctor</div>
+              </div>
             </CardContent>
           </Card>
         </Link>
@@ -28,7 +31,10 @@ export default async function ReportsPage() {
           <Card className="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="flex items-center gap-3 pt-6">
               <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0" />
-              <span className="font-medium">Outstanding Dues</span>
+              <div>
+                <div className="font-medium">Outstanding Dues</div>
+                <div className="text-sm text-muted-foreground">Unpaid balances by patient, visit & doctor</div>
+              </div>
             </CardContent>
           </Card>
         </Link>

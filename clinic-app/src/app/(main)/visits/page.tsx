@@ -79,7 +79,7 @@ export default async function VisitsPage({
         <select
           name="doctorId"
           defaultValue={effectiveDoctorId}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           <option value="">All Doctors</option>
           {doctors.map((d) => (
@@ -91,9 +91,14 @@ export default async function VisitsPage({
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
+        {(params.from || params.to || effectiveDoctorId) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/visits">Clear</Link>
+          </Button>
+        )}
       </form>
 
-      <p className="text-sm text-muted-foreground">{total} visit(s)</p>
+      <p className="text-sm text-muted-foreground">{total} {total === 1 ? "visit" : "visits"}</p>
 
       <Card>
         <CardContent className="p-0">

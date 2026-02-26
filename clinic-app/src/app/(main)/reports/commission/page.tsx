@@ -159,7 +159,7 @@ export default async function CommissionReportPage({
         <select
           name="doctorId"
           defaultValue={params.doctorId || ""}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           <option value="">All Doctors</option>
           {doctors.map((d) => (
@@ -169,8 +169,13 @@ export default async function CommissionReportPage({
           ))}
         </select>
         <Button type="submit" variant="secondary" size="sm">
-          <Search className="mr-2 h-4 w-4" /> Generate
+          <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
+        {(params.from || params.to || params.doctorId) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/reports/commission">Clear</Link>
+          </Button>
+        )}
       </form>
 
       {/* Summary Cards */}
@@ -230,7 +235,7 @@ export default async function CommissionReportPage({
                     <TableHead>Date</TableHead>
                     <TableHead>Case #</TableHead>
                     <TableHead>Patient</TableHead>
-                    <TableHead>Operation</TableHead>
+                    <TableHead>Treatment</TableHead>
                     <TableHead>Doctor</TableHead>
                     <TableHead className="text-right">Received</TableHead>
                     <TableHead className="text-right">Lab</TableHead>
@@ -248,12 +253,12 @@ export default async function CommissionReportPage({
                       <TableCell>{row.patientName}</TableCell>
                       <TableCell>{row.operationName}</TableCell>
                       <TableCell>{row.doctorName}</TableCell>
-                      <TableCell className="text-right">{row.receivedAmount.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right">{row.labRate > 0 ? row.labRate.toLocaleString("en-IN") : "-"}</TableCell>
+                      <TableCell className="text-right">{"\u20B9"}{row.receivedAmount.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">{row.labRate > 0 ? `\u20B9${row.labRate.toLocaleString("en-IN")}` : "-"}</TableCell>
                       <TableCell className="text-right">{row.doctorPercent}%</TableCell>
-                      <TableCell className="text-right">{row.doctorAmount.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right hidden md:table-cell">{row.tds > 0 ? row.tds.toLocaleString("en-IN") : "-"}</TableCell>
-                      <TableCell className="text-right font-medium hidden md:table-cell">{row.netCommission.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">{"\u20B9"}{row.doctorAmount.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell">{row.tds > 0 ? `\u20B9${row.tds.toLocaleString("en-IN")}` : "-"}</TableCell>
+                      <TableCell className="text-right font-medium hidden md:table-cell">{"\u20B9"}{row.netCommission.toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

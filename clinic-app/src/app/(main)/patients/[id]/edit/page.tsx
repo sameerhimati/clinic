@@ -30,7 +30,7 @@ export default async function EditPatientPage({
   const boundAction = updatePatient.bind(null, patientId);
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <Link href={`/patients/${patientId}`} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
         <ArrowLeft className="h-3 w-3" /> {patient.name}
       </Link>

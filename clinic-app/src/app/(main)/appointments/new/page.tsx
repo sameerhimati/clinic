@@ -50,7 +50,7 @@ export default async function NewAppointmentPage({
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <Link
         href="/appointments"
         className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"

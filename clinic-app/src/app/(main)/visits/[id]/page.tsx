@@ -208,34 +208,23 @@ export default async function VisitDetailPage({
         </Card>
       )}
 
-      {/* Billing Summary — hidden for doctors */}
+      {/* Billing Summary — compact pills, hidden for doctors */}
       {!isDoctor && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Billed</div>
-              <div className="text-2xl font-bold">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
-              {visit.discount > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Rate: {"\u20B9"}{(visit.operationRate || 0).toLocaleString("en-IN")} - Discount: {"\u20B9"}{visit.discount.toLocaleString("en-IN")}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Paid</div>
-              <div className="text-2xl font-bold text-green-600">{"\u20B9"}{paid.toLocaleString("en-IN")}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-sm text-muted-foreground">Balance</div>
-              <div className={`text-2xl font-bold ${balance > 0 ? "text-destructive" : ""}`}>
-                {"\u20B9"}{balance.toLocaleString("en-IN")}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <span className="font-medium">
+            Billed: {"\u20B9"}{billed.toLocaleString("en-IN")}
+            {visit.discount > 0 && (
+              <span className="text-muted-foreground ml-1">
+                ({"\u20B9"}{(visit.operationRate || 0).toLocaleString("en-IN")} - {"\u20B9"}{visit.discount.toLocaleString("en-IN")} disc.)
+              </span>
+            )}
+          </span>
+          <span className="text-muted-foreground">{"\u00b7"}</span>
+          <span className="text-green-600 font-medium">Paid: {"\u20B9"}{paid.toLocaleString("en-IN")}</span>
+          <span className="text-muted-foreground">{"\u00b7"}</span>
+          <span className={`font-medium ${balance > 0 ? "text-destructive" : ""}`}>
+            Balance: {"\u20B9"}{balance.toLocaleString("en-IN")}
+          </span>
         </div>
       )}
 
@@ -252,16 +241,9 @@ export default async function VisitDetailPage({
                 </Badge>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/visits/${visit.id}/examine/print`}>Print</Link>
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/visits/${visit.id}/examine`}>
-                  {reportLocked ? "View / Addendum" : "Edit"}
-                </Link>
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/visits/${visit.id}/examine/print`}>Print</Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {clinicalReport.complaint && (

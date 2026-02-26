@@ -37,7 +37,7 @@ export default async function RoomsPage() {
             {rooms.map((room) => (
               <div key={room.id} className={`flex items-center justify-between p-3 text-sm ${!room.isActive ? "opacity-50" : ""}`}>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-muted-foreground w-8 text-right">{room.sortOrder}</span>
+                  <span className="font-mono text-muted-foreground w-8 text-right" title="Sort order">#{room.sortOrder}</span>
                   <span className="font-medium">{room.name}</span>
                   {!room.isActive && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                 </div>

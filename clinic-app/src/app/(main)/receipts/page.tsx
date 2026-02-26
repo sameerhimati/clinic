@@ -78,10 +78,15 @@ export default async function ReceiptsPage({
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
+        {(params.from || params.to) && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/receipts">Clear</Link>
+          </Button>
+        )}
       </form>
 
       <div className="flex gap-4 text-sm">
-        <span className="text-muted-foreground">{total} receipt(s)</span>
+        <span className="text-muted-foreground">{total} {total === 1 ? "receipt" : "receipts"}</span>
         <span className="font-medium">
           Total: {"\u20B9"}{(aggregate._sum.amount || 0).toLocaleString("en-IN")}
         </span>
@@ -105,7 +110,7 @@ export default async function ReceiptsPage({
                     )}
                     {receipt.visit.patient.code && (
                       <span className="font-mono text-sm text-muted-foreground">
-                        P#{receipt.visit.patient.code}
+                        #{receipt.visit.patient.code}
                       </span>
                     )}
                     {receipt.visit.patient.name}

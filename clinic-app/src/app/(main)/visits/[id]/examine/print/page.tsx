@@ -119,12 +119,7 @@ export default async function ClinicalReportPrintPage({
               <div className="whitespace-pre-wrap">{report.treatmentNotes}</div>
             </div>
           )}
-          {report.estimate && (
-            <div>
-              <div className="font-bold text-muted-foreground mb-1">ESTIMATE</div>
-              <div className="whitespace-pre-wrap">{report.estimate}</div>
-            </div>
-          )}
+          {/* Estimate intentionally excluded from printed clinical reports — financial data is patient-facing inappropriate */}
           {report.medication && (
             <div>
               <div className="font-bold text-muted-foreground mb-1">MEDICATION PRESCRIBED</div>
