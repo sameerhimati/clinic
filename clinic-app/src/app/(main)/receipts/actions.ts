@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
+import { toUserError } from "@/lib/action-utils";
 
 export async function createReceipt(formData: FormData) {
   const currentDoctor = await requireAuth();
@@ -29,9 +31,9 @@ export async function createReceipt(formData: FormData) {
     throw new Error("Visit not found");
   }
 
-  const billed = (visit.operationRate || 0) - visit.discount;
-  const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-  const balance = billed - paid;
+  const billed = calcBilled(visit);
+  const paid = calcPaid(visit.receipts);
+  const balance = calcBalance(visit, visit.receipts);
 
   if (balance <= 0) {
     throw new Error("This visit has no outstanding balance. Receipts can only be created for pending bills.");
@@ -41,25 +43,31 @@ export async function createReceipt(formData: FormData) {
     throw new Error(`Amount ₹${amount} exceeds outstanding balance ₹${balance.toFixed(2)}`);
   }
 
-  // Auto-generate receipt number
-  const maxReceiptNo = await prisma.receipt.aggregate({ _max: { receiptNo: true } });
-  const nextReceiptNo = (maxReceiptNo._max.receiptNo || 0) + 1;
+  let receiptId: number;
+  try {
+    // Auto-generate receipt number
+    const maxReceiptNo = await prisma.receipt.aggregate({ _max: { receiptNo: true } });
+    const nextReceiptNo = (maxReceiptNo._max.receiptNo || 0) + 1;
 
-  const receipt = await prisma.receipt.create({
-    data: {
-      visitId,
-      amount,
-      paymentMode,
-      receiptDate,
-      receiptNo: nextReceiptNo,
-      notes,
-      createdById: currentDoctor.id,
-    },
-  });
+    const receipt = await prisma.receipt.create({
+      data: {
+        visitId,
+        amount,
+        paymentMode,
+        receiptDate,
+        receiptNo: nextReceiptNo,
+        notes,
+        createdById: currentDoctor.id,
+      },
+    });
+    receiptId = receipt.id;
+  } catch (error) {
+    throw new Error(toUserError(error));
+  }
 
   revalidatePath("/receipts");
   revalidatePath(`/visits/${visitId}`);
   revalidatePath("/dashboard");
   revalidatePath(`/patients/${visit.patientId}`);
-  redirect(`/receipts/${receipt.id}/print`);
+  redirect(`/receipts/${receiptId}/print`);
 }

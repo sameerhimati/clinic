@@ -290,7 +290,7 @@ export function VisitForm({
       const op = operations.find(o => o.id === defaultOperationId);
       if (op?.defaultMinFee) setTariffRate(op.defaultMinFee);
     }
-  }, []);
+  }, [isFollowUp, defaultOperationId, operations]);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {

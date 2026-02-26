@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Trash2, Loader2 } from "lucide-react";
@@ -49,7 +50,12 @@ export function FileGallery({
       const res = await fetch(`/api/upload/${id}`, { method: "DELETE" });
       if (res.ok) {
         router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to delete file");
       }
+    } catch {
+      toast.error("Failed to delete file. Please try again.");
     } finally {
       setDeleting(null);
     }

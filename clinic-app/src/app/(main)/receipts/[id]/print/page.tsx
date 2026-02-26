@@ -8,6 +8,7 @@ import { PrintButton } from "./print-button";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,9 @@ export default async function ReceiptPrintPage({
   if (!receipt) notFound();
 
   const clinic = await prisma.clinicSettings.findFirst();
-  const billed = (receipt.visit.operationRate || 0) - receipt.visit.discount;
-  const totalPaid = receipt.visit.receipts.reduce((s, r) => s + r.amount, 0);
-  const balance = billed - totalPaid;
+  const billed = calcBilled(receipt.visit);
+  const totalPaid = calcPaid(receipt.visit.receipts);
+  const balance = calcBalance(receipt.visit, receipt.visit.receipts);
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">

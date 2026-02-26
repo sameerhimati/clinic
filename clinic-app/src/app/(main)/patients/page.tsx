@@ -45,16 +45,7 @@ export default async function PatientsPage({
     prisma.patient.count({ where }),
   ]);
 
-  // If exact code match, sort it to top
-  if (isNumericQuery) {
-    const exactCode = parseInt(query);
-    patients.sort((a, b) => {
-      if (a.code === exactCode) return -1;
-      if (b.code === exactCode) return 1;
-      return 0;
-    });
-  }
-
+  // Server already sorts by code for numeric queries — exact match will be first
   const totalPages = Math.ceil(total / pageSize);
 
   return (

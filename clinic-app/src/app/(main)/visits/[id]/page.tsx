@@ -9,8 +9,10 @@ import { format } from "date-fns";
 import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, ArrowLeft, CalendarDays, ChevronRight } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
+import { DetailRow } from "@/components/detail-row";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +69,9 @@ export default async function VisitDetailPage({
 
   if (!visit) notFound();
 
-  const billed = (visit.operationRate || 0) - visit.discount;
-  const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-  const balance = billed - paid;
+  const billed = calcBilled(visit);
+  const paid = calcPaid(visit.receipts);
+  const balance = calcBalance(visit, visit.receipts);
   const clinicalReport = visit.clinicalReports[0] || null;
   const hasReceipts = visit.receipts.length > 0;
   const reportLocked = clinicalReport ? isReportLocked(clinicalReport) : false;
@@ -390,12 +392,4 @@ export default async function VisitDetailPage({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value?: string | null }) {
-  if (!value) return null;
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
-}
+// DetailRow imported from @/components/detail-row

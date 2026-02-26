@@ -51,7 +51,7 @@ export default async function CommissionReportPage({
   const toDate = new Date(params.to + "T23:59:59");
 
   // Get receipts in date range with visit details
-  const receiptWhere: Record<string, unknown> = {
+  const receiptWhere: { receiptDate: { gte: Date; lte: Date }; visit?: { doctorId: number } } = {
     receiptDate: { gte: fromDate, lte: toDate },
   };
 

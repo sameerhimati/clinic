@@ -12,6 +12,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { PatientSearch } from "@/components/patient-search";
 import { StatusBadge } from "@/components/status-badge";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
@@ -77,9 +78,7 @@ async function getAdminDashboardData() {
 
   let totalOutstanding = 0;
   for (const visit of outstandingVisits) {
-    const billed = (visit.operationRate || 0) - visit.discount;
-    const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-    const balance = billed - paid;
+    const balance = calcBalance(visit, visit.receipts);
     if (balance > 0) totalOutstanding += balance;
   }
 
@@ -283,9 +282,8 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="divide-y">
               {data.recentVisits.map((visit) => {
-                const billed = (visit.operationRate || 0) - visit.discount;
-                const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-                const balance = billed - paid;
+                const billed = calcBilled(visit);
+                const balance = calcBalance(visit, visit.receipts);
                 return (
                   <div key={visit.id} className="flex items-center justify-between py-2.5">
                     <div>

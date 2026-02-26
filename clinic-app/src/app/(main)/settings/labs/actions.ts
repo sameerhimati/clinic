@@ -1,16 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
-import { canManageSystem } from "@/lib/permissions";
+import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-
-async function requireAdmin() {
-  const doctor = await requireAuth();
-  if (!canManageSystem(doctor.permissionLevel)) redirect("/dashboard");
-  return doctor;
-}
 
 export async function createLab(formData: FormData) {
   await requireAdmin();

@@ -46,3 +46,11 @@ export async function clearSession() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE);
 }
+
+/** Require auth + admin (canManageSystem) permission, redirect to dashboard otherwise */
+export async function requireAdmin() {
+  const { canManageSystem } = await import("@/lib/permissions");
+  const doctor = await requireAuth();
+  if (!canManageSystem(doctor.permissionLevel)) redirect("/dashboard");
+  return doctor;
+}

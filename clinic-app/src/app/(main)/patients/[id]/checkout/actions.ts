@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 
 export async function recordCheckoutPayment(data: {
   patientId: number;
@@ -33,9 +34,7 @@ export async function recordCheckoutPayment(data: {
       include: { receipts: { select: { amount: true } } },
     });
     if (!visit) throw new Error(`Visit ${alloc.visitId} not found`);
-    const billed = (visit.operationRate || 0) - visit.discount;
-    const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-    const balance = billed - paid;
+    const balance = calcBalance(visit, visit.receipts);
     if (alloc.amount > balance + 0.01) {
       throw new Error(`Allocation for visit ${alloc.visitId} exceeds outstanding balance`);
     }

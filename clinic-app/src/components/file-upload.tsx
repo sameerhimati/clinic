@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, Loader2 } from "lucide-react";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR } from "@/lib/file-constants";
 
 export function FileUpload({
   patientId,
@@ -23,19 +24,12 @@ export function FileUpload({
 
   const handleFile = useCallback((f: File) => {
     setError(null);
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "application/pdf",
-    ];
-    if (!allowedTypes.includes(f.type)) {
-      setError("File type not allowed. Use JPG, PNG, GIF, WebP, or PDF.");
+    if (!(ALLOWED_FILE_TYPES as readonly string[]).includes(f.type)) {
+      setError(FILE_TYPE_ERROR);
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
-      setError("File too large. Max 10MB.");
+    if (f.size > MAX_FILE_SIZE) {
+      setError(FILE_SIZE_ERROR);
       return;
     }
     setFile(f);

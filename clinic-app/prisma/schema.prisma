@@ -278,6 +278,7 @@ model ClinicalReport {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  @@unique([visitId])
   @@map("clinical_reports")
 }
 

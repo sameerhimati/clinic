@@ -6,6 +6,7 @@ import { createReceipt } from "../actions";
 import { ReceiptForm } from "./receipt-form";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 
 export default async function NewReceiptPage({
   searchParams,
@@ -32,9 +33,9 @@ export default async function NewReceiptPage({
   // Only show visits with outstanding balance > 0
   const pendingVisits = visits
     .map((v) => {
-      const billed = (v.operationRate || 0) - v.discount;
-      const paid = v.receipts.reduce((s, r) => s + r.amount, 0);
-      const balance = billed - paid;
+      const billed = calcBilled(v);
+      const paid = calcPaid(v.receipts);
+      const balance = calcBalance(v, v.receipts);
       return {
         id: v.id,
         caseNo: v.caseNo,

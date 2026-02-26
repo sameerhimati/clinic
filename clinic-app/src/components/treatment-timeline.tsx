@@ -63,7 +63,7 @@ type FileRecord = {
   uploadedBy: { name: string } | null;
 };
 
-type VisitWithRelations = {
+export type VisitWithRelations = {
   id: number;
   caseNo: number | null;
   visitDate: Date;

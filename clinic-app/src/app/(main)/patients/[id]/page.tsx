@@ -10,11 +10,13 @@ import { Edit, Plus, IndianRupee, AlertTriangle, ArrowLeft, CalendarDays } from 
 import { DeletePatientButton } from "./delete-button";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, canEditPatients } from "@/lib/permissions";
+import { calcBilled, calcPaid } from "@/lib/billing";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
-import { TreatmentTimeline } from "@/components/treatment-timeline";
+import { TreatmentTimeline, type VisitWithRelations } from "@/components/treatment-timeline";
 import { MedicalHistoryEditor } from "@/components/medical-history-editor";
 import { StatusBadge } from "@/components/status-badge";
+import { InfoRow } from "@/components/detail-row";
 
 export const dynamic = "force-dynamic";
 
@@ -113,8 +115,8 @@ export default async function PatientDetailPage({
   let totalBilled = 0;
   let totalPaid = 0;
   for (const visit of patient.visits) {
-    totalBilled += (visit.operationRate || 0) - visit.discount;
-    totalPaid += visit.receipts.reduce((s, r) => s + r.amount, 0);
+    totalBilled += calcBilled(visit);
+    totalPaid += calcPaid(visit.receipts);
   }
   const totalBalance = totalBilled - totalPaid;
 
@@ -281,7 +283,7 @@ export default async function PatientDetailPage({
       <section>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Treatment History</h3>
         <TreatmentTimeline
-          visits={topLevelVisits as any}
+          visits={topLevelVisits as VisitWithRelations[]}
           showInternalCosts={showInternalCosts}
           patientId={patient.id}
         />
@@ -375,12 +377,4 @@ export default async function PatientDetailPage({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div>
-      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="mt-0.5 text-sm font-medium">{value}</div>
-    </div>
-  );
-}
+// InfoRow imported from @/components/detail-row

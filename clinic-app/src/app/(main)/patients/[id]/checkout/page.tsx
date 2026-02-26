@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { CheckoutForm } from "./checkout-form";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +50,9 @@ export default async function CheckoutPage({
   // Calculate outstanding visits
   const outstandingVisits = patient.visits
     .map((visit) => {
-      const billed = (visit.operationRate || 0) - visit.discount;
-      const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-      const balance = billed - paid;
+      const billed = calcBilled(visit);
+      const paid = calcPaid(visit.receipts);
+      const balance = calcBalance(visit, visit.receipts);
       return {
         id: visit.id,
         caseNo: visit.caseNo,

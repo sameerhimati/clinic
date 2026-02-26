@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { canSeeReports } from "@/lib/permissions";
+import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,9 +63,9 @@ export default async function OutstandingReportPage({
   // Filter to only outstanding
   const outstanding = visits
     .map((visit) => {
-      const billed = (visit.operationRate || 0) - visit.discount;
-      const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-      const balance = billed - paid;
+      const billed = calcBilled(visit);
+      const paid = calcPaid(visit.receipts);
+      const balance = calcBalance(visit, visit.receipts);
       return { ...visit, billed, paid, balance };
     })
     .filter((v) => v.balance > 0);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { toUserError } from "@/lib/action-utils";
 
 export async function createVisit(formData: FormData) {
   const currentUser = await requireAuth();
@@ -64,39 +65,45 @@ export async function createVisit(formData: FormData) {
   const stepLabel = (formData.get("stepLabel") as string) || null;
   const appointmentId = formData.get("appointmentId") ? parseInt(formData.get("appointmentId") as string) : null;
 
-  const visit = await prisma.visit.create({
-    data: {
-      caseNo: nextCaseNo,
-      patientId,
-      visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
-      visitType,
-      parentVisitId: resolvedParentId,
-      stepLabel,
-      operationId,
-      operationRate: rawRate,
-      discount: validatedDiscount,
-      doctorId,
-      assistingDoctorId: assistingDoctorId || null,
-      doctorCommissionPercent: commPercent,
-      labId,
-      labRateId,
-      labRateAmount: isDoctor ? 0 : (parseFloat(formData.get("labRateAmount") as string) || 0),
-      labQuantity: isDoctor ? 1 : (parseFloat(formData.get("labQuantity") as string) || 1),
-      notes: (formData.get("notes") as string) || null,
-    },
-  });
-
-  // Link appointment if provided
-  if (appointmentId) {
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: { visitId: visit.id, status: "IN_PROGRESS" },
+  let visitId: number;
+  try {
+    const visit = await prisma.visit.create({
+      data: {
+        caseNo: nextCaseNo,
+        patientId,
+        visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
+        visitType,
+        parentVisitId: resolvedParentId,
+        stepLabel,
+        operationId,
+        operationRate: rawRate,
+        discount: validatedDiscount,
+        doctorId,
+        assistingDoctorId: assistingDoctorId || null,
+        doctorCommissionPercent: commPercent,
+        labId,
+        labRateId,
+        labRateAmount: isDoctor ? 0 : (parseFloat(formData.get("labRateAmount") as string) || 0),
+        labQuantity: isDoctor ? 1 : (parseFloat(formData.get("labQuantity") as string) || 1),
+        notes: (formData.get("notes") as string) || null,
+      },
     });
-    revalidatePath("/appointments");
+    visitId = visit.id;
+
+    // Link appointment if provided
+    if (appointmentId) {
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { visitId: visit.id, status: "IN_PROGRESS" },
+      });
+      revalidatePath("/appointments");
+    }
+  } catch (error) {
+    throw new Error(toUserError(error));
   }
 
   revalidatePath("/visits");
   revalidatePath("/dashboard");
   revalidatePath(`/patients/${patientId}`);
-  redirect(`/visits/${visit.id}?newVisit=1`);
+  redirect(`/visits/${visitId}?newVisit=1`);
 }

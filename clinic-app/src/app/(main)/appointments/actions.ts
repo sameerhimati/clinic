@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
+import { getAllowedNextStatuses } from "@/lib/appointment-status";
 
 export async function createAppointment(formData: FormData) {
   const currentUser = await requireAuth();
@@ -50,12 +51,6 @@ export async function createAppointment(formData: FormData) {
   redirect(`/appointments?date=${dateStr}`);
 }
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  SCHEDULED: ["ARRIVED", "CANCELLED", "NO_SHOW"],
-  ARRIVED: ["IN_PROGRESS", "CANCELLED"],
-  IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-};
-
 export async function updateAppointmentStatus(
   appointmentId: number,
   newStatus: string,
@@ -68,7 +63,7 @@ export async function updateAppointmentStatus(
   });
   if (!appointment) throw new Error("Appointment not found");
 
-  const allowed = VALID_TRANSITIONS[appointment.status] || [];
+  const allowed = getAllowedNextStatuses(appointment.status);
   if (!allowed.includes(newStatus)) {
     throw new Error(`Cannot transition from ${appointment.status} to ${newStatus}`);
   }

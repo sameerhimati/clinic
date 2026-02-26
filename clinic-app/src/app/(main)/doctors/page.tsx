@@ -16,8 +16,6 @@ export default async function DoctorsPage() {
     const { redirect } = await import("next/navigation");
     redirect("/dashboard");
   }
-  const isAdmin = true;
-
   const doctors = await prisma.doctor.findMany({
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     include: {
@@ -30,7 +28,7 @@ export default async function DoctorsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Doctors</h2>
-        {isAdmin && (
+        {(
           <Button asChild>
             <Link href="/doctors/new"><Plus className="mr-2 h-4 w-4" />Add Doctor</Link>
           </Button>
@@ -68,7 +66,7 @@ export default async function DoctorsPage() {
                   {doctor.mobile && (
                     <span className="text-sm text-muted-foreground hidden sm:inline">{doctor.mobile}</span>
                   )}
-                  {isAdmin && (
+                  {(
                     <>
                       <Button size="sm" variant="outline" asChild>
                         <Link href={`/doctors/${doctor.id}/edit`}>Edit</Link>

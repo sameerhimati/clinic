@@ -8,6 +8,7 @@ import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { calcBilled, calcBalance } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -98,9 +99,8 @@ export default async function VisitsPage({
         <CardContent className="p-0">
           <div className="divide-y">
             {visits.map((visit) => {
-              const billed = (visit.operationRate || 0) - visit.discount;
-              const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-              const balance = billed - paid;
+              const billed = calcBilled(visit);
+              const balance = calcBalance(visit, visit.receipts);
               return (
                 <Link
                   key={visit.id}

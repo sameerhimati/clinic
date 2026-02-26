@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR } from "@/lib/file-constants";
 
 export async function POST(req: NextRequest) {
   const currentUser = await requireAuth();
@@ -22,25 +23,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const allowedTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json(
-      { error: "File type not allowed. Use JPG, PNG, GIF, WebP, or PDF." },
-      { status: 400 }
-    );
+  if (!(ALLOWED_FILE_TYPES as readonly string[]).includes(file.type)) {
+    return NextResponse.json({ error: FILE_TYPE_ERROR }, { status: 400 });
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "File too large. Max 10MB." },
-      { status: 400 }
-    );
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: FILE_SIZE_ERROR }, { status: 400 });
   }
 
   const uploadDir = path.join(

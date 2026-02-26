@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus, claimAppointment } from "@/app/(main)/appointments/actions";
 import { StatusBadge } from "@/components/status-badge";
+import { VALID_TRANSITIONS } from "@/lib/appointment-status";
 
 type Appointment = {
   id: number;
@@ -46,21 +47,7 @@ type Appointment = {
 type ColumnDoctor = { id: number; name: string };
 type ColumnRoom = { id: number; name: string };
 
-const VALID_TRANSITIONS: Record<string, { status: string; label: string }[]> = {
-  SCHEDULED: [
-    { status: "ARRIVED", label: "Mark Arrived" },
-    { status: "CANCELLED", label: "Cancel" },
-    { status: "NO_SHOW", label: "Mark No Show" },
-  ],
-  ARRIVED: [
-    { status: "IN_PROGRESS", label: "Start Treatment" },
-    { status: "CANCELLED", label: "Cancel" },
-  ],
-  IN_PROGRESS: [
-    { status: "COMPLETED", label: "Mark Complete" },
-    { status: "CANCELLED", label: "Cancel" },
-  ],
-};
+// VALID_TRANSITIONS imported from @/lib/appointment-status
 
 // Primary action for each status (shown as inline button)
 function PrimaryAction({

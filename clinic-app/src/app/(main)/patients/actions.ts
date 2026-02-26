@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { canEditPatients, isAdmin } from "@/lib/permissions";
+import { toUserError } from "@/lib/action-utils";
 
 export async function createPatient(formData: FormData) {
   const currentUser = await requireAuth();
@@ -37,27 +38,33 @@ export async function createPatient(formData: FormData) {
     throw new Error("Patient name is required");
   }
 
-  // Auto-generate patient code (next in sequence)
-  const maxCode = await prisma.patient.aggregate({ _max: { code: true } });
-  const nextCode = (maxCode._max.code || 10000) + 1;
+  let patientId: number;
+  try {
+    // Auto-generate patient code (next in sequence)
+    const maxCode = await prisma.patient.aggregate({ _max: { code: true } });
+    const nextCode = (maxCode._max.code || 10000) + 1;
 
-  const patient = await prisma.patient.create({
-    data: { ...data, code: nextCode },
-  });
-
-  // Handle diseases
-  const diseaseIds = formData.getAll("diseases").map(Number).filter(Boolean);
-  if (diseaseIds.length > 0) {
-    await prisma.patientDisease.createMany({
-      data: diseaseIds.map((diseaseId) => ({
-        patientId: patient.id,
-        diseaseId,
-      })),
+    const patient = await prisma.patient.create({
+      data: { ...data, code: nextCode },
     });
+    patientId = patient.id;
+
+    // Handle diseases
+    const diseaseIds = formData.getAll("diseases").map(Number).filter(Boolean);
+    if (diseaseIds.length > 0) {
+      await prisma.patientDisease.createMany({
+        data: diseaseIds.map((diseaseId) => ({
+          patientId: patient.id,
+          diseaseId,
+        })),
+      });
+    }
+  } catch (error) {
+    throw new Error(toUserError(error));
   }
 
   revalidatePath("/patients");
-  redirect(`/patients/${patient.id}`);
+  redirect(`/patients/${patientId}`);
 }
 
 export async function updatePatient(id: number, formData: FormData) {

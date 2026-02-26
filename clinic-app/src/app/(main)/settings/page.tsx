@@ -13,16 +13,14 @@ export default async function SettingsPage() {
     const { redirect } = await import("next/navigation");
     redirect("/dashboard");
   }
-  const isAdmin = true;
   const clinic = await prisma.clinicSettings.findFirst();
 
   return (
     <div className="max-w-2xl space-y-6">
       <h2 className="text-2xl font-bold">Settings</h2>
 
-      {/* Admin-only links */}
-      {isAdmin && (
-        <div className="grid gap-3">
+      {/* Admin links — page already gated by canManageSystem() redirect above */}
+      <div className="grid gap-3">
           <Link href="/settings/operations" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
             <div className="flex items-center gap-3">
               <Stethoscope className="h-5 w-5 text-muted-foreground" />
@@ -47,7 +45,6 @@ export default async function SettingsPage() {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         </div>
-      )}
 
       {/* Clinic Information */}
       <Card>
