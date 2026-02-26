@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { dateToString } from "@/lib/validations";
 
 type Disease = { id: number; name: string };
 type Patient = {
@@ -117,7 +118,7 @@ export function PatientForm({
               type="date"
               defaultValue={
                 patient?.dateOfBirth
-                  ? new Date(patient.dateOfBirth).toISOString().split("T")[0]
+                  ? dateToString(new Date(patient.dateOfBirth))
                   : ""
               }
             />
@@ -189,6 +190,7 @@ export function PatientForm({
             <Input
               id="mobile"
               name="mobile"
+              type="tel"
               defaultValue={patient?.mobile || ""}
               placeholder="10-digit mobile"
             />
@@ -198,6 +200,7 @@ export function PatientForm({
             <Input
               id="phone"
               name="phone"
+              type="tel"
               defaultValue={patient?.phone || ""}
             />
           </div>
@@ -272,6 +275,7 @@ export function PatientForm({
             <Input
               id="physicianPhone"
               name="physicianPhone"
+              type="tel"
               defaultValue={patient?.physicianPhone || ""}
             />
           </div>

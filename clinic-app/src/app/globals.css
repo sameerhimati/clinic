@@ -88,3 +88,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Remove all shadows/borders from print content */
+  .border { border-color: #e5e7eb !important; }
+}

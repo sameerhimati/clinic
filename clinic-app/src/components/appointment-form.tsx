@@ -11,6 +11,7 @@ import { PatientSearch } from "@/components/patient-search";
 import { createAppointment } from "@/app/(main)/appointments/actions";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { todayString } from "@/lib/validations";
 
 type Doctor = { id: number; name: string };
 type RoomOption = { id: number; name: string };
@@ -51,7 +52,7 @@ export function AppointmentForm({
     });
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayString();
 
   return (
     <form action={handleSubmit} className="space-y-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -97,6 +97,33 @@ export function ExaminationForm({
   const [estimate, setEstimate] = useState(existingReport?.estimate || "");
   const [medication, setMedication] = useState(existingReport?.medication || "");
   const [addendumText, setAddendumText] = useState("");
+
+  // Track dirty state for beforeunload warning
+  const savedRef = useRef({
+    complaint: existingReport?.complaint || "",
+    examination: existingReport?.examination || "",
+    diagnosis: existingReport?.diagnosis || "",
+    treatmentNotes: existingReport?.treatmentNotes || "",
+    estimate: existingReport?.estimate || "",
+    medication: existingReport?.medication || "",
+  });
+
+  const isDirty = useCallback(() => {
+    const s = savedRef.current;
+    return complaint !== s.complaint || examination !== s.examination ||
+      diagnosis !== s.diagnosis || treatmentNotes !== s.treatmentNotes ||
+      estimate !== s.estimate || medication !== s.medication;
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication]);
+
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (isDirty()) {
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   async function handleSave(redirectTarget: "detail" | "print") {
     startTransition(async () => {
@@ -324,11 +351,9 @@ export function ExaminationForm({
                       : "bg-muted hover:bg-accent"
                   }`}
                   onClick={() => {
-                    if (!complaint) {
-                      setComplaint(c);
-                    } else if (!complaint.toUpperCase().includes(c)) {
-                      setComplaint(complaint + ", " + c);
-                    }
+                    const parts = complaint.toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
+                    if (parts.includes(c)) return; // already selected
+                    setComplaint(complaint ? complaint + ", " + c : c);
                   }}
                 >
                   {c}

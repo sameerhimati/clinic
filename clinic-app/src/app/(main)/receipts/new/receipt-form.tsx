@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useTransition } from "react";
+import { useState, useMemo, useRef, useEffect, useTransition, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { todayString } from "@/lib/validations";
 
 type PendingVisit = {
   id: number;
@@ -114,7 +115,7 @@ export function ReceiptForm({
     });
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayString();
 
   return (
     <form action={handleSubmit} className="space-y-6">
@@ -250,15 +251,37 @@ export function ReceiptForm({
               <Label htmlFor="amount">
                 Amount (₹) <span className="text-destructive">*</span>
               </Label>
-              <Input
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={selectedVisit?.balance || undefined}
-                required
-                placeholder="0.00"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="receiptAmount"
+                  name="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedVisit?.balance || undefined}
+                  required
+                  placeholder="0.00"
+                  className="flex-1"
+                />
+                {selectedVisit && selectedVisit.balance > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => {
+                      const input = document.getElementById("receiptAmount") as HTMLInputElement;
+                      if (input) {
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+                        nativeInputValueSetter?.call(input, selectedVisit.balance.toString());
+                        input.dispatchEvent(new Event("input", { bubbles: true }));
+                      }
+                    }}
+                  >
+                    Pay Full
+                  </Button>
+                )}
+              </div>
               {selectedVisit && (
                 <p className="text-xs text-muted-foreground">
                   Max: ₹{selectedVisit.balance.toLocaleString("en-IN")}

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { recordCheckoutPayment } from "./actions";
 import { format } from "date-fns";
+import { todayString } from "@/lib/validations";
 
 type OutstandingVisit = {
   id: number;
@@ -47,9 +48,7 @@ export function CheckoutForm({
   const [paymentAmount, setPaymentAmount] = useState("");
   const [allocations, setAllocations] = useState<Record<number, string>>({});
   const [paymentMode, setPaymentMode] = useState("Cash");
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [paymentDate, setPaymentDate] = useState(todayString());
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");

@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { Search, ArrowLeft } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
 import Link from "next/link";
+import { dateToString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +44,8 @@ export default async function CommissionReportPage({
     const now = new Date();
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    params.from = from.toISOString().split("T")[0];
-    params.to = to.toISOString().split("T")[0];
+    params.from = dateToString(from);
+    params.to = dateToString(to);
   }
 
   const fromDate = new Date(params.from);

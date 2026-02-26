@@ -5,38 +5,35 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { toUserError } from "@/lib/action-utils";
+import { visitSchema, parseFormData } from "@/lib/validations";
 
 export async function createVisit(formData: FormData) {
   const currentUser = await requireAuth();
   const isDoctor = currentUser.permissionLevel === 3;
-  const patientId = parseInt(formData.get("patientId") as string);
-  const operationId = formData.get("operationId") ? parseInt(formData.get("operationId") as string) : null;
+  const parsed = parseFormData(visitSchema, formData);
+
+  if (!parsed.patientId) throw new Error("Patient is required");
 
   // Server-side enforcement: doctors can only set themselves, and cannot control financial/lab fields
-  const doctorId = isDoctor ? currentUser.id : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
-  const assistingDoctorId = isDoctor ? null : (formData.get("assistingDoctorId") ? parseInt(formData.get("assistingDoctorId") as string) : null);
-  const labId = isDoctor ? null : (formData.get("labId") ? parseInt(formData.get("labId") as string) : null);
-  const labRateId = isDoctor ? null : (formData.get("labRateId") ? parseInt(formData.get("labRateId") as string) : null);
-  const visitType = (formData.get("visitType") as string) || "NEW";
-  const parentVisitId = formData.get("parentVisitId") ? parseInt(formData.get("parentVisitId") as string) : null;
-
-  if (!patientId) throw new Error("Patient is required");
+  const doctorId = isDoctor ? currentUser.id : (parsed.doctorId || null);
+  const assistingDoctorId = isDoctor ? null : (parsed.assistingDoctorId || null);
+  const labId = isDoctor ? null : (parsed.labId || null);
+  const labRateId = isDoctor ? null : (parsed.labRateId || null);
 
   // Server-side discount validation — enforce tier limits by role
-  const rawDiscount = isDoctor ? 0 : (parseFloat(formData.get("discount") as string) || 0);
+  const rawDiscount = isDoctor ? 0 : parsed.discount;
   const rawRate = isDoctor
-    ? (operationId ? (await prisma.operation.findUnique({ where: { id: operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
-    : (parseFloat(formData.get("operationRate") as string) || 0);
+    ? (parsed.operationId ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
+    : parsed.operationRate;
 
   let validatedDiscount = rawDiscount;
   if (!isDoctor && rawRate > 0 && rawDiscount > 0) {
     const discountPercent = (rawDiscount / rawRate) * 100;
-    // L3 (doctor): max 10%, L2 (reception): max 15%, L0/L1 (admin): unlimited
     const maxPercent = currentUser.permissionLevel >= 3 ? 10 : currentUser.permissionLevel >= 2 ? 15 : 100;
-    if (discountPercent > maxPercent + 0.5) { // 0.5% tolerance for rounding
+    if (discountPercent > maxPercent + 0.5) {
       throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
     }
-    validatedDiscount = Math.min(rawDiscount, rawRate); // Can't exceed rate
+    validatedDiscount = Math.min(rawDiscount, rawRate);
   }
 
   // Auto-generate case number
@@ -51,7 +48,7 @@ export async function createVisit(formData: FormData) {
   }
 
   // For follow-ups, resolve to root parent (flat chain)
-  let resolvedParentId = parentVisitId;
+  let resolvedParentId = parsed.parentVisitId || null;
   if (resolvedParentId) {
     const parent = await prisma.visit.findUnique({
       where: { id: resolvedParentId },
@@ -62,20 +59,17 @@ export async function createVisit(formData: FormData) {
     }
   }
 
-  const stepLabel = (formData.get("stepLabel") as string) || null;
-  const appointmentId = formData.get("appointmentId") ? parseInt(formData.get("appointmentId") as string) : null;
-
   let visitId: number;
   try {
     const visit = await prisma.visit.create({
       data: {
         caseNo: nextCaseNo,
-        patientId,
-        visitDate: formData.get("visitDate") ? new Date(formData.get("visitDate") as string) : new Date(),
-        visitType,
+        patientId: parsed.patientId,
+        visitDate: parsed.visitDate,
+        visitType: parsed.visitType,
         parentVisitId: resolvedParentId,
-        stepLabel,
-        operationId,
+        stepLabel: parsed.stepLabel,
+        operationId: parsed.operationId,
         operationRate: rawRate,
         discount: validatedDiscount,
         doctorId,
@@ -83,17 +77,17 @@ export async function createVisit(formData: FormData) {
         doctorCommissionPercent: commPercent,
         labId,
         labRateId,
-        labRateAmount: isDoctor ? 0 : (parseFloat(formData.get("labRateAmount") as string) || 0),
-        labQuantity: isDoctor ? 1 : (parseFloat(formData.get("labQuantity") as string) || 1),
-        notes: (formData.get("notes") as string) || null,
+        labRateAmount: isDoctor ? 0 : parsed.labRateAmount,
+        labQuantity: isDoctor ? 1 : parsed.labQuantity,
+        notes: parsed.notes,
       },
     });
     visitId = visit.id;
 
     // Link appointment if provided
-    if (appointmentId) {
+    if (parsed.appointmentId) {
       await prisma.appointment.update({
-        where: { id: appointmentId },
+        where: { id: parsed.appointmentId },
         data: { visitId: visit.id, status: "IN_PROGRESS" },
       });
       revalidatePath("/appointments");
@@ -104,6 +98,6 @@ export async function createVisit(formData: FormData) {
 
   revalidatePath("/visits");
   revalidatePath("/dashboard");
-  revalidatePath(`/patients/${patientId}`);
+  revalidatePath(`/patients/${parsed.patientId}`);
   redirect(`/visits/${visitId}?newVisit=1`);
 }

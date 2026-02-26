@@ -6,49 +6,40 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { getAllowedNextStatuses } from "@/lib/appointment-status";
+import { appointmentSchema, parseFormData } from "@/lib/validations";
 
 export async function createAppointment(formData: FormData) {
   const currentUser = await requireAuth();
+  const parsed = parseFormData(appointmentSchema, formData);
 
-  const patientId = parseInt(formData.get("patientId") as string);
-  if (!patientId || isNaN(patientId)) throw new Error("Patient is required");
-
-  const dateStr = formData.get("date") as string;
-  if (!dateStr) throw new Error("Date is required");
-
-  const date = new Date(dateStr);
   // Validate date is today or future
+  const appointmentDate = new Date(parsed.date);
+  appointmentDate.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const appointmentDate = new Date(date);
-  appointmentDate.setHours(0, 0, 0, 0);
   if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
 
   // L3 doctors can only create appointments for themselves
   const doctorId = currentUser.permissionLevel === 3
     ? currentUser.id
-    : (formData.get("doctorId") ? parseInt(formData.get("doctorId") as string) : null);
-  const roomId = formData.get("roomId") ? parseInt(formData.get("roomId") as string) : null;
-  const timeSlot = (formData.get("timeSlot") as string) || null;
-  const reason = (formData.get("reason") as string) || null;
-  const notes = (formData.get("notes") as string) || null;
+    : (parsed.doctorId || null);
 
   await prisma.appointment.create({
     data: {
-      patientId,
+      patientId: parsed.patientId,
       doctorId: doctorId || null,
-      roomId: roomId || null,
-      date,
-      timeSlot,
-      reason,
-      notes,
+      roomId: parsed.roomId || null,
+      date: appointmentDate,
+      timeSlot: parsed.timeSlot,
+      reason: parsed.reason,
+      notes: parsed.notes,
       createdById: currentUser.id,
     },
   });
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
-  redirect(`/appointments?date=${dateStr}`);
+  redirect(`/appointments?date=${parsed.date}`);
 }
 
 export async function updateAppointmentStatus(
@@ -95,6 +86,13 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
 
   const dateStr = formData.get("date") as string;
   if (!dateStr) throw new Error("Date is required");
+
+  // Validate date is today or future
+  const updateDate = new Date(dateStr);
+  updateDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (updateDate < today) throw new Error("Cannot reschedule appointments to the past");
 
   // L3 doctors can only assign appointments to themselves
   const doctorId = currentUser.permissionLevel === 3

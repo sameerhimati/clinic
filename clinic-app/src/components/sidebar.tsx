@@ -93,7 +93,7 @@ export function Sidebar() {
   const { doctor } = useAuth();
 
   return (
-    <>
+    <div className="print:hidden">
       {/* Mobile sidebar */}
       <Sheet>
         <SheetTrigger asChild>
@@ -139,6 +139,6 @@ export function Sidebar() {
         </div>
         <NavItems collapsed={collapsed} permissionLevel={doctor.permissionLevel} />
       </aside>
-    </>
+    </div>
   );
 }

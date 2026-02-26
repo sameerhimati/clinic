@@ -9,6 +9,7 @@ import { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { PatientSearch } from "@/components/patient-search";
 import { X, Search, Check, ChevronsUpDown, ChevronDown, Lock } from "lucide-react";
+import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
 type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
@@ -278,6 +279,7 @@ export function VisitForm({
     defaultPatient || null
   );
   const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
+  const [labRateAmount, setLabRateAmount] = useState("0");
   const [operationRate, setOperationRate] = useState(isFollowUp ? "0" : "");
   const [tariffRate, setTariffRate] = useState<number | null>(null);
   const [discount, setDiscount] = useState(0);
@@ -397,7 +399,7 @@ export function VisitForm({
             <Input
               name="visitDate"
               type="date"
-              defaultValue={new Date().toISOString().split("T")[0]}
+              defaultValue={todayString()}
             />
           </div>
         </div>
@@ -532,6 +534,13 @@ export function VisitForm({
                     <select
                       name="labRateId"
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                      onChange={(e) => {
+                        if (!e.target.value || !selectedLab) return;
+                        const rate = selectedLab.rates.find(r => r.id === parseInt(e.target.value));
+                        if (rate && rate.rate > 0) {
+                          setLabRateAmount(rate.rate.toString());
+                        }
+                      }}
                     >
                       <option value="">Select item...</option>
                       {selectedLab.rates.map((lr) => (
@@ -544,7 +553,7 @@ export function VisitForm({
                 )}
                 <div className="space-y-1.5">
                   <Label>Lab Rate (₹)</Label>
-                  <Input name="labRateAmount" type="number" step="1" min="0" defaultValue="0" />
+                  <Input name="labRateAmount" type="number" step="1" min="0" value={labRateAmount} onChange={(e) => setLabRateAmount(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Qty</Label>

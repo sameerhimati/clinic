@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { todayString } from "@/lib/validations";
 
 type Row = {
   receiptDate: Date;
@@ -58,7 +59,7 @@ export function ExportCSVButton({ rows }: { rows: Row[] }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `commission-report-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `commission-report-${todayString()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
