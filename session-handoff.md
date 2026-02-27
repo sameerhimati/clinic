@@ -1,90 +1,94 @@
 # Session Handoff
-> Last updated: 2026-02-27 (Session 16 — Form Polish + Workflow Testing Start)
+> Last updated: 2026-02-28 (Session 19 — Context recovery, status check)
 
-## Completed This Session
+## What Happened This Session
+- Recovered context from Session 18 (conversation compaction)
+- Verified Session 18 commit (`3047eca`) was local-only → pushed to remote
+- No code changes — session focused on status check and handoff
 
-### Form UI Polish (app-wide consistency)
-- Established design system tokens across ALL forms: `space-y-6` between cards, `space-y-1.5` field containers, `gap-x-6 gap-y-4` grids
-- Page max-width: all form pages → `max-w-2xl` (focused column, premium pattern)
-- Submit buttons: right-aligned with Cancel link (Cancel navigates contextually — back to patient if coming from patient, else to parent list)
-- Patient form: Title/Gender/Blood Group switched from shadcn `Select` to native `<select>` to fix auto-fill bug (shadcn Select picks first option when no value selected)
-- Removed "Other" gender option (just Male/Female)
-- Medical history checkboxes: 3-col max, tighter spacing (`gap-x-4 gap-y-0`, `py-1`, `select-none`)
-- Duplicate warning: upgraded to proper alert banner with title + description
-- Applied same patterns to: visit-form, appointment-form, doctor-form + all page wrappers
+## Session 18 Recap (All Committed in `3047eca`)
 
-### Bug Fixes
-- **Readonly DB error**: Turbopack internal cache corruption (`.next/` directory) was the root cause — NOT the SQLite DB. Fixed by `rm -rf .next` + restart. Also re-seeded fresh DB for good measure.
-- **Edit Patient hanging**: Same Turbopack cache corruption. Fixed with cache clear.
+### Visit Creation — Doctor Only
+- **All 3 server actions** (`createVisit`, `createQuickVisit`, `createVisitAndExamine`) gated to L3 doctors only
+- **Route guard**: `/visits/new` redirects non-doctors to `/appointments`
+- **`canCreateVisits()`** added to `src/lib/permissions.ts`
+- **UI cleanup**: Removed "Start Visit" / "New Visit" buttons for reception across dashboard, appointment day view, appointment detail panel, visits list page
+- Reception now sees **"Waiting" badge** for ARRIVED patients instead of "Start Visit"
+- Doctor/assisting doctor/lab work fields removed from visit form (doctor auto-assigned, visits are doctor-only now)
 
-### Patient Profile — Appointments Section
-- Added past appointments (COMPLETED, CANCELLED, NO_SHOW) to patient detail page
-- Combined "Upcoming" + "Past" into unified "Appointments" section with Schedule button
-- Past appointments render with `opacity-60` to distinguish from active ones
+### Doctor Discount (Up to 10%)
+- Server actions allow doctors to pass discount through (was forced to 0%)
+- Validation: L3=10%, L2=15%, L1=100% (unchanged tiers, but doctors can now use theirs)
+- **Visit form**: Rate shown as read-only display (tariff-locked), discount selector visible with 0%/10% tier buttons
+- **Quick visit sheet**: Same — rate as read-only text, discount buttons for doctors
+
+### Quick Doctor Reassignment
+- **New server action**: `reassignDoctor(appointmentId, doctorId)` in appointments/actions.ts
+- Only for reception/admin (L2 and below), SCHEDULED/ARRIVED appointments only
+- **UI**: "Change Doctor" submenu in appointment card 3-dot dropdown
+- Shows all active doctors, current doctor marked + disabled, "Unassigned" option
+
+### Form Polish
+- **Visit form**: Restructured into 3 Cards (Patient & Treatment, Billing, Notes)
+- **Appointment form**: Split into 2 Cards (Scheduling, Additional Info) with consistent `gap-4 sm:grid-cols-2` grid
 
 ## Current State
-- **Branch:** main
-- **Last commit:** `3d489e9` — Session 15
-- **Build:** ✅ Passes cleanly (34 routes)
-- **Uncommitted changes:** YES — 10 modified files (all form/page polish + patient detail appointments)
-- **DB:** Freshly re-seeded (50 patients + 1 TEST PATIENT created during testing)
-- **Dev server:** Was running on port 3000. May need restart after session break. If Turbopack panics, `rm -rf .next` first.
+- **Branch:** main (pushed to remote)
+- **Last commit:** `3047eca` — Doctor-only visits, 10% discount, inline doctor reassignment, form polish
+- **Build:** Passes cleanly (35 routes)
 - **Blockers:** None
 
-## ⚠️ CRITICAL: Workflow Testing in Progress
+## End-to-End Workflow (Steps 1-9)
 
-User is testing the Daily Patient Flow. **Step 1 (Register Patient) passed.** Step 2 (Schedule Appointment) is next.
+This is the core daily patient flow. Steps marked with status:
 
-### Workflow Issues Discovered During Testing (to address next session)
+1. **Reception creates patient + schedules appointment** — ✅ Implemented (patient form, appointment form both polished with Card layout)
+2. **Patient arrives → Reception clicks "Arrived"** (check in) — ✅ Implemented (status transition on appointment card + detail panel)
+3. **Reception can Change Doctor** if needed (3-dot → Change Doctor submenu) — ✅ Implemented (Session 18)
+4. **Doctor sees patient on schedule → clicks "Start Treatment" or "Examine"** — ✅ Implemented (QuickVisitSheet opens, doctor creates visit)
+5. **Doctor creates visit** (selects treatment, optional 10% discount) — ✅ Implemented (Session 18: tariff-locked rate, discount selector)
+6. **Doctor does clinical examination** — ✅ Implemented (exam form with side-by-side previous notes for follow-ups)
+7. **Doctor or reception schedules follow-up appointment** — ✅ Implemented (post-exam "Schedule Next Step" + manual appointment creation)
+8. **Reception collects payment at checkout** — ✅ Implemented (patient checkout with multi-visit FIFO allocation)
+9. **Repeat steps 2-8** until treatment complete — Flow is functional
 
-1. **Visit should require an appointment** — Currently you can create a visit without an appointment. The flow should be: Appointment → Arrived → Start Visit. Direct "New Visit" without an appointment should not be the default path. On patient detail, if no active appointment exists, the primary action should be "Schedule Appointment" not "New Visit".
+### What Needs Testing
+All 9 steps are implemented but need **manual end-to-end testing** by the user. The testing checklist from `workflows.md`:
+- [ ] Reception: create patient → book appointment
+- [ ] BDS doctor: mark arrived → examine (blank form, first visit)
+- [ ] BDS doctor: save exam → schedule follow-up with consultant
+- [ ] Consultant: open follow-up → see BDS notes in side panel → examine
+- [ ] Consultant: schedule next step → appointment pre-filled
+- [ ] Reception: collect payment at checkout
+- [ ] Test role restrictions: L2 can't create visits, L3 can't see reports/receipts
+- [ ] Test doctor reassignment on appointment card
 
-2. **Walk-in / immediate appointment** — Need a quick "Walk-in" flow that creates an appointment with current date/time and immediately moves to ARRIVED status, bypassing the scheduling step. This is for patients who show up without an appointment.
+## Known Issues / UI Polish Needed
 
-3. **L2 (Reception) should NOT be able to examine** — Reception can create patients, appointments, visits, collect payments. But the "Examine" button (clinical notes) should only be available to L3 (doctors). Reception should be able to VIEW examination reports but not create/edit them.
+### Appointment Detail Panel (Cramped)
+- User reported the appointment detail panel (slide-out Sheet) looks cramped
+- The panel shows patient info, status, time, room, doctor, actions all stacked vertically
+- Needs spacing, visual hierarchy, maybe wider sheet or better layout
+- File: `src/components/appointment-detail-panel.tsx`
 
-4. **"New Visit" vs "Schedule Appointment" is confusing** — The user found these two concepts unclear. Consider:
-   - Remove standalone "New Visit" from dashboard quick actions for reception
-   - Primary path: Schedule Appointment → Arrived → Start Visit (creates visit automatically)
-   - "Record First Visit" on empty patient page should become "Schedule Appointment"
-   - Keep "New Visit" accessible but secondary (for backdating, walk-ins, etc.)
-
-5. **Patient detail "New Visit" button** — Should show "Schedule Appointment" when no active appointment. When there IS an active appointment (ARRIVED/IN_PROGRESS), show "Start Visit" or "Examine" as appropriate.
-
-## Design Decisions Made
-- Native `<select>` over shadcn `Select` for fields that need true empty/null state (Title, Gender, Blood Group). Shadcn Select doesn't support `value=""` properly.
-- `max-w-2xl` for ALL form pages (patient, visit, appointment, doctor). Premium apps use narrow focused columns.
-- Cancel button always navigates contextually: if we know the patient, go back to their profile.
+### General UI Consistency
+- User wants consistency across all panels and detail views
+- Reference the polished forms (patient form, visit form, appointment form) as the quality bar
+- Audit targets: appointment detail panel, patient detail sticky header, visit detail page
+- Standard: `space-y-2` per field, `gap-4 sm:grid-cols-2` grids, `text-base` card titles
 
 ## Context to Remember
-- **Turbopack cache corruption** is a recurring issue. If pages hang or crash, `rm -rf .next` fixes it. This is a Next.js 16 + Turbopack bug, not our code.
-- **Form selects**: Use native `<select>` (not shadcn `Select`) when an empty/null default is needed. Shadcn Select auto-fills the first option.
-- **DB re-seed**: `rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts`. TEST PATIENT (#10051) was created manually during testing.
-- **Patient #52** may also exist from testing (created after re-seed).
-- **Playwright MCP** is installed and working for visual testing. Login as MURALIDHAR/admin first.
-- User's UI bar is HIGH — "Think Apple, Google, Uber, Notion, Figma."
-
-## Files Modified (uncommitted)
-```
-clinic-app/src/components/patient-form.tsx       # Major: native selects, spacing, medical history, submit
-clinic-app/src/components/visit-form.tsx          # Spacing, grid gaps, contextual cancel
-clinic-app/src/components/appointment-form.tsx    # Spacing, grid gaps, contextual cancel
-clinic-app/src/components/doctor-form.tsx         # Spacing, grid gaps, cancel link
-clinic-app/src/app/(main)/patients/new/page.tsx   # max-w-2xl, space-y-6
-clinic-app/src/app/(main)/patients/[id]/edit/page.tsx  # max-w-2xl, space-y-6
-clinic-app/src/app/(main)/visits/new/page.tsx     # max-w-2xl, space-y-6
-clinic-app/src/app/(main)/appointments/new/page.tsx # max-w-2xl, space-y-6
-clinic-app/src/app/(main)/patients/[id]/page.tsx  # Added pastAppointments query
-clinic-app/src/app/(main)/patients/[id]/patient-page-client.tsx  # Appointments section (past+future)
-```
+- **Visit creation is doctor-only** — reception schedules appointments only, doctors create visits
+- **Follow-up visits are also doctor-only** — reception creates follow-up APPOINTMENTS, not visits
+- **Discount tiers**: Doctor 10%, Reception 15%, Admin unlimited — all server-enforced
+- **`reassignDoctor`**: New action, separate from `updateAppointment` (which requires full reschedule form)
+- **Visit form simplified**: No doctor selector (auto-assigned), no assisting doctor, no lab work sections
 
 ## Next Session Should
-1. **Commit current work** — all form polish + patient appointments section
-2. **Implement appointment-first visit flow** — visit creation requires an appointment (or walk-in). Remove/demote standalone "New Visit" for reception. Add walk-in shortcut.
-3. **Gate clinical examination to L3 only** — Reception (L2) can view but not create/edit exam reports
-4. **Rework patient detail action buttons** — "Schedule Appointment" as primary when no active appt; "Start Visit"/"Examine" when there is one
-5. **Continue workflow testing from Step 2** — Schedule Appointment → Arrived → Start Visit → Examine
-6. **Platform-wide UI consistency** — the form polish is done, but list pages, detail pages, settings pages still need spacing audit (see previous session's audit)
+1. **User tests the full 9-step workflow** — find bugs/workflow issues before building more
+2. **Polish appointment detail panel** — spacing, visual hierarchy, wider or better layout
+3. **UI consistency audit** — use the polished patient/visit/appointment forms as the design reference, apply same quality to panels and detail views
+4. **Fix any issues found** during testing
 
 ## Start Command
 ```bash

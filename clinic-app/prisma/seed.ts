@@ -44,74 +44,74 @@ async function main() {
   // ==========================================
   const operations = [
     // --- General ---
-    { code: 1, name: "Consultation", category: "General", defaultMinFee: 100 },
-    { code: 41, name: "Checkup", category: "General", defaultMinFee: 0 },
+    { code: 1, name: "Consultation", category: "General", defaultMinFee: 100, doctorFee: 0 },
+    { code: 41, name: "Checkup", category: "General", defaultMinFee: 0, doctorFee: 0 },
     // --- Adult Tariff Card ---
-    { code: 7, name: "Scaling", category: "General", defaultMinFee: 2500 },
-    { code: 85, name: "Temp Filling", category: "Restorative", defaultMinFee: 1500 },
-    { code: 16, name: "GIC Filling", category: "Restorative", defaultMinFee: 2000 },
-    { code: 17, name: "Composite (Anterior)", category: "Restorative", defaultMinFee: 4500 },
-    { code: 120, name: "Composite Filling (Posterior)", category: "Restorative", defaultMinFee: 2500 },
-    { code: 15, name: "Root Canal Treatment", category: "Endodontics", defaultMinFee: 7000 },
-    { code: 121, name: "Re - Root Canal Treatment", category: "Endodontics", defaultMinFee: 9000 },
-    { code: 108, name: "Post Core Buildup", category: "Endodontics", defaultMinFee: 3500 },
-    { code: 71, name: "Splinting", category: "Periodontics", defaultMinFee: 6500 },
-    { code: 55, name: "Temporary Crown", category: "Prosthodontics", defaultMinFee: 2000 },
-    { code: 58, name: "Ceramic Crown - PFM", category: "Prosthodontics", defaultMinFee: 7000 },
-    { code: 122, name: "Ceramic Crown - DMLS", category: "Prosthodontics", defaultMinFee: 10000 },
-    { code: 90, name: "All Ceramic Crown (Monolith)", category: "Prosthodontics", defaultMinFee: 12000 },
-    { code: 123, name: "All Ceramic Crown (Zirconia 15 years)", category: "Prosthodontics", defaultMinFee: 15000 },
-    { code: 100, name: "Veneers", category: "Prosthodontics", defaultMinFee: 17000 },
-    { code: 23, name: "RPD (per unit)", category: "Prosthodontics", defaultMinFee: 2000 },
-    { code: 96, name: "RPD Flexible (per unit)", category: "Prosthodontics", defaultMinFee: 4500 },
-    { code: 22, name: "Complete Denture (Regular)", category: "Prosthodontics", defaultMinFee: 30000 },
-    { code: 124, name: "Complete Denture (Single Arch)", category: "Prosthodontics", defaultMinFee: 16000 },
-    { code: 125, name: "Complete Denture (High Impact)", category: "Prosthodontics", defaultMinFee: 40000 },
-    { code: 126, name: "Complete Denture (High Impact Single Arch)", category: "Prosthodontics", defaultMinFee: 20000 },
-    { code: 105, name: "BPS (CD)", category: "Prosthodontics", defaultMinFee: 50000 },
-    { code: 127, name: "BPS (CD) (Single Arch)", category: "Prosthodontics", defaultMinFee: 25000 },
-    { code: 95, name: "Crown Removal (per unit)", category: "Prosthodontics", defaultMinFee: 2000 },
-    { code: 73, name: "Crown Cementation (per unit)", category: "Prosthodontics", defaultMinFee: 2000 },
-    { code: 3, name: "Curettage", category: "Periodontics", defaultMinFee: 20000 },
-    { code: 114, name: "Laser Curettage", category: "Periodontics", defaultMinFee: 30000 },
-    { code: 4, name: "Flap Surgery", category: "Periodontics", defaultMinFee: 30000 },
-    { code: 113, name: "Laser Flap Surgery", category: "Periodontics", defaultMinFee: 45000 },
-    { code: 87, name: "Crown Lengthening", category: "Periodontics", defaultMinFee: 3500 },
-    { code: 12, name: "Extraction", category: "Surgery", defaultMinFee: 2500 },
-    { code: 128, name: "Surgical Extraction", category: "Surgery", defaultMinFee: 3500 },
-    { code: 13, name: "Impaction", category: "Surgery", defaultMinFee: 6500 },
-    { code: 19, name: "Apicectomy", category: "Surgery", defaultMinFee: 6500 },
-    { code: 6, name: "Frenectomy", category: "Surgery", defaultMinFee: 6500 },
-    { code: 50, name: "Biopsy", category: "Surgery", defaultMinFee: 6500 },
-    { code: 88, name: "Night Guard", category: "Orthodontics", defaultMinFee: 5500 },
-    { code: 67, name: "Retainer (each arch)", category: "Orthodontics", defaultMinFee: 5500 },
-    { code: 38, name: "Appliances", category: "Orthodontics", defaultMinFee: 8500 },
-    { code: 129, name: "St Wire - Metal", category: "Orthodontics", defaultMinFee: 50000 },
-    { code: 130, name: "St Wire - Ceramic", category: "Orthodontics", defaultMinFee: 65000 },
-    { code: 131, name: "St Wire - Damon Metal", category: "Orthodontics", defaultMinFee: 85000 },
-    { code: 132, name: "St Wire - Damon Ceramic", category: "Orthodontics", defaultMinFee: 95000 },
-    { code: 133, name: "Aligners - Invisalign", category: "Orthodontics", defaultMinFee: 400000 },
-    { code: 134, name: "Aligners - Illusion", category: "Orthodontics", defaultMinFee: 300000 },
-    { code: 94, name: "Implant - Dentium (Excluding Crown)", category: "Implants", defaultMinFee: 35000 },
-    { code: 135, name: "Screw retained PFM Crown", category: "Implants", defaultMinFee: 12500 },
-    { code: 136, name: "Screw retained Zirconia Crown", category: "Implants", defaultMinFee: 15500 },
-    { code: 137, name: "Cement retained PFM Crown", category: "Implants", defaultMinFee: 8500 },
-    { code: 138, name: "Cement retained Zirconia Crown", category: "Implants", defaultMinFee: 12500 },
+    { code: 7, name: "Scaling", category: "General", defaultMinFee: 2500, doctorFee: 800 },
+    { code: 85, name: "Temp Filling", category: "Restorative", defaultMinFee: 1500, doctorFee: 500 },
+    { code: 16, name: "GIC Filling", category: "Restorative", defaultMinFee: 2000, doctorFee: 700 },
+    { code: 17, name: "Composite (Anterior)", category: "Restorative", defaultMinFee: 4500, doctorFee: 1500 },
+    { code: 120, name: "Composite Filling (Posterior)", category: "Restorative", defaultMinFee: 2500, doctorFee: 800 },
+    { code: 15, name: "Root Canal Treatment", category: "Endodontics", defaultMinFee: 7000, doctorFee: 1800 },
+    { code: 121, name: "Re - Root Canal Treatment", category: "Endodontics", defaultMinFee: 9000, doctorFee: 2500 },
+    { code: 108, name: "Post Core Buildup", category: "Endodontics", defaultMinFee: 3500, doctorFee: 1200 },
+    { code: 71, name: "Splinting", category: "Periodontics", defaultMinFee: 6500, doctorFee: 2000 },
+    { code: 55, name: "Temporary Crown", category: "Prosthodontics", defaultMinFee: 2000, doctorFee: 500 },
+    { code: 58, name: "Ceramic Crown - PFM", category: "Prosthodontics", defaultMinFee: 7000, doctorFee: 1800, labCostEstimate: 1500 },
+    { code: 122, name: "Ceramic Crown - DMLS", category: "Prosthodontics", defaultMinFee: 10000, doctorFee: 2500, labCostEstimate: 1800 },
+    { code: 90, name: "All Ceramic Crown (Monolith)", category: "Prosthodontics", defaultMinFee: 12000, doctorFee: 3000, labCostEstimate: 2200 },
+    { code: 123, name: "All Ceramic Crown (Zirconia 15 years)", category: "Prosthodontics", defaultMinFee: 15000, doctorFee: 3500, labCostEstimate: 3200 },
+    { code: 100, name: "Veneers", category: "Prosthodontics", defaultMinFee: 17000, doctorFee: 4000, labCostEstimate: 3500 },
+    { code: 23, name: "RPD (per unit)", category: "Prosthodontics", defaultMinFee: 2000, doctorFee: 500, labCostEstimate: 200 },
+    { code: 96, name: "RPD Flexible (per unit)", category: "Prosthodontics", defaultMinFee: 4500, doctorFee: 1200, labCostEstimate: 2300 },
+    { code: 22, name: "Complete Denture (Regular)", category: "Prosthodontics", defaultMinFee: 30000, doctorFee: 6000, labCostEstimate: 5500 },
+    { code: 124, name: "Complete Denture (Single Arch)", category: "Prosthodontics", defaultMinFee: 16000, doctorFee: 3500, labCostEstimate: 2800 },
+    { code: 125, name: "Complete Denture (High Impact)", category: "Prosthodontics", defaultMinFee: 40000, doctorFee: 8000, labCostEstimate: 9500 },
+    { code: 126, name: "Complete Denture (High Impact Single Arch)", category: "Prosthodontics", defaultMinFee: 20000, doctorFee: 4500, labCostEstimate: 4800 },
+    { code: 105, name: "BPS (CD)", category: "Prosthodontics", defaultMinFee: 50000, doctorFee: 10000, labCostEstimate: 13000 },
+    { code: 127, name: "BPS (CD) (Single Arch)", category: "Prosthodontics", defaultMinFee: 25000, doctorFee: 5000, labCostEstimate: 7000 },
+    { code: 95, name: "Crown Removal (per unit)", category: "Prosthodontics", defaultMinFee: 2000, doctorFee: 500 },
+    { code: 73, name: "Crown Cementation (per unit)", category: "Prosthodontics", defaultMinFee: 2000, doctorFee: 500 },
+    { code: 3, name: "Curettage", category: "Periodontics", defaultMinFee: 20000, doctorFee: 5000 },
+    { code: 114, name: "Laser Curettage", category: "Periodontics", defaultMinFee: 30000, doctorFee: 8000 },
+    { code: 4, name: "Flap Surgery", category: "Periodontics", defaultMinFee: 30000, doctorFee: 8000 },
+    { code: 113, name: "Laser Flap Surgery", category: "Periodontics", defaultMinFee: 45000, doctorFee: 12000 },
+    { code: 87, name: "Crown Lengthening", category: "Periodontics", defaultMinFee: 3500, doctorFee: 1200 },
+    { code: 12, name: "Extraction", category: "Surgery", defaultMinFee: 2500, doctorFee: 500 },
+    { code: 128, name: "Surgical Extraction", category: "Surgery", defaultMinFee: 3500, doctorFee: 800 },
+    { code: 13, name: "Impaction", category: "Surgery", defaultMinFee: 6500, doctorFee: 2000 },
+    { code: 19, name: "Apicectomy", category: "Surgery", defaultMinFee: 6500, doctorFee: 2000 },
+    { code: 6, name: "Frenectomy", category: "Surgery", defaultMinFee: 6500, doctorFee: 2000 },
+    { code: 50, name: "Biopsy", category: "Surgery", defaultMinFee: 6500, doctorFee: 2000 },
+    { code: 88, name: "Night Guard", category: "Orthodontics", defaultMinFee: 5500, doctorFee: 1500, labCostEstimate: 650 },
+    { code: 67, name: "Retainer (each arch)", category: "Orthodontics", defaultMinFee: 5500, doctorFee: 1500, labCostEstimate: 700 },
+    { code: 38, name: "Appliances", category: "Orthodontics", defaultMinFee: 8500, doctorFee: 2500, labCostEstimate: 2500 },
+    { code: 129, name: "St Wire - Metal", category: "Orthodontics", defaultMinFee: 50000, doctorFee: 15000 },
+    { code: 130, name: "St Wire - Ceramic", category: "Orthodontics", defaultMinFee: 65000, doctorFee: 18000 },
+    { code: 131, name: "St Wire - Damon Metal", category: "Orthodontics", defaultMinFee: 85000, doctorFee: 25000 },
+    { code: 132, name: "St Wire - Damon Ceramic", category: "Orthodontics", defaultMinFee: 95000, doctorFee: 28000 },
+    { code: 133, name: "Aligners - Invisalign", category: "Orthodontics", defaultMinFee: 400000, doctorFee: 60000, labCostEstimate: 190000 },
+    { code: 134, name: "Aligners - Illusion", category: "Orthodontics", defaultMinFee: 300000, doctorFee: 50000, labCostEstimate: 120000 },
+    { code: 94, name: "Implant - Dentium (Excluding Crown)", category: "Implants", defaultMinFee: 35000, doctorFee: 8000, labCostEstimate: 8000 },
+    { code: 135, name: "Screw retained PFM Crown", category: "Implants", defaultMinFee: 12500, doctorFee: 3000, labCostEstimate: 2800 },
+    { code: 136, name: "Screw retained Zirconia Crown", category: "Implants", defaultMinFee: 15500, doctorFee: 3500, labCostEstimate: 3400 },
+    { code: 137, name: "Cement retained PFM Crown", category: "Implants", defaultMinFee: 8500, doctorFee: 2000, labCostEstimate: 650 },
+    { code: 138, name: "Cement retained Zirconia Crown", category: "Implants", defaultMinFee: 12500, doctorFee: 3000, labCostEstimate: 2500 },
     // --- Pedo (Pediatric) ---
-    { code: 28, name: "Extraction (Pedo)", category: "Pedo", defaultMinFee: 1500 },
-    { code: 29, name: "Space Maintainer", category: "Pedo", defaultMinFee: 8000 },
-    { code: 139, name: "Pitt & Fissure Sealant", category: "Pedo", defaultMinFee: 2500 },
-    { code: 27, name: "Pulpectomy", category: "Pedo", defaultMinFee: 4000 },
-    { code: 26, name: "Pulpotomy", category: "Pedo", defaultMinFee: 2500 },
-    { code: 30, name: "S.S.Crown", category: "Pedo", defaultMinFee: 4000 },
-    { code: 140, name: "Temp Filling (Pedo)", category: "Pedo", defaultMinFee: 1200 },
-    { code: 141, name: "GIC Filling (Pedo)", category: "Pedo", defaultMinFee: 1800 },
-    { code: 142, name: "Composite Filling (Pedo)", category: "Pedo", defaultMinFee: 2500 },
-    { code: 143, name: "Appliances (Pedo)", category: "Pedo", defaultMinFee: 8000 },
+    { code: 28, name: "Extraction (Pedo)", category: "Pedo", defaultMinFee: 1500, doctorFee: 300 },
+    { code: 29, name: "Space Maintainer", category: "Pedo", defaultMinFee: 8000, doctorFee: 2000, labCostEstimate: 1400 },
+    { code: 139, name: "Pitt & Fissure Sealant", category: "Pedo", defaultMinFee: 2500, doctorFee: 800 },
+    { code: 27, name: "Pulpectomy", category: "Pedo", defaultMinFee: 4000, doctorFee: 1200 },
+    { code: 26, name: "Pulpotomy", category: "Pedo", defaultMinFee: 2500, doctorFee: 800 },
+    { code: 30, name: "S.S.Crown", category: "Pedo", defaultMinFee: 4000, doctorFee: 1200, labCostEstimate: 500 },
+    { code: 140, name: "Temp Filling (Pedo)", category: "Pedo", defaultMinFee: 1200, doctorFee: 400 },
+    { code: 141, name: "GIC Filling (Pedo)", category: "Pedo", defaultMinFee: 1800, doctorFee: 600 },
+    { code: 142, name: "Composite Filling (Pedo)", category: "Pedo", defaultMinFee: 2500, doctorFee: 800 },
+    { code: 143, name: "Appliances (Pedo)", category: "Pedo", defaultMinFee: 8000, doctorFee: 2000, labCostEstimate: 2500 },
     // --- Legacy/Misc (not on tariff card, but needed for visit data) ---
-    { code: 31, name: "X-Ray (IOPA)", category: "General", defaultMinFee: 200 },
-    { code: 34, name: "Orthodontic Treatment", category: "Orthodontics", defaultMinFee: 50000 },
-    { code: 21, name: "Bridge (Ceramic)", category: "Prosthodontics", defaultMinFee: 7000 },
+    { code: 31, name: "X-Ray (IOPA)", category: "General", defaultMinFee: 200, doctorFee: 0 },
+    { code: 34, name: "Orthodontic Treatment", category: "Orthodontics", defaultMinFee: 50000, doctorFee: 15000 },
+    { code: 21, name: "Bridge (Ceramic)", category: "Prosthodontics", defaultMinFee: 7000, doctorFee: 1800, labCostEstimate: 1500 },
   ];
   await prisma.operation.createMany({ data: operations });
 
@@ -272,7 +272,7 @@ async function main() {
     // Today's visits (tariff prices)
     { caseNo: 80001, patientId: 1, visitDate: today, visitType: "NEW", operationId: regCons!.id, operationRate: 100, doctorId: kazim!.id, doctorCommissionPercent: 0 },
     { caseNo: 80002, patientId: 2, visitDate: today, visitType: "NEW", operationId: scaling!.id, operationRate: 2500, doctorId: surender!.id, doctorCommissionPercent: 50 },
-    { caseNo: 80003, patientId: 3, visitDate: today, visitType: "NEW", operationId: rct!.id, operationRate: 7000, doctorId: ramana!.id, doctorCommissionPercent: 75, discount: 700 },
+    { caseNo: 80003, patientId: 3, visitDate: daysAgo(5), visitType: "NEW", operationId: extraction!.id, operationRate: 2500, doctorId: ramana!.id, doctorCommissionPercent: 75 },
     // Yesterday
     { caseNo: 80004, patientId: 4, visitDate: daysAgo(1), visitType: "NEW", operationId: filling!.id, operationRate: 2000, doctorId: anitha!.id, doctorCommissionPercent: 70 },
     { caseNo: 80005, patientId: 5, visitDate: daysAgo(1), visitType: "NEW", operationId: extraction!.id, operationRate: 2500, doctorId: surender!.id, doctorCommissionPercent: 50 },
@@ -308,7 +308,7 @@ async function main() {
     // Fully paid visits
     { visitId: 1, receiptDate: today, amount: 100, paymentMode: "Cash" },
     { visitId: 2, receiptDate: today, amount: 2500, paymentMode: "UPI" },
-    { visitId: 3, receiptDate: today, amount: 4000, paymentMode: "Card" }, // partial (7000-700=6300 billed)
+    { visitId: 3, receiptDate: daysAgo(5), amount: 2500, paymentMode: "Card" }, // extraction fully paid
     { visitId: 4, receiptDate: daysAgo(1), amount: 2000, paymentMode: "Cash" },
     { visitId: 5, receiptDate: daysAgo(1), amount: 2500, paymentMode: "NEFT" },
     { visitId: 6, receiptDate: daysAgo(2), amount: 5000, paymentMode: "Card" }, // partial (7000 billed)
@@ -404,19 +404,29 @@ async function main() {
     });
   }
 
-  // Patient 10003 (id=3): NEW visit + REVIEW 2 weeks later
-  const consParent = await prisma.visit.create({
+  // Patient 10003 (id=3): RCT chain — 3 visits, Dr. SURENDER
+  // Clinically realistic: pain in 36 → irreversible pulpitis → multi-step RCT
+  const rctChain3V1 = await prisma.visit.create({
     data: {
-      caseNo: 80030, patientId: 3, visitDate: daysAgo(21), visitType: "NEW",
-      operationId: filling!.id, operationRate: 2000, doctorId: ramana!.id, doctorCommissionPercent: 75,
+      caseNo: 80030, patientId: 3, visitDate: daysAgo(14), visitType: "NEW",
+      operationId: rct!.id, operationRate: 7000, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "Initial Assessment",
     },
   });
-  await prisma.visit.create({
+  const rctChain3V2 = await prisma.visit.create({
     data: {
-      caseNo: 80031, patientId: 3, visitDate: daysAgo(7), visitType: "REVIEW",
-      parentVisitId: consParent.id,
-      operationId: regCons!.id, operationRate: 0, doctorId: ramana!.id, doctorCommissionPercent: 75,
-      notes: "Post-filling review. No sensitivity. Patient doing well.",
+      caseNo: 80031, patientId: 3, visitDate: daysAgo(7), visitType: "FOLLOWUP",
+      parentVisitId: rctChain3V1.id,
+      operationId: rct!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "Access Opening",
+    },
+  });
+  const rctChain3V3 = await prisma.visit.create({
+    data: {
+      caseNo: 80048, patientId: 3, visitDate: today, visitType: "FOLLOWUP",
+      parentVisitId: rctChain3V1.id,
+      operationId: rct!.id, operationRate: 0, doctorId: surender!.id, doctorCommissionPercent: 50,
+      stepLabel: "BMP / Obturation",
     },
   });
 
@@ -431,6 +441,29 @@ async function main() {
       medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS",
     },
   });
+
+  // Clinical reports for Patient 3 (SRINIVAS NARRA) RCT chain
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctChain3V1.id, doctorId: surender!.id, reportDate: daysAgo(14),
+      complaint: "PAIN IN LOWER LEFT MOLAR — 2 WEEKS",
+      examination: "Deep caries in 36 (lower left first molar). Tender on percussion. Electric pulp test negative. Periapical radiolucency on IOPA.",
+      diagnosis: "Irreversible pulpitis with periapical pathology — 36",
+      treatmentNotes: "RCT planned for tooth 36.\nAccess opening done under LA.\nPulp extirpated. 3 canals located (MB, ML, D).\nWorking length determined with apex locator.\nCanals irrigated with 3% NaOCl.\nCalcium hydroxide intra-canal dressing placed.\nTemporary restoration — Cavit.",
+      estimate: "RCT: ₹7,000\nCeramic Crown (after RCT): ₹7,000",
+      medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS\nCap Omeprazole 20mg OD x 5 days",
+    },
+  });
+  await prisma.clinicalReport.create({
+    data: {
+      visitId: rctChain3V2.id, doctorId: surender!.id, reportDate: daysAgo(7),
+      treatmentNotes: "Access opening completed. Canals located and negotiated.\nWorking length confirmed with apex locator.\nCanals shaped with rotary NiTi files (ProTaper Gold).\nCopious irrigation with NaOCl + EDTA.\nCalcium hydroxide dressing refreshed.\nPatient comfortable, no symptoms between visits.",
+    },
+  });
+  // Visit 3 (today) — no clinical report yet, appointment is for this
+
+  // Receipt for Patient 3 RCT chain
+  await prisma.receipt.create({ data: { visitId: rctChain3V1.id, amount: 7000, paymentMode: "Cash", receiptDate: daysAgo(14), receiptNo: receiptNo++ } });
 
   // ==========================================
   // SCENARIO 1: Dental Implant (5 visits, 3 doctors, 2 labs)
@@ -829,15 +862,45 @@ async function main() {
       medication: null,
     },
     {
-      visitId: 3, // RCT for patient 10003
-      doctorId: ramana!.id,
+      visitId: 2, // Scaling for patient 10002
+      doctorId: surender!.id,
       reportDate: today,
-      complaint: "PAIN, SENSITIVITY",
-      examination: "Deep caries in 36, tender on percussion, periapical radiolucency on IOPA. Vitality test negative. No swelling or sinus tract.",
-      diagnosis: "Irreversible pulpitis with periapical abscess — 36",
-      treatmentNotes: "1. RCT for 36 (3 visits)\n2. Ceramic crown after RCT completion\n3. Scaling for generalized calculus",
-      estimate: "RCT: ₹7,000\nCeramic Crown: ₹7,000\nScaling: ₹2,500\nTotal estimate: ₹16,500",
-      medication: "Tab Amoxicillin 500mg TID x 5 days\nTab Ibuprofen 400mg SOS for pain\nCap Omeprazole 20mg OD x 5 days",
+      complaint: "BLEEDING GUMS, BAD BREATH",
+      examination: "Heavy supragingival and subgingival calculus deposits. Generalized deep pockets (4-6mm). Gingival inflammation with BOP.",
+      diagnosis: "Generalized chronic periodontitis — moderate",
+      treatmentNotes: "Full mouth scaling and root planing done under LA.\nUltrasonic + hand instrumentation.\nOral hygiene instructions given.\nReview in 2 weeks.",
+      medication: "0.2% Chlorhexidine mouthwash BD x 2 weeks",
+    },
+    {
+      visitId: 3, // Extraction for patient 10003
+      doctorId: ramana!.id,
+      reportDate: daysAgo(5),
+      complaint: "BROKEN TOOTH, PAIN",
+      examination: "Grossly decayed 48 (lower right wisdom tooth). Distal caries extending subgingivally. Non-restorable.",
+      diagnosis: "Grossly decayed 48 — non-restorable",
+      treatmentNotes: "Extraction of 48 under LA.\nTooth delivered in one piece.\nSocket curetted, hemostasis achieved.\nPost-op instructions given.",
+      estimate: null,
+      medication: "Tab Amoxicillin 500mg TID x 3 days\nTab Ibuprofen 400mg SOS",
+    },
+    {
+      visitId: 4, // GIC Filling for patient 10004
+      doctorId: anitha!.id,
+      reportDate: daysAgo(1),
+      complaint: "SENSITIVITY IN UPPER TOOTH",
+      examination: "Proximal caries in 25 (upper left premolar). No periapical pathology on radiograph. Tooth vital.",
+      diagnosis: "Dental caries 25 — Class II",
+      treatmentNotes: "GIC filling done in 25 under LA.\nCavity preparation, etching, bonding.\nGIC restoration placed. Occlusion checked and adjusted.\nPatient advised to avoid eating on left side for 2 hours.",
+      medication: null,
+    },
+    {
+      visitId: 5, // Extraction for patient 10005
+      doctorId: surender!.id,
+      reportDate: daysAgo(1),
+      complaint: "MOBILE TOOTH",
+      examination: "Grade III mobility of 31 (lower left central incisor). Severe bone loss on periapical radiograph. Suppuration from pocket.",
+      diagnosis: "Advanced periodontitis 31 — hopeless prognosis",
+      treatmentNotes: "Extraction of 31 under LA.\nTooth extracted with forceps. Minimal bleeding.\nSocket compressed. Hemostasis achieved.\nPost-op instructions given.",
+      medication: "Tab Ibuprofen 400mg SOS",
     },
     {
       visitId: 6, // CER CROWN for patient 10006
@@ -851,7 +914,7 @@ async function main() {
       medication: null,
     },
     {
-      visitId: 7, // Bleaching for patient 10007
+      visitId: 7, // Veneers for patient 10007
       doctorId: anitha!.id,
       reportDate: daysAgo(3),
       complaint: "DISCOLORATION",
@@ -911,13 +974,21 @@ async function main() {
   const tomorrow = new Date(today.getTime() + 86400000);
 
   const appointments = [
-    // Today — various statuses (with room assignments)
+    // Today — RAMANA REDDY: 0 IN_PROGRESS + 3 ARRIVED (tests queue with "Examine" CTA on first)
+    { patientId: 6, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Crown try-in", createdById: kazim!.id, roomId: 2 },
+    { patientId: 8, doctorId: ramana!.id, date: today, timeSlot: "11:00 AM", status: "ARRIVED", reason: "Implant review", createdById: kazim!.id, roomId: 2 },
+    { patientId: 10, doctorId: ramana!.id, date: today, timeSlot: "11:30 AM", status: "ARRIVED", reason: "Scaling & polishing", createdById: kazim!.id, roomId: 2 },
+    { patientId: 14, doctorId: ramana!.id, date: today, timeSlot: "2:30 PM", status: "SCHEDULED", reason: "Ortho consultation", createdById: kazim!.id, roomId: 2 },
+    // Today — SURENDER: 1 IN_PROGRESS + 2 ARRIVED (tests "Now Seeing" + "Waiting Room" queue)
+    { patientId: 3, doctorId: surender!.id, date: today, timeSlot: "9:30 AM", status: "IN_PROGRESS", reason: "RCT Step 3 — BMP", createdById: kazim!.id, roomId: 3 },
+    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "10:00 AM", status: "ARRIVED", reason: "Extraction", createdById: kazim!.id, roomId: 3 },
+    { patientId: 12, doctorId: surender!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Filling - molar", createdById: kazim!.id, roomId: 3 },
+    { patientId: 11, doctorId: surender!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id, roomId: 4 },
+    { patientId: 16, doctorId: surender!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Root canal - step 2", createdById: kazim!.id, roomId: 3 },
+    // Today — other doctors (normal mix)
     { patientId: 1, doctorId: kazim!.id, date: today, timeSlot: "10:00 AM", status: "SCHEDULED", reason: "Regular checkup", createdById: kazim!.id, roomId: 1 },
-    { patientId: 3, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "RCT follow-up", createdById: kazim!.id, roomId: 2 },
-    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "IN_PROGRESS", reason: "Extraction", createdById: kazim!.id, roomId: 3 },
     { patientId: 7, doctorId: anitha!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Bleaching review", createdById: kazim!.id, roomId: 1 },
     { patientId: 9, doctorId: kazim!.id, date: today, timeSlot: "3:00 PM", status: "SCHEDULED", reason: "X-Ray", createdById: kazim!.id },
-    { patientId: 11, doctorId: surender!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id, roomId: 4 },
     // Tomorrow — SCHEDULED
     { patientId: 15, doctorId: ramana!.id, date: tomorrow, timeSlot: "9:30 AM", status: "SCHEDULED", reason: "Implant consultation", createdById: kazim!.id, roomId: 2 },
     { patientId: 18, doctorId: surender!.id, date: tomorrow, timeSlot: "11:00 AM", status: "SCHEDULED", reason: "Filling", createdById: kazim!.id, roomId: 3 },
@@ -927,7 +998,14 @@ async function main() {
   ];
 
   for (const appt of appointments) {
-    await prisma.appointment.create({ data: appt });
+    const created = await prisma.appointment.create({ data: appt });
+    // Link Patient 3's IN_PROGRESS appointment to their today's RCT visit
+    if (appt.patientId === 3 && appt.status === "IN_PROGRESS") {
+      await prisma.appointment.update({
+        where: { id: created.id },
+        data: { visitId: rctChain3V3.id },
+      });
+    }
   }
 
   console.log("✅ Database seeded successfully!");

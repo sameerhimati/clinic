@@ -97,7 +97,7 @@ export function DashboardAppointmentList({
               {appointments.map((appt) => (
                 <div
                   key={appt.id}
-                  className={`flex items-center justify-between py-2.5 border-l-4 pl-3 -ml-2 cursor-pointer hover:bg-accent/50 transition-colors ${STATUS_BORDER_COLOR[appt.status] || ""}`}
+                  className={`flex items-center justify-between py-3 border-l-4 pl-4 -ml-6 cursor-pointer hover:bg-accent/50 transition-colors ${STATUS_BORDER_COLOR[appt.status] || ""}`}
                   onClick={() => router.push(`/patients/${appt.patientId}`)}
                 >
                   <div>

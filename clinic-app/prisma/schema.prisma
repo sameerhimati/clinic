@@ -28,6 +28,8 @@ model Operation {
   category        String?
   defaultMinFee   Float?
   defaultMaxFee   Float?
+  doctorFee       Float?           // fixed doctor fee per procedure (e.g. RCT = ₹1,800)
+  labCostEstimate Float?           // typical lab cost, used for minimum collection warnings
   isActive        Boolean          @default(true)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt

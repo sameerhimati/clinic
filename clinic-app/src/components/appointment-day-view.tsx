@@ -264,7 +264,7 @@ function AppointmentCard({
 
   return (
     <div
-      className={`rounded-md border p-2 text-xs space-y-1 transition-colors bg-card ${
+      className={`rounded-md border p-2.5 text-xs space-y-1 transition-colors bg-card ${
         isTerminal ? "opacity-60" : "cursor-pointer hover:border-primary/50"
       }`}
       onClick={() => {
@@ -309,7 +309,7 @@ function AppointmentCard({
             // Abbreviate common diseases
             const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d.length > 10 ? d.slice(0, 8) + "…" : d;
             return (
-              <span key={d} className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium leading-tight">
+              <span key={d} className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium leading-tight">
                 {abbr}
               </span>
             );
@@ -828,7 +828,7 @@ export function AppointmentDayView({
                           {appt.diseases.slice(0, 3).map((d) => {
                             const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d.length > 10 ? d.slice(0, 8) + "…" : d;
                             return (
-                              <span key={d} className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium leading-tight">{abbr}</span>
+                              <span key={d} className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium leading-tight">{abbr}</span>
                             );
                           })}
                         </div>

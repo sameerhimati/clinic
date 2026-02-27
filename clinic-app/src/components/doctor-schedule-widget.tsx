@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, CheckCircle2, ChevronRight } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, Users } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
@@ -53,16 +53,17 @@ export function DoctorScheduleWidget({
     });
   }
 
-  // Find next up: first ARRIVED, then first SCHEDULED, then first IN_PROGRESS
   const sorted = [...appointments].sort(
     (a, b) => timeSlotSortKey(a.timeSlot) - timeSlotSortKey(b.timeSlot)
   );
-  const nextUp =
-    sorted.find((a) => a.status === "ARRIVED") ||
-    sorted.find((a) => a.status === "SCHEDULED") ||
-    sorted.find((a) => a.status === "IN_PROGRESS");
 
-  // Group by period
+  // Now Seeing: the IN_PROGRESS appointment (realistically only 1)
+  const nowSeeing = sorted.find((a) => a.status === "IN_PROGRESS");
+
+  // Waiting Room: all ARRIVED patients
+  const arrivedPatients = sorted.filter((a) => a.status === "ARRIVED");
+
+  // Group by period for the full schedule list
   const periodGroups = new Map<TimePeriod, ScheduleAppointment[]>();
   for (const appt of sorted) {
     const period = classifyTimeSlot(appt.timeSlot);
@@ -83,17 +84,118 @@ export function DoctorScheduleWidget({
   }
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h3 className="font-semibold flex items-center gap-2">
-          <CalendarDays className="h-4 w-4" />
-          Today&apos;s Schedule
-          <Badge variant="secondary" className="text-xs">{appointments.length}</Badge>
-        </h3>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/appointments">View full schedule &rarr;</Link>
-        </Button>
-      </div>
+    <div className="space-y-3">
+      {/* Now Seeing — blue hero card */}
+      {nowSeeing && (
+        <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                  Now Seeing
+                </span>
+                <StatusBadge status={nowSeeing.status} />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-sm text-muted-foreground">
+                  #{nowSeeing.patientCode}
+                </span>
+                <span className="text-lg font-semibold">
+                  {nowSeeing.patientName}
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground mt-0.5">
+                {nowSeeing.timeSlot && <span>{nowSeeing.timeSlot} · </span>}
+                {nowSeeing.reason || "Appointment"}
+              </div>
+            </div>
+            <div className="shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+              {nowSeeing.visitId && (
+                <Button size="default" asChild>
+                  <Link href={`/visits/${nowSeeing.visitId}/examine`}>
+                    Continue Exam
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/patients/${nowSeeing.patientId}`}>
+                  View Patient
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waiting Room — amber card listing all ARRIVED patients */}
+      {arrivedPatients.length > 0 && (
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-amber-600" />
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600">
+              Waiting Room
+            </span>
+            <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
+              {arrivedPatients.length} waiting
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {arrivedPatients.map((appt, index) => (
+              <div
+                key={appt.id}
+                className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{appt.patientCode}
+                    </span>
+                    <span className="font-medium text-sm">
+                      {appt.patientName}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {appt.timeSlot && <span>{appt.timeSlot} · </span>}
+                    {appt.reason || "Appointment"}
+                  </div>
+                </div>
+                <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* First arrived patient gets Examine CTA if no one is IN_PROGRESS */}
+                  {!nowSeeing && index === 0 ? (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleExamine(appt.patientId, appt.id)}
+                      disabled={isPending}
+                    >
+                      {isPending ? "Starting..." : "Examine"}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/patients/${appt.patientId}`}>
+                        View Patient
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Full schedule list */}
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h3 className="font-semibold flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Today&apos;s Schedule
+            <Badge variant="secondary" className="text-xs">{appointments.length}</Badge>
+          </h3>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/appointments">View full schedule &rarr;</Link>
+          </Button>
+        </div>
 
       {PERIOD_ORDER.map((period) => {
         const periodAppts = periodGroups.get(period);
@@ -107,13 +209,12 @@ export function DoctorScheduleWidget({
               {periodAppts.map((appt) => {
                 const isCompleted = appt.status === "COMPLETED";
                 const isCancelled = appt.status === "CANCELLED" || appt.status === "NO_SHOW";
-                const isNext = nextUp?.id === appt.id;
                 return (
                   <div
                     key={appt.id}
                     className={`group rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors ${
                       isCompleted || isCancelled ? "opacity-50" : ""
-                    } ${isNext ? "bg-primary/5 border-l-4 border-l-primary" : ""}`}
+                    }`}
                     onClick={() => router.push(`/patients/${appt.patientId}`)}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -123,9 +224,6 @@ export function DoctorScheduleWidget({
                             {appt.timeSlot || "—"}
                           </span>
                           <StatusBadge status={appt.status} />
-                          {isNext && (
-                            <Badge variant="default" className="text-[10px] px-1.5 py-0">NEXT</Badge>
-                          )}
                         </div>
                         <div className="truncate">
                           <span className="font-mono text-xs text-muted-foreground mr-1">
@@ -179,6 +277,7 @@ export function DoctorScheduleWidget({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

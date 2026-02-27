@@ -66,6 +66,16 @@ export default async function OperationsPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <OperationInlineEdit id={op.id} currentFee={op.defaultMinFee} />
+                        {op.doctorFee != null && op.doctorFee > 0 && (
+                          <span className="text-xs text-muted-foreground" title="Doctor fee per procedure">
+                            Dr: ₹{op.doctorFee.toLocaleString("en-IN")}
+                          </span>
+                        )}
+                        {op.labCostEstimate != null && op.labCostEstimate > 0 && (
+                          <span className="text-xs text-muted-foreground" title="Estimated lab cost">
+                            Lab: ₹{op.labCostEstimate.toLocaleString("en-IN")}
+                          </span>
+                        )}
                         <form action={toggleOperationActive}>
                           <input type="hidden" name="id" value={op.id} />
                           <Button size="sm" variant="ghost" type="submit" className="h-7 text-xs">

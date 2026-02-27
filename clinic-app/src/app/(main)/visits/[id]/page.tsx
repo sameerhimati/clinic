@@ -82,7 +82,7 @@ export default async function VisitDetailPage({
   // Get the root visit id for the treatment chain
   const rootVisitId = visit.parentVisitId || visit.id;
 
-  // Fetch all visits in the chain (root + follow-ups)
+  // Fetch all visits in the chain (root + follow-ups) with cost data
   const chainVisits = treatmentSteps.length > 0
     ? await prisma.visit.findMany({
         where: {
@@ -94,6 +94,7 @@ export default async function VisitDetailPage({
         include: {
           doctor: { select: { name: true } },
           clinicalReports: { take: 1, select: { id: true } },
+          receipts: { select: { amount: true } },
         },
         orderBy: { visitDate: "asc" },
       })
@@ -106,7 +107,21 @@ export default async function VisitDetailPage({
     visitDate: v.visitDate,
     doctorName: v.doctor?.name || null,
     hasReport: v.clinicalReports.length > 0,
+    billed: Math.max(0, (v.operationRate || 0) - (v.discount || 0)),
+    paid: v.receipts.reduce((s, r) => s + r.amount, 0),
   }));
+
+  // Chain-level cost summary
+  const chainTotalBilled = chainVisits.reduce((sum, v) => sum + Math.max(0, (v.operationRate || 0) - (v.discount || 0)), 0);
+  const chainTotalPaid = chainVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
+  const chainTotalDue = chainTotalBilled - chainTotalPaid;
+
+  // Doctor fee for this operation
+  const doctorFee = visit.operation?.doctorFee;
+
+  // Current step index (which step in the chain is this visit?)
+  const currentStepInChain = chainVisits.findIndex((v) => v.id === visit.id);
+  const totalSteps = Math.max(treatmentSteps.length, chainVisits.length);
 
   // Find next unmatched step
   const nextStepIndex = completedSteps.length;
@@ -165,6 +180,11 @@ export default async function VisitDetailPage({
           <h2 className="text-2xl font-bold flex items-center gap-3">
             Case #{visit.caseNo || visit.id}
             <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
+            {treatmentSteps.length > 0 && currentStepInChain >= 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                Step {currentStepInChain + 1} of {totalSteps}
+              </span>
+            )}
           </h2>
           <p className="text-muted-foreground">
             <Link href={`/patients/${visit.patientId}`} className="hover:underline font-medium">
@@ -275,8 +295,11 @@ export default async function VisitDetailPage({
       {treatmentSteps.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
-              {visit.operation?.name} — Treatment Progress
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>{visit.operation?.name} — Treatment Progress</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {completedSteps.length} of {treatmentSteps.length} steps
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -298,18 +321,39 @@ export default async function VisitDetailPage({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className={`font-medium ${isCompleted ? "text-foreground" : isNext ? "text-primary" : "text-muted-foreground"}`}>
-                      Step {step.stepNumber}: {step.name}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-medium ${isCompleted ? "text-foreground" : isNext ? "text-primary" : "text-muted-foreground"}`}>
+                        Step {step.stepNumber}: {step.name}
+                      </span>
+                      {matchedVisit && !isDoctor && matchedVisit.billed > 0 && (
+                        <span className="text-xs font-mono text-muted-foreground">
+                          ₹{matchedVisit.billed.toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </div>
                     {matchedVisit && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({format(new Date(matchedVisit.visitDate), "dd MMM")}{matchedVisit.doctorName ? ` · Dr. ${matchedVisit.doctorName}` : ""})
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(matchedVisit.visitDate), "dd MMM")}{matchedVisit.doctorName ? ` · Dr. ${matchedVisit.doctorName}` : ""}
                       </span>
                     )}
                   </div>
                 </div>
               );
             })}
+
+            {/* Chain cost summary — visible to reception/admin */}
+            {!isDoctor && chainVisits.length > 0 && (
+              <div className="pt-3 border-t mt-3 flex flex-wrap gap-4 text-xs">
+                <span>Billed: <span className="font-medium">₹{chainTotalBilled.toLocaleString("en-IN")}</span></span>
+                <span className="text-green-600">Paid: <span className="font-medium">₹{chainTotalPaid.toLocaleString("en-IN")}</span></span>
+                {chainTotalDue > 0 && (
+                  <span className="text-destructive">Due: <span className="font-medium">₹{chainTotalDue.toLocaleString("en-IN")}</span></span>
+                )}
+                {doctorFee != null && doctorFee > 0 && showInternalCosts && (
+                  <span className="text-muted-foreground">Doctor fee: <span className="font-medium">₹{doctorFee.toLocaleString("en-IN")}</span></span>
+                )}
+              </div>
+            )}
 
             {/* Schedule next step button */}
             {nextStep && (

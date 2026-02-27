@@ -167,7 +167,7 @@ export function QuickVisitSheet({
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 py-4 px-1">
+        <div className="space-y-4 py-4">
           {/* Patient badge */}
           <div>
             <Badge variant="secondary" className="text-sm py-1 px-3">

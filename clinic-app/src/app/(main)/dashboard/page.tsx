@@ -164,7 +164,7 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-bold">{greeting}, {doctor.name}</h2>
           <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
         </div>
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap gap-2 mt-3">
           <Link href="/visits" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm hover:bg-accent transition-colors">
             {data.todayVisits} visits today
           </Link>

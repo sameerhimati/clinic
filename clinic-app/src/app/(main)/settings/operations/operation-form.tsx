@@ -56,6 +56,16 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
             <Input name="defaultMinFee" type="number" step="1" min="0" />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="doctorFee">Doctor Fee (₹)</Label>
+            <Input name="doctorFee" type="number" step="1" min="0" placeholder="Fixed fee per procedure" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="labCostEstimate">Lab Cost Estimate (₹)</Label>
+            <Input name="labCostEstimate" type="number" step="1" min="0" placeholder="If applicable" />
+          </div>
+
           <div className="sm:col-span-2 flex gap-2">
             <Button type="submit" disabled={isPending}>{isPending ? "Creating..." : "Create"}</Button>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

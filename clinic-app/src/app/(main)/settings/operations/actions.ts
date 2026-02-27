@@ -17,6 +17,8 @@ export async function createOperation(formData: FormData) {
       category: (formData.get("category") as string)?.trim() || null,
       defaultMinFee: formData.get("defaultMinFee") ? parseFloat(formData.get("defaultMinFee") as string) : null,
       defaultMaxFee: formData.get("defaultMaxFee") ? parseFloat(formData.get("defaultMaxFee") as string) : null,
+      doctorFee: formData.get("doctorFee") ? parseFloat(formData.get("doctorFee") as string) : null,
+      labCostEstimate: formData.get("labCostEstimate") ? parseFloat(formData.get("labCostEstimate") as string) : null,
       isActive: true,
     },
   });
@@ -40,6 +42,14 @@ export async function updateOperation(formData: FormData) {
   if (formData.has("defaultMaxFee")) {
     const val = formData.get("defaultMaxFee") as string;
     data.defaultMaxFee = val ? parseFloat(val) : null;
+  }
+  if (formData.has("doctorFee")) {
+    const val = formData.get("doctorFee") as string;
+    data.doctorFee = val ? parseFloat(val) : null;
+  }
+  if (formData.has("labCostEstimate")) {
+    const val = formData.get("labCostEstimate") as string;
+    data.labCostEstimate = val ? parseFloat(val) : null;
   }
 
   await prisma.operation.update({ where: { id }, data });

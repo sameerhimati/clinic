@@ -365,46 +365,35 @@ export function ExaminationForm({
     });
   }
 
-  // Wrap content with side-by-side layout when previous notes exist
-  function SideBySideWrapper({ children }: { children: React.ReactNode }) {
-    if (!hasPreviousNotes) return <>{children}</>;
-    return (
-      <>
-        {/* Mobile: collapsible panel above form */}
-        <div className="lg:hidden">
-          <Card className="mb-4">
-            <CardContent className="p-3">
-              <PreviousNotesPanel
-                reports={previousReports!}
-                operationName={operationName || "Treatment"}
-                collapsed={!mobileNotesOpen}
-                onToggle={() => setMobileNotesOpen(!mobileNotesOpen)}
-              />
-            </CardContent>
-          </Card>
-        </div>
-        {/* Desktop: side-by-side */}
-        <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
-          <div className="lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:sticky lg:top-[72px] pr-1">
-            <PreviousNotesPanel
-              reports={previousReports!}
-              operationName={operationName || "Treatment"}
-            />
-          </div>
-          <div className="max-w-3xl">{children}</div>
-        </div>
-        {/* Mobile: show the form (already rendered collapsible above) */}
-        <div className="lg:hidden">{children}</div>
-      </>
-    );
-  }
+  // Side-by-side layout helpers (inline, not a component — avoids remount on re-render)
+  const previousNotesDesktop = hasPreviousNotes ? (
+    <div className="lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:sticky lg:top-[72px] pr-1">
+      <PreviousNotesPanel
+        reports={previousReports!}
+        operationName={operationName || "Treatment"}
+      />
+    </div>
+  ) : null;
+
+  const previousNotesMobile = hasPreviousNotes ? (
+    <div className="lg:hidden mb-4">
+      <Card>
+        <CardContent className="p-3">
+          <PreviousNotesPanel
+            reports={previousReports!}
+            operationName={operationName || "Treatment"}
+            collapsed={!mobileNotesOpen}
+            onToggle={() => setMobileNotesOpen(!mobileNotesOpen)}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  ) : null;
 
   // Read-only state for non-doctors viewing reports, or locked reports
   if ((readOnly || isLocked) && existingReport) {
-    return (
-      <SideBySideWrapper>
+    const readOnlyContent = (
       <div className="space-y-4">
-        {/* Lock banner (only for locked reports, not just readOnly) */}
         {isLocked && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center justify-between">
@@ -426,7 +415,6 @@ export function ExaminationForm({
         </div>
         )}
 
-        {/* Read-only display */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Clinical Notes (Read-only)</CardTitle>
@@ -456,7 +444,6 @@ export function ExaminationForm({
           </CardContent>
         </Card>
 
-        {/* Existing addendums */}
         {addendums.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
@@ -475,7 +462,6 @@ export function ExaminationForm({
           </Card>
         )}
 
-        {/* Add addendum form — only for doctors */}
         {!readOnly && (
         <Card>
           <CardHeader className="pb-3">
@@ -504,14 +490,24 @@ export function ExaminationForm({
         </Card>
         )}
       </div>
-      </SideBySideWrapper>
+    );
+
+    if (!hasPreviousNotes) return readOnlyContent;
+    return (
+      <>
+        {previousNotesMobile}
+        <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
+          {previousNotesDesktop}
+          <div className="max-w-3xl">{readOnlyContent}</div>
+        </div>
+        <div className="lg:hidden">{readOnlyContent}</div>
+      </>
     );
   }
 
   // Editable form — consolidated into 2 cards with sticky save bar
-  return (
-    <SideBySideWrapper>
-    <div className="space-y-4 pb-20">
+  const editableContent = (
+    <div className="space-y-5 pb-20">
       {/* Auto-lock warning */}
       {existingReport && hoursUntilLock > 0 && hoursUntilLock < 24 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -538,24 +534,23 @@ export function ExaminationForm({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Clinical Assessment</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="space-y-2">
-            <Label>Chief Complaint</Label>
-            <div className="flex flex-wrap gap-1">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chief Complaint</Label>
+            <div className="flex flex-wrap gap-1.5">
               {COMMON_COMPLAINTS.map((c) => (
                 <button
                   key={c}
                   type="button"
-                  className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                     complaint.toUpperCase().split(",").map(s => s.trim()).includes(c)
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-muted hover:bg-accent"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background border-input hover:bg-accent"
                   }`}
                   onClick={() => {
                     const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
                     const upperParts = parts.map(s => s.toUpperCase());
                     if (upperParts.includes(c)) {
-                      // Deselect: remove this complaint
                       setComplaint(parts.filter((_, i) => upperParts[i] !== c).join(", "));
                     } else {
                       setComplaint(complaint ? complaint + ", " + c : c);
@@ -567,15 +562,16 @@ export function ExaminationForm({
               ))}
             </div>
             <Textarea
-              placeholder="Describe the chief complaint..."
+              placeholder="Additional complaint details..."
               value={complaint}
               onChange={(e) => setComplaint(e.target.value)}
               rows={2}
+              className="mt-2"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Examination Findings</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Examination Findings</Label>
             <Textarea
               placeholder="Record examination findings..."
               value={examination}
@@ -585,7 +581,7 @@ export function ExaminationForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Diagnosis</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Diagnosis</Label>
             <Textarea
               placeholder="Enter diagnosis..."
               value={diagnosis}
@@ -601,9 +597,9 @@ export function ExaminationForm({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Treatment & Prescription</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
           <div className="space-y-2">
-            <Label>Treatment Plan / Recommendations</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Treatment Plan / Recommendations</Label>
             <Textarea
               placeholder="Enter treatment plan..."
               value={treatmentNotes}
@@ -614,7 +610,7 @@ export function ExaminationForm({
 
           {(!permissionLevel || permissionLevel <= 2) && (
             <div className="space-y-2">
-              <Label>Estimate</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estimate</Label>
               <Textarea
                 placeholder="Enter cost estimate..."
                 value={estimate}
@@ -625,7 +621,7 @@ export function ExaminationForm({
           )}
 
           <div className="space-y-2">
-            <Label>Medication Prescribed</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Medication Prescribed</Label>
             <Textarea
               placeholder="Enter prescribed medication..."
               value={medication}
@@ -714,6 +710,17 @@ export function ExaminationForm({
         </div>
       </div>
     </div>
-    </SideBySideWrapper>
+  );
+
+  if (!hasPreviousNotes) return editableContent;
+  return (
+    <>
+      {previousNotesMobile}
+      <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
+        {previousNotesDesktop}
+        <div className="max-w-3xl">{editableContent}</div>
+      </div>
+      <div className="lg:hidden">{editableContent}</div>
+    </>
   );
 }

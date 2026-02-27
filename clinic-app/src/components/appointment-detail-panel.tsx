@@ -54,86 +54,82 @@ export function AppointmentDetailPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="text-left">
-            <span className="font-mono text-muted-foreground mr-2">#{appt.patientCode}</span>
-            {appt.patientSalutation && `${appt.patientSalutation}. `}
-            {appt.patientName}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="space-y-5 mt-4">
-          {/* Medical flags */}
-          {appt.diseases.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="text-xs font-mono text-muted-foreground">#{appt.patientCode}</div>
+            <div className="text-lg font-semibold flex items-center gap-2 flex-wrap">
+              <span>{appt.patientSalutation && `${appt.patientSalutation}. `}{appt.patientName}</span>
               {appt.diseases.map((d) => {
                 const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d;
                 return (
-                  <span key={d} className="px-2 py-1 rounded-md bg-amber-100 text-amber-800 text-xs font-medium">
+                  <Badge key={d} variant="outline" className="border-amber-200 bg-amber-100 text-amber-800 text-xs font-medium">
                     {abbr}
-                  </span>
+                  </Badge>
                 );
               })}
             </div>
-          )}
+          </SheetTitle>
+        </SheetHeader>
 
-          {/* Appointment details */}
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <StatusBadge status={appt.status} />
-              {appt.visitCount > 1 && (
-                <span className="text-muted-foreground text-xs">{appt.visitCount} total visits</span>
-              )}
-            </div>
+        <div className="space-y-6 mt-2">
+          {/* Status row */}
+          <div className="flex items-center gap-2 mb-4">
+            <StatusBadge status={appt.status} />
+            {appt.visitCount > 1 && (
+              <span className="text-muted-foreground text-xs">{appt.visitCount} total visits</span>
+            )}
+          </div>
 
+          {/* Appointment metadata grid */}
+          <div className="rounded-lg border p-4 grid grid-cols-2 gap-3">
             {appt.timeSlot && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-4 w-4 shrink-0" />
-                {appt.timeSlot}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Time</div>
+                <div className="text-sm font-medium mt-0.5">{appt.timeSlot}</div>
               </div>
             )}
-
             {appt.roomName && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4 shrink-0" />
-                {appt.roomName}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Room</div>
+                <div className="text-sm font-medium mt-0.5">{appt.roomName}</div>
               </div>
             )}
-
             {appt.doctorName && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Stethoscope className="h-4 w-4 shrink-0" />
-                Dr. {appt.doctorName}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Doctor</div>
+                <div className="text-sm font-medium mt-0.5">Dr. {appt.doctorName}</div>
               </div>
             )}
-
-            {/* Operation / reason */}
-            {(appt.operationName || appt.reason) && (
-              <div className="pt-1">
-                {appt.operationName && (
-                  <div className="font-medium">{appt.operationName}</div>
-                )}
-                {appt.stepLabel && (
-                  <div className="text-primary text-sm">{appt.stepLabel}</div>
-                )}
-                {!appt.operationName && appt.reason && (
-                  <div className="text-muted-foreground">{appt.reason}</div>
-                )}
+            {!appt.operationName && appt.reason && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reason</div>
+                <div className="text-sm font-medium mt-0.5">{appt.reason}</div>
               </div>
             )}
           </div>
 
+          {/* Treatment section */}
+          {appt.operationName && (
+            <div className="rounded-lg border p-4">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Treatment</div>
+              <div className="font-medium mt-0.5">{appt.operationName}</div>
+              {appt.stepLabel && (
+                <div className="text-primary text-sm mt-0.5">{appt.stepLabel}</div>
+              )}
+            </div>
+          )}
+
           {/* Previous notes (if follow-up) */}
           {appt.previousDiagnosis && (
-            <div className="rounded-md border bg-muted/30 p-3 space-y-1">
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-1">
               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Previous Diagnosis</div>
               <div className="text-sm whitespace-pre-wrap">{appt.previousDiagnosis}</div>
             </div>
           )}
 
           {/* Actions */}
-          <div className="space-y-2 pt-2 border-t">
+          <div className="space-y-3 pt-4 border-t">
             {/* Primary contextual action */}
             {appt.status === "SCHEDULED" && (
               <Button

@@ -26,7 +26,7 @@ export default async function CheckoutPage({
     include: {
       visits: {
         include: {
-          operation: { select: { name: true } },
+          operation: { select: { name: true, doctorFee: true, labCostEstimate: true } },
           doctor: { select: { name: true } },
           receipts: {
             select: {
@@ -37,6 +37,15 @@ export default async function CheckoutPage({
               receiptDate: true,
             },
             orderBy: { receiptDate: "desc" },
+          },
+          followUps: {
+            select: {
+              receipts: { select: { amount: true } },
+              operationRate: true,
+              discount: true,
+              labRateAmount: true,
+              labQuantity: true,
+            },
           },
         },
         orderBy: { visitDate: "asc" },
@@ -64,6 +73,30 @@ export default async function CheckoutPage({
       };
     })
     .filter((v) => v.balance > 0);
+
+  // Chain cost warnings: for root visits with doctorFee, check if collected >= doctorFee + labCost
+  const chainWarnings: { operationName: string; doctorFee: number; labCost: number; collected: number; shortfall: number }[] = [];
+  for (const visit of patient.visits) {
+    if (visit.parentVisitId !== null) continue; // skip follow-ups, only check root
+    const doctorFee = visit.operation?.doctorFee;
+    if (!doctorFee || doctorFee <= 0) continue;
+
+    const allChainVisits = [visit, ...visit.followUps];
+    const totalCollected = allChainVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
+    const totalLabCost = allChainVisits.reduce((sum, v) => sum + v.labRateAmount * v.labQuantity, 0);
+    const minimumNeeded = doctorFee + totalLabCost;
+    const shortfall = minimumNeeded - totalCollected;
+
+    if (shortfall > 0) {
+      chainWarnings.push({
+        operationName: visit.operation?.name || "Treatment",
+        doctorFee,
+        labCost: totalLabCost,
+        collected: totalCollected,
+        shortfall,
+      });
+    }
+  }
 
   // Recent receipts across all visits (last 10)
   const allReceipts = patient.visits.flatMap((visit) =>
@@ -117,6 +150,18 @@ export default async function CheckoutPage({
           </div>
         </div>
       </div>
+
+      {/* Minimum collection warnings */}
+      {chainWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <div className="text-sm font-medium text-amber-800">Collection Warning</div>
+          {chainWarnings.map((w, i) => (
+            <div key={i} className="text-sm text-amber-700">
+              {w.operationName}: ₹{w.collected.toLocaleString("en-IN")} collected, but doctor fee is ₹{w.doctorFee.toLocaleString("en-IN")}{w.labCost > 0 ? ` + lab ₹${w.labCost.toLocaleString("en-IN")}` : ""} — ₹{w.shortfall.toLocaleString("en-IN")} short
+            </div>
+          ))}
+        </div>
+      )}
 
       <CheckoutForm
         patientId={patient.id}
