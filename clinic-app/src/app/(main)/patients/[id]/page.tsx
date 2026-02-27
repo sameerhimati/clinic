@@ -6,7 +6,6 @@ import { canCollectPayments, canSeeInternalCosts, canEditPatients, isAdmin as ch
 import { calcBilled, calcPaid } from "@/lib/billing";
 import { PatientPageClient, type PatientPageData } from "./patient-page-client";
 import type { VisitWithRelations } from "@/components/treatment-timeline";
-import { todayString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,11 @@ export default async function PatientDetailPage({
   const canEdit = canEditPatients(currentUser.permissionLevel);
   const userIsAdmin = checkIsAdmin(currentUser.permissionLevel);
 
-  const today = todayString();
+  // Use local midnight for date comparisons (avoids UTC vs IST mismatch)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
   const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases] = await Promise.all([
     prisma.patient.findUnique({
@@ -92,7 +95,7 @@ export default async function PatientDetailPage({
     prisma.appointment.findMany({
       where: {
         patientId,
-        date: { gte: new Date(today), lt: new Date(new Date(today).getTime() + 86400000) },
+        date: { gte: todayStart, lt: tomorrowStart },
         status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] },
       },
       include: { doctor: { select: { name: true } }, visit: { select: { id: true } } },
@@ -102,7 +105,7 @@ export default async function PatientDetailPage({
     prisma.appointment.findMany({
       where: {
         patientId,
-        date: { gt: new Date(new Date(today).getTime() + 86400000) },
+        date: { gte: tomorrowStart },
         status: { in: ["SCHEDULED"] },
       },
       include: { doctor: { select: { name: true } } },

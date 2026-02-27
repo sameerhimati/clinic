@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PatientSearch } from "@/components/patient-search";
-import { createAppointment } from "@/app/(main)/appointments/actions";
+import { createAppointment, createWalkIn } from "@/app/(main)/appointments/actions";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { todayString } from "@/lib/validations";
 
 const TIME_SLOTS = [
@@ -43,17 +44,35 @@ export function AppointmentForm({
   currentDoctorName?: string;
 }) {
   const isDoctor = permissionLevel === 3;
+  const router = useRouter();
   const [selectedPatient, setSelectedPatient] = useState<DefaultPatient | null>(
     defaultPatient || null
   );
   const [isPending, startTransition] = useTransition();
   const [timeSlotMode, setTimeSlotMode] = useState<"preset" | "custom">("preset");
   const [customTimeSlot, setCustomTimeSlot] = useState("");
+  const [isWalkIn, setIsWalkIn] = useState(false);
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       try {
         await createAppointment(formData);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+      }
+    });
+  }
+
+  function handleWalkIn() {
+    if (!selectedPatient) {
+      toast.error("Please select a patient first");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await createWalkIn(selectedPatient.id);
+        toast.success("Walk-in registered — patient marked as arrived");
+        router.push(`/patients/${selectedPatient.id}`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Something went wrong");
       }
@@ -222,6 +241,15 @@ export function AppointmentForm({
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" asChild>
           <Link href={defaultPatient ? `/patients/${defaultPatient.id}` : "/appointments"}>Cancel</Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!selectedPatient || isPending}
+          onClick={handleWalkIn}
+        >
+          <Zap className="mr-1 h-3.5 w-3.5" />
+          {isPending ? "..." : "Walk-in"}
         </Button>
         <Button type="submit" disabled={!selectedPatient || isPending}>
           {isPending ? "Scheduling..." : "Schedule Appointment"}

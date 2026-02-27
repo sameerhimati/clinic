@@ -508,9 +508,9 @@ export function TreatmentTimeline({
       <div className="text-center py-8 space-y-3">
         <p className="text-muted-foreground">No visits recorded</p>
         <Button size="sm" variant="outline" asChild>
-          <Link href={`/visits/new?patientId=${patientId}`}>
+          <Link href={`/appointments/new?patientId=${patientId}`}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            Record First Visit
+            Schedule First Appointment
           </Link>
         </Button>
       </div>
