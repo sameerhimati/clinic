@@ -71,17 +71,16 @@ export function AppointmentForm({
   function getNearestTimeSlot(): string {
     const now = new Date();
     let hours = now.getHours();
-    let minutes = now.getMinutes();
-    minutes = minutes < 30 ? 0 : 30;
+    const minutes = now.getMinutes();
+    const roundedMinutes = minutes < 30 ? 0 : 30;
     const period = hours >= 12 ? "PM" : "AM";
     const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-    return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
+    return `${displayHour}:${roundedMinutes.toString().padStart(2, "0")} ${period}`;
   }
 
   function handleWalkInToggle(checked: boolean) {
     setIsWalkIn(checked);
     if (checked) {
-      // Auto-fill time to nearest 30-min slot
       const slot = getNearestTimeSlot();
       setTimeSlotMode("custom");
       setCustomTimeSlot(slot);
@@ -116,13 +115,14 @@ export function AppointmentForm({
       )}
       {isWalkIn && <input type="hidden" name="isWalkIn" value="true" />}
 
+      {/* Scheduling */}
       <Card>
         <CardHeader>
-          <CardTitle>Appointment Details</CardTitle>
+          <CardTitle className="text-base">Scheduling</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          {/* Patient selection */}
-          <div className="space-y-1.5 sm:col-span-2">
+        <CardContent className="space-y-4">
+          {/* Patient */}
+          <div className="space-y-2">
             <Label>
               Patient <span className="text-destructive">*</span>
             </Label>
@@ -150,123 +150,141 @@ export function AppointmentForm({
             )}
           </div>
 
-          {isDoctor ? (
-            <div className="space-y-1.5">
-              <Label>Doctor</Label>
-              <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
-              <Badge variant="secondary" className="text-sm py-1 px-3">
-                Dr. {currentDoctorName}
-              </Badge>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Date */}
+            <div className="space-y-2">
+              <Label htmlFor="date">
+                Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                name="date"
+                type="date"
+                required
+                min={todayStr}
+                defaultValue={defaultDate || todayStr}
+              />
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="doctorId">Doctor</Label>
-              <select
-                name="doctorId"
-                defaultValue={defaultDoctorId || ""}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="">Unassigned</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
-          {!isDoctor && rooms && rooms.length > 0 && (
-            <div className="space-y-1.5">
-              <Label htmlFor="roomId">Room</Label>
-              <select
-                name="roomId"
-                defaultValue={defaultRoomId || ""}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="">No room assigned</option>
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="date">
-              Date <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              name="date"
-              type="date"
-              required
-              min={todayStr}
-              defaultValue={defaultDate || todayStr}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="timeSlot">Time</Label>
-            {timeSlotMode === "preset" ? (
-              <select
-                name="timeSlot"
-                defaultValue={defaultTimeSlot || ""}
-                onChange={(e) => {
-                  if (e.target.value === "__other__") {
-                    setTimeSlotMode("custom");
-                    e.target.value = "";
-                  }
-                }}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="">Select time...</option>
-                {TIME_SLOTS.map((slot) => (
-                  <option key={slot} value={slot}>{slot}</option>
-                ))}
-                <option value="__other__">Other...</option>
-              </select>
-            ) : (
-              <div className="flex gap-2">
-                <Input
+            {/* Time */}
+            <div className="space-y-2">
+              <Label htmlFor="timeSlot">Time</Label>
+              {timeSlotMode === "preset" ? (
+                <select
                   name="timeSlot"
-                  placeholder="e.g. 1:15 PM"
-                  value={customTimeSlot}
-                  onChange={(e) => setCustomTimeSlot(e.target.value)}
-                  autoFocus
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setTimeSlotMode("preset");
-                    setCustomTimeSlot("");
+                  defaultValue={defaultTimeSlot || ""}
+                  onChange={(e) => {
+                    if (e.target.value === "__other__") {
+                      setTimeSlotMode("custom");
+                      e.target.value = "";
+                    }
                   }}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                 >
-                  Cancel
-                </Button>
+                  <option value="">Select time...</option>
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot} value={slot}>{slot}</option>
+                  ))}
+                  <option value="__other__">Other...</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    name="timeSlot"
+                    placeholder="e.g. 1:15 PM"
+                    value={customTimeSlot}
+                    onChange={(e) => setCustomTimeSlot(e.target.value)}
+                    autoFocus
+                  />
+                  {!isWalkIn && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTimeSlotMode("preset");
+                        setCustomTimeSlot("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Doctor */}
+            {isDoctor ? (
+              <div className="space-y-2">
+                <Label>Doctor</Label>
+                <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
+                <Badge variant="secondary" className="text-sm py-1 px-3">
+                  Dr. {currentDoctorName}
+                </Badge>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="doctorId">Doctor</Label>
+                <select
+                  name="doctorId"
+                  defaultValue={defaultDoctorId || ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">Unassigned</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Room */}
+            {!isDoctor && rooms && rooms.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="roomId">Room</Label>
+                <select
+                  name="roomId"
+                  defaultValue={defaultRoomId || ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">No room assigned</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="reason">Reason</Label>
-            <Input
-              name="reason"
-              placeholder="e.g. RCT follow-up, Scaling"
-              defaultValue={defaultReason || ""}
-            />
+      {/* Additional Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Additional Info</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason</Label>
+              <Input
+                name="reason"
+                placeholder="e.g. RCT follow-up, Scaling"
+                defaultValue={defaultReason || ""}
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
+          <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea name="notes" rows={2} placeholder="Additional notes..." defaultValue={defaultNotes || ""} />
           </div>
 
           {/* Walk-in toggle — only for new appointments */}
-          {!isReschedule && <div className="sm:col-span-2">
+          {!isReschedule && (
             <label className="flex items-center gap-3 cursor-pointer rounded-lg border p-3 hover:bg-muted/50 transition-colors">
               <input
                 type="checkbox"
@@ -281,7 +299,7 @@ export function AppointmentForm({
                 </div>
               </div>
             </label>
-          </div>}
+          )}
         </CardContent>
       </Card>
 

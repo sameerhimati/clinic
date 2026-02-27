@@ -124,11 +124,9 @@ export function DashboardAppointmentList({
                       </Button>
                     )}
                     {appt.status === "ARRIVED" && (
-                      <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-                        <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}`}>
-                          Start Visit
-                        </Link>
-                      </Button>
+                      <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
+                        Waiting
+                      </Badge>
                     )}
                     {appt.status === "IN_PROGRESS" && appt.visitId && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" asChild>

@@ -9,31 +9,30 @@ import { visitSchema, parseFormData } from "@/lib/validations";
 
 export async function createVisit(formData: FormData) {
   const currentUser = await requireAuth();
-  const isDoctor = currentUser.permissionLevel === 3;
+  if (currentUser.permissionLevel !== 3) {
+    throw new Error("Only doctors can create visits");
+  }
   const parsed = parseFormData(visitSchema, formData);
 
   if (!parsed.patientId) throw new Error("Patient is required");
 
-  // Server-side enforcement: doctors can only set themselves, and cannot control financial/lab fields
-  const doctorId = isDoctor ? currentUser.id : (parsed.doctorId || null);
-  const assistingDoctorId = isDoctor ? null : (parsed.assistingDoctorId || null);
-  const labId = isDoctor ? null : (parsed.labId || null);
-  const labRateId = isDoctor ? null : (parsed.labRateId || null);
+  // Doctor auto-assignment
+  const doctorId = currentUser.id;
 
-  // Server-side discount validation — enforce tier limits by role
-  const rawDiscount = isDoctor ? 0 : parsed.discount;
-  const rawRate = isDoctor
-    ? (parsed.operationId ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
-    : parsed.operationRate;
+  // Rate: always use tariff for doctors
+  const rawRate = parsed.operationId
+    ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
+    : 0;
 
-  let validatedDiscount = rawDiscount;
-  if (!isDoctor && rawRate > 0 && rawDiscount > 0) {
-    const discountPercent = (rawDiscount / rawRate) * 100;
-    const maxPercent = currentUser.permissionLevel >= 3 ? 10 : currentUser.permissionLevel >= 2 ? 15 : 100;
+  // Discount validation — doctors can give up to 10%
+  let validatedDiscount = parsed.discount;
+  if (rawRate > 0 && validatedDiscount > 0) {
+    const discountPercent = (validatedDiscount / rawRate) * 100;
+    const maxPercent = 10; // Doctors capped at 10%
     if (discountPercent > maxPercent + 0.5) {
       throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
     }
-    validatedDiscount = Math.min(rawDiscount, rawRate);
+    validatedDiscount = Math.min(validatedDiscount, rawRate);
   }
 
   // Auto-generate case number
@@ -73,12 +72,7 @@ export async function createVisit(formData: FormData) {
         operationRate: rawRate,
         discount: validatedDiscount,
         doctorId,
-        assistingDoctorId: assistingDoctorId || null,
         doctorCommissionPercent: commPercent,
-        labId,
-        labRateId,
-        labRateAmount: isDoctor ? 0 : parsed.labRateAmount,
-        labQuantity: isDoctor ? 1 : parsed.labQuantity,
         notes: parsed.notes,
       },
     });
@@ -124,24 +118,24 @@ type QuickVisitInput = {
 
 export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId: number }> {
   const currentUser = await requireAuth();
-  const isDoctor = currentUser.permissionLevel === 3;
+  if (currentUser.permissionLevel !== 3) {
+    throw new Error("Only doctors can create visits");
+  }
 
   if (!data.patientId) throw new Error("Patient is required");
 
-  const doctorId = isDoctor ? currentUser.id : (data.doctorId || null);
-  const labId = isDoctor ? null : (data.labId || null);
-  const labRateId = isDoctor ? null : (data.labRateId || null);
+  const doctorId = currentUser.id;
 
-  // Rate: doctors get tariff rate, others use provided
-  const rawRate = isDoctor
-    ? (data.operationId ? (await prisma.operation.findUnique({ where: { id: data.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0 : 0)
-    : data.operationRate;
+  // Rate: always use tariff
+  const rawRate = data.operationId
+    ? (await prisma.operation.findUnique({ where: { id: data.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
+    : 0;
 
-  // Discount validation
-  let validatedDiscount = isDoctor ? 0 : data.discount;
-  if (!isDoctor && rawRate > 0 && validatedDiscount > 0) {
+  // Discount validation — doctors can give up to 10%
+  let validatedDiscount = data.discount;
+  if (rawRate > 0 && validatedDiscount > 0) {
     const discountPercent = (validatedDiscount / rawRate) * 100;
-    const maxPercent = currentUser.permissionLevel >= 3 ? 10 : currentUser.permissionLevel >= 2 ? 15 : 100;
+    const maxPercent = 10;
     if (discountPercent > maxPercent + 0.5) {
       throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
     }
@@ -182,10 +176,6 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
         discount: validatedDiscount,
         doctorId,
         doctorCommissionPercent: commPercent,
-        labId,
-        labRateId,
-        labRateAmount: isDoctor ? 0 : (data.labRateAmount || 0),
-        labQuantity: isDoctor ? 1 : (data.labQuantity || 1),
         notes: data.notes || null,
       },
     });
@@ -215,6 +205,9 @@ export async function createVisitAndExamine(
   appointmentId: number
 ): Promise<{ visitId: number }> {
   const currentUser = await requireAuth();
+  if (currentUser.permissionLevel !== 3) {
+    throw new Error("Only doctors can create visits");
+  }
 
   const maxCase = await prisma.visit.aggregate({ _max: { caseNo: true } });
   const nextCaseNo = (maxCase._max.caseNo || 80000) + 1;

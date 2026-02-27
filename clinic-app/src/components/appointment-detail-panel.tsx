@@ -160,11 +160,9 @@ export function AppointmentDetailPanel({
             )}
 
             {appt.status === "ARRIVED" && !isDoctor && (
-              <Button className="w-full" asChild>
-                <Link href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}>
-                  Start Visit
-                </Link>
-              </Button>
+              <div className="w-full rounded-md border border-amber-200 bg-amber-50 py-2 text-center text-sm text-amber-700">
+                Patient is waiting for doctor
+              </div>
             )}
 
             {appt.status === "IN_PROGRESS" && appt.visitId && (

@@ -236,40 +236,53 @@ export function QuickVisitSheet({
             />
           </div>
 
-          {/* Rate + Discount — hidden for doctors */}
-          {!isDoctor && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Rate (₹)</Label>
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={operationRate}
-                  onChange={(e) => {
-                    setOperationRate(e.target.value);
-                    setDiscount(0);
-                    setSelectedDiscountPercent(null);
-                  }}
-                  placeholder="0"
-                />
-                {tariffRate != null && tariffRate > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Tariff: ₹{formatINR(tariffRate)}
-                    {rateNum !== tariffRate && (
-                      <button
-                        type="button"
-                        className="ml-2 text-primary hover:underline"
-                        onClick={() => { setOperationRate(tariffRate.toString()); setDiscount(0); }}
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </p>
-                )}
-              </div>
+          {/* Rate + Discount */}
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Rate (₹)</Label>
+              {isDoctor ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-semibold tabular-nums">
+                    ₹{formatINR(rateNum)}
+                  </span>
+                  {tariffRate != null && tariffRate > 0 && (
+                    <span className="text-xs text-muted-foreground">Tariff rate</span>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={operationRate}
+                    onChange={(e) => {
+                      setOperationRate(e.target.value);
+                      setDiscount(0);
+                      setSelectedDiscountPercent(null);
+                    }}
+                    placeholder="0"
+                  />
+                  {tariffRate != null && tariffRate > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Tariff: ₹{formatINR(tariffRate)}
+                      {rateNum !== tariffRate && (
+                        <button
+                          type="button"
+                          className="ml-2 text-primary hover:underline"
+                          onClick={() => { setOperationRate(tariffRate.toString()); setDiscount(0); }}
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
 
-              {/* Discount selector */}
+            {/* Discount selector */}
+            {rateNum > 0 && (
               <div className="space-y-2">
                 <Label>Discount</Label>
                 <div className="flex flex-wrap gap-1.5">
@@ -298,14 +311,14 @@ export function QuickVisitSheet({
                     );
                   })}
                 </div>
-                {rateNum > 0 && discount > 0 && (
+                {discount > 0 && (
                   <div className="text-sm tabular-nums">
                     ₹{formatINR(rateNum)} — ₹{formatINR(discount)} = <span className="font-semibold">₹{formatINR(rateNum - discount)}</span>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Doctor selector — hidden for doctors */}
           {!isDoctor && (

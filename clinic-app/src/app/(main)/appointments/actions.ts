@@ -140,6 +140,32 @@ export async function claimAppointment(appointmentId: number) {
   revalidatePath("/dashboard");
 }
 
+export async function reassignDoctor(appointmentId: number, doctorId: number | null) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 2) {
+    throw new Error("Only reception/admin can reassign doctors");
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+  if (!["SCHEDULED", "ARRIVED"].includes(appointment.status)) {
+    throw new Error("Can only reassign doctor on scheduled or arrived appointments");
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { doctorId },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+  if (appointment.patientId) {
+    revalidatePath(`/patients/${appointment.patientId}`);
+  }
+}
+
 export async function deleteAppointment(appointmentId: number) {
   const currentUser = await requireAuth();
   if (!isAdmin(currentUser.permissionLevel)) throw new Error("Admin only");

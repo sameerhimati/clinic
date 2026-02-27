@@ -17,10 +17,10 @@ export default async function NewVisitPage({
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
   const params = await searchParams;
 
-  // Non-doctors must come through an appointment (appointment-first flow)
+  // Only doctors can create visits
   const isDoctor = currentUser.permissionLevel === 3;
-  if (!isDoctor && !params.appointmentId && !params.followUp) {
-    redirect("/appointments/new");
+  if (!isDoctor) {
+    redirect("/appointments");
   }
 
   const [operations, doctors, labs] = await Promise.all([

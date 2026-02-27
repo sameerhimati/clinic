@@ -10,6 +10,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -19,10 +23,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus, UserRoundCog } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
-import { updateAppointmentStatus, claimAppointment } from "@/app/(main)/appointments/actions";
+import { updateAppointmentStatus, claimAppointment, reassignDoctor } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { AppointmentDetailPanel } from "@/components/appointment-detail-panel";
@@ -101,15 +105,11 @@ function PrimaryAction({
         </Button>
       );
     }
+    // Non-doctor: patient is waiting for doctor
     return (
-      <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-        <Link
-          href={`/visits/new?patientId=${appt.patientId}&appointmentId=${appt.id}${appt.doctorId ? `&doctorId=${appt.doctorId}` : ""}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Start Visit
-        </Link>
-      </Button>
+      <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
+        Waiting
+      </Badge>
     );
   }
   if (appt.status === "IN_PROGRESS" && appt.visitId) {
@@ -137,12 +137,20 @@ function PrimaryAction({
 }
 
 // Secondary actions in dropdown (Cancel, No Show, etc. — minus the primary)
+type DoctorOption = { id: number; name: string };
+
 function SecondaryActions({
   appt,
   onStatusChange,
+  isDoctor,
+  doctors,
+  onReassignDoctor,
 }: {
   appt: Appointment;
   onStatusChange: (id: number, status: string) => void;
+  isDoctor?: boolean;
+  doctors?: DoctorOption[];
+  onReassignDoctor?: (appointmentId: number, doctorId: number | null) => void;
 }) {
   const transitions = VALID_TRANSITIONS[appt.status] || [];
   // Filter out the primary action
@@ -153,7 +161,10 @@ function SecondaryActions({
     return true;
   });
 
-  if (secondary.length === 0) return null;
+  const canReassign = !isDoctor && onReassignDoctor && doctors &&
+    ["SCHEDULED", "ARRIVED"].includes(appt.status);
+
+  if (secondary.length === 0 && !canReassign) return null;
 
   return (
     <DropdownMenu>
@@ -166,6 +177,41 @@ function SecondaryActions({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {canReassign && doctors && onReassignDoctor && (
+          <>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <UserRoundCog className="mr-2 h-4 w-4" />
+                Change Doctor
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReassignDoctor(appt.id, null);
+                  }}
+                  disabled={!appt.doctorId}
+                >
+                  Unassigned
+                </DropdownMenuItem>
+                {doctors.map((d) => (
+                  <DropdownMenuItem
+                    key={d.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReassignDoctor(appt.id, d.id);
+                    }}
+                    disabled={d.id === appt.doctorId}
+                  >
+                    Dr. {d.name}
+                    {d.id === appt.doctorId && " (current)"}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {secondary.length > 0 && <DropdownMenuSeparator />}
+          </>
+        )}
         {secondary.map((t) => (
           <DropdownMenuItem
             key={t.status}
@@ -195,6 +241,8 @@ function AppointmentCard({
   onExamine,
   onCardClick,
   isDoctor,
+  doctors,
+  onReassignDoctor,
 }: {
   appt: Appointment;
   compact?: boolean;
@@ -204,6 +252,8 @@ function AppointmentCard({
   onExamine?: (patientId: number, appointmentId: number) => void;
   onCardClick?: (id: number) => void;
   isDoctor?: boolean;
+  doctors?: DoctorOption[];
+  onReassignDoctor?: (appointmentId: number, doctorId: number | null) => void;
 }) {
   const isCancelled = appt.status === "CANCELLED";
   const isTerminal = isCancelled || appt.status === "NO_SHOW";
@@ -232,7 +282,7 @@ function AppointmentCard({
             {compact ? abbreviatedName : appt.patientName}
           </span>
         </div>
-        <SecondaryActions appt={appt} onStatusChange={onStatusChange} />
+        <SecondaryActions appt={appt} onStatusChange={onStatusChange} isDoctor={isDoctor} doctors={doctors} onReassignDoctor={onReassignDoctor} />
       </div>
       {/* Treatment / operation name — bold */}
       {appt.operationName && (
@@ -470,6 +520,19 @@ export function AppointmentDayView({
     });
   }
 
+  function handleReassignDoctor(appointmentId: number, doctorId: number | null) {
+    startTransition(async () => {
+      try {
+        await reassignDoctor(appointmentId, doctorId);
+        const doc = doctorId ? columnDoctors.find(d => d.id === doctorId) : null;
+        toast.success(doc ? `Reassigned to Dr. ${doc.name}` : "Doctor unassigned");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to reassign doctor");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -670,6 +733,8 @@ export function AppointmentDayView({
                             onExamine={isDoctor ? handleExamine : undefined}
                             onCardClick={(id) => setPanelApptId(id)}
                             isDoctor={isDoctor}
+                            doctors={!isDoctor ? columnDoctors : undefined}
+                            onReassignDoctor={!isDoctor ? handleReassignDoctor : undefined}
                           />
                         ))}
                       </div>
@@ -695,6 +760,9 @@ export function AppointmentDayView({
                     onStatusChange={handleStatusChange}
                     onClaim={isDoctor ? handleClaim : undefined}
                     onCardClick={(id) => setPanelApptId(id)}
+                    isDoctor={isDoctor}
+                    doctors={!isDoctor ? columnDoctors : undefined}
+                    onReassignDoctor={!isDoctor ? handleReassignDoctor : undefined}
                   />
                 ))}
               </div>
@@ -736,7 +804,7 @@ export function AppointmentDayView({
                         </div>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <StatusBadge status={appt.status} />
-                          <SecondaryActions appt={appt} onStatusChange={handleStatusChange} />
+                          <SecondaryActions appt={appt} onStatusChange={handleStatusChange} isDoctor={isDoctor} doctors={!isDoctor ? columnDoctors : undefined} onReassignDoctor={!isDoctor ? handleReassignDoctor : undefined} />
                         </div>
                       </div>
                       <div>

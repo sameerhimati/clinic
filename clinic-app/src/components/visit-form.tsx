@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useState, useTransition, useRef, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { PatientSearch } from "@/components/patient-search";
 import Link from "next/link";
-import { X, Search, Check, ChevronsUpDown, ChevronDown, Plus, Lock } from "lucide-react";
+import { X, Search, Check, ChevronsUpDown, Lock } from "lucide-react";
 import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
@@ -272,7 +273,6 @@ export function VisitForm({
   permissionLevel?: number;
 }) {
   const isFollowUp = mode === "followup" && parentVisit;
-  const isDoctor = permissionLevel === 3;
 
   const defaultOperationId = isFollowUp ? parentVisit.operationId : undefined;
   const defaultDoctorId = isFollowUp ? parentVisit.doctorId : propDefaultDoctorId;
@@ -280,13 +280,9 @@ export function VisitForm({
   const [selectedPatient, setSelectedPatient] = useState<SelectedPatient | null>(
     defaultPatient || null
   );
-  const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
-  const [labRateAmount, setLabRateAmount] = useState("0");
   const [operationRate, setOperationRate] = useState(isFollowUp ? "0" : "");
   const [tariffRate, setTariffRate] = useState<number | null>(null);
   const [discount, setDiscount] = useState(0);
-  const [showLabSection, setShowLabSection] = useState(false);
-  const [showAssistingDoctor, setShowAssistingDoctor] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Set initial tariff for follow-up default operation
@@ -308,9 +304,7 @@ export function VisitForm({
     });
   }
 
-  const selectedLab = labs.find((l) => l.id === selectedLabId);
   const rateNum = parseFloat(operationRate) || 0;
-  const rateDiffersFromTariff = tariffRate != null && tariffRate > 0 && rateNum !== tariffRate;
 
   return (
     <form action={handleSubmit} className="space-y-6">
@@ -323,9 +317,8 @@ export function VisitForm({
         </>
       )}
       {!isFollowUp && <input type="hidden" name="visitType" value="NEW" />}
-      {isDoctor && defaultDoctorId && <input type="hidden" name="doctorId" value={defaultDoctorId} />}
-      {isDoctor && <input type="hidden" name="operationRate" value={operationRate || "0"} />}
-      {isDoctor && <input type="hidden" name="discount" value="0" />}
+      {defaultDoctorId && <input type="hidden" name="doctorId" value={defaultDoctorId} />}
+      <input type="hidden" name="operationRate" value={operationRate || "0"} />
 
       {/* Follow-up banner */}
       {isFollowUp && (
@@ -337,110 +330,87 @@ export function VisitForm({
               {parentVisit.doctorName && ` · Dr. ${parentVisit.doctorName}`}
             </span>
           </div>
-          {!isDoctor && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Rate defaults to ₹0 for follow-ups. Change if this step is billed separately.
-            </p>
-          )}
         </div>
       )}
 
-      {/* --- Patient --- */}
-      <div className="space-y-1.5">
-        <Label>Patient <span className="text-destructive">*</span></Label>
-        {selectedPatient && <input type="hidden" name="patientId" value={selectedPatient.id} />}
-        {(isFollowUp || isDoctor) && selectedPatient ? (
-          <Badge variant="secondary" className="text-sm py-1 px-3">
-            <span className="font-mono mr-1">#{selectedPatient.code}</span>
-            {selectedPatient.salutation && `${selectedPatient.salutation}. `}
-            {selectedPatient.name}
-          </Badge>
-        ) : selectedPatient ? (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-sm py-1 px-3">
-              <span className="font-mono mr-1">#{selectedPatient.code}</span>
-              {selectedPatient.salutation && `${selectedPatient.salutation}. `}
-              {selectedPatient.name}
-            </Badge>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedPatient(null)}>
-              <X className="h-3 w-3 mr-1" /> Change
-            </Button>
-          </div>
-        ) : (
-          <PatientSearch onSelect={setSelectedPatient} />
-        )}
-      </div>
-
-      {/* --- Treatment + Rate + Discount --- */}
-      <div className="rounded-lg border p-4 space-y-4">
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Treatment <span className="text-destructive">*</span></Label>
-            <OperationCombobox
-              operations={operations}
-              defaultOperationId={defaultOperationId || undefined}
-              onSelect={(op) => {
-                const fee = op?.defaultMinFee || null;
-                setTariffRate(fee);
-                if (!isFollowUp && fee) {
-                  setOperationRate(fee.toString());
-                }
-                // Reset discount when treatment changes
-                setDiscount(0);
-              }}
-            />
+      {/* Patient & Treatment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Patient & Treatment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Patient */}
+          <div className="space-y-2">
+            <Label>Patient <span className="text-destructive">*</span></Label>
+            {selectedPatient && <input type="hidden" name="patientId" value={selectedPatient.id} />}
+            {selectedPatient ? (
+              <Badge variant="secondary" className="text-sm py-1 px-3">
+                <span className="font-mono mr-1">#{selectedPatient.code}</span>
+                {selectedPatient.salutation && `${selectedPatient.salutation}. `}
+                {selectedPatient.name}
+              </Badge>
+            ) : (
+              <PatientSearch onSelect={setSelectedPatient} />
+            )}
           </div>
 
-          {isFollowUp && (
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Step Label</Label>
-              <Input name="stepLabel" placeholder="e.g., Impression, Crown Prep, Suture Removal" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Treatment */}
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Treatment <span className="text-destructive">*</span></Label>
+              <OperationCombobox
+                operations={operations}
+                defaultOperationId={defaultOperationId || undefined}
+                onSelect={(op) => {
+                  const fee = op?.defaultMinFee || null;
+                  setTariffRate(fee);
+                  if (!isFollowUp && fee) {
+                    setOperationRate(fee.toString());
+                  }
+                  setDiscount(0);
+                }}
+              />
             </div>
-          )}
 
-          <div className="space-y-1.5">
-            <Label>Visit Date <span className="text-destructive">*</span></Label>
-            <Input
-              name="visitDate"
-              type="date"
-              defaultValue={todayString()}
-            />
+            {/* Step Label (follow-up only) */}
+            {isFollowUp && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Step Label</Label>
+                <Input name="stepLabel" placeholder="e.g., Impression, Crown Prep, Suture Removal" />
+              </div>
+            )}
+
+            {/* Visit Date */}
+            <div className="space-y-2">
+              <Label>Visit Date <span className="text-destructive">*</span></Label>
+              <Input
+                name="visitDate"
+                type="date"
+                defaultValue={todayString()}
+              />
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Amount + Discount — hidden for doctors */}
-        {!isDoctor && (
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Rate ({"\u20B9"})</Label>
-              <div className="relative">
-                <Input
-                  name="operationRate"
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={operationRate}
-                  onChange={(e) => {
-                    setOperationRate(e.target.value);
-                    // Recalculate discount if a % was selected
-                    setDiscount(0);
-                  }}
-                  placeholder="0"
-                  className={rateDiffersFromTariff ? "border-amber-400 pr-20" : ""}
-                />
+      {/* Billing */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Billing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Rate (₹)</Label>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-semibold tabular-nums">
+                  ₹{formatINR(rateNum)}
+                </span>
                 {tariffRate != null && tariffRate > 0 && (
-                  <span
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs tabular-nums cursor-pointer ${
-                      rateDiffersFromTariff ? "text-amber-600 font-medium" : "text-muted-foreground"
-                    }`}
-                    title="Click to reset to tariff rate"
-                    onClick={() => {
-                      setOperationRate(tariffRate.toString());
-                      setDiscount(0);
-                    }}
-                  >
-                    Tariff: ₹{formatINR(tariffRate)}
-                  </span>
+                  <span className="text-xs text-muted-foreground">Tariff rate</span>
+                )}
+                {isFollowUp && (
+                  <span className="text-xs text-muted-foreground">(₹0 default for follow-ups)</span>
                 )}
               </div>
             </div>
@@ -454,155 +424,18 @@ export function VisitForm({
               />
             )}
           </div>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* --- Doctor --- */}
-      {!isDoctor && (
-        <div className="space-y-3">
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Doctor</Label>
-              <select
-                name="doctorId"
-                defaultValue={defaultDoctorId || ""}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="">Select doctor...</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                    {showInternalCosts && d.commissionPercent > 0 ? ` (${d.commissionPercent}%)` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {showAssistingDoctor && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>Assisting Doctor</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs"
-                    onClick={() => setShowAssistingDoctor(false)}
-                  >
-                    <X className="h-3 w-3 mr-1" /> Remove
-                  </Button>
-                </div>
-                <select
-                  name="assistingDoctorId"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                >
-                  <option value="">None</option>
-                  {doctors.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-          {!showAssistingDoctor && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAssistingDoctor(true)}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Assisting Doctor
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* --- Lab Work (collapsible) --- */}
-      {!isDoctor && (
-        <>
-          {!showLabSection ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowLabSection(true)}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Add Lab Work
-            </Button>
-          ) : (
-            <div className="rounded-lg border p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Lab Work</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    setShowLabSection(false);
-                    setSelectedLabId(null);
-                  }}
-                >
-                  <X className="h-3 w-3 mr-1" /> Remove
-                </Button>
-              </div>
-              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Lab</Label>
-                  <select
-                    name="labId"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    onChange={(e) => setSelectedLabId(e.target.value ? parseInt(e.target.value) : null)}
-                  >
-                    <option value="">Select lab...</option>
-                    {labs.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                </div>
-                {selectedLab && (
-                  <div className="space-y-1.5">
-                    <Label>Lab Item</Label>
-                    <select
-                      name="labRateId"
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                      onChange={(e) => {
-                        if (!e.target.value || !selectedLab) return;
-                        const rate = selectedLab.rates.find(r => r.id === parseInt(e.target.value));
-                        if (rate && rate.rate > 0) {
-                          setLabRateAmount(rate.rate.toString());
-                        }
-                      }}
-                    >
-                      <option value="">Select item...</option>
-                      {selectedLab.rates.map((lr) => (
-                        <option key={lr.id} value={lr.id}>
-                          {lr.itemName} {lr.rate > 0 ? `(₹${formatINR(lr.rate)})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="space-y-1.5">
-                  <Label>Lab Rate (₹)</Label>
-                  <Input name="labRateAmount" type="number" step="1" min="0" value={labRateAmount} onChange={(e) => setLabRateAmount(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Qty</Label>
-                  <Input name="labQuantity" type="number" min="1" defaultValue="1" />
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* --- Notes --- */}
-      <div className="space-y-1.5">
-        <Label>Notes</Label>
-        <Textarea name="notes" rows={2} placeholder="Optional visit notes..." />
-      </div>
+      {/* Notes */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Notes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea name="notes" rows={2} placeholder="Optional visit notes..." />
+        </CardContent>
+      </Card>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" asChild>
