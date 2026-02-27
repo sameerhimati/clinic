@@ -68,7 +68,9 @@ export const patientSchema = z.object({
   bloodGroup: optionalString,
   occupation: optionalString,
   phone: optionalString,
-  mobile: z.string().trim().min(1, "Mobile number is required"),
+  mobile: z.string().trim().min(1, "Mobile number is required")
+    .transform((s) => s.replace(/[\s\-()\/]/g, ""))
+    .pipe(z.string().regex(/^[6-9]\d{9}$/, "Mobile must be 10 digits starting with 6-9")),
   email: optionalString,
   addressLine1: optionalString,
   addressLine2: optionalString,

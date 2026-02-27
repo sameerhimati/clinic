@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { dateToString } from "@/lib/validations";
+import { AlertTriangle } from "lucide-react";
 
 type Disease = { id: number; name: string };
 type Patient = {
@@ -59,6 +61,66 @@ export function PatientForm({
     patient?.ageAtRegistration?.toString() || ""
   );
 
+  // Mobile validation + duplicate check
+  const [mobile, setMobile] = useState(patient?.mobile || "");
+  const [mobileError, setMobileError] = useState<string | null>(null);
+  const [duplicatePatient, setDuplicatePatient] = useState<{
+    id: number;
+    code: number | null;
+    name: string;
+  } | null>(null);
+  const dupCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function normalizeMobile(raw: string): string {
+    return raw.replace(/[\s\-()\/]/g, "");
+  }
+
+  function validateMobile(raw: string): string | null {
+    const digits = normalizeMobile(raw);
+    if (!digits) return null; // empty handled by required
+    if (!/^\d+$/.test(digits)) return "Only digits allowed";
+    if (digits.length !== 10) return "Must be 10 digits";
+    if (!/^[6-9]/.test(digits)) return "Must start with 6, 7, 8, or 9";
+    return null;
+  }
+
+  const checkDuplicate = useCallback(
+    (raw: string) => {
+      if (dupCheckTimer.current) clearTimeout(dupCheckTimer.current);
+      setDuplicatePatient(null);
+
+      const digits = normalizeMobile(raw);
+      if (digits.length < 10) return;
+
+      dupCheckTimer.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/patients/search?q=${digits}`);
+          const data = await res.json();
+          const match = data.patients?.find(
+            (p: { id: number; mobile: string | null }) =>
+              p.mobile && normalizeMobile(p.mobile) === digits && p.id !== patient?.id
+          );
+          if (match) {
+            setDuplicatePatient({
+              id: match.id,
+              code: match.code,
+              name: match.name,
+            });
+          }
+        } catch {
+          // silently fail
+        }
+      }, 400);
+    },
+    [patient?.id]
+  );
+
+  function handleMobileChange(value: string) {
+    setMobile(value);
+    setMobileError(validateMobile(value));
+    checkDuplicate(value);
+  }
+
   function handleDobChange(dateStr: string) {
     if (!dateStr) return;
     const dob = new Date(dateStr);
@@ -74,6 +136,14 @@ export function PatientForm({
   }
 
   function handleSubmit(formData: FormData) {
+    // Client-side mobile validation before submit
+    const mobileVal = formData.get("mobile") as string;
+    const err = validateMobile(mobileVal);
+    if (err) {
+      setMobileError(err);
+      toast.error(`Mobile: ${err}`);
+      return;
+    }
     startTransition(async () => {
       try {
         await action(formData);
@@ -215,9 +285,31 @@ export function PatientForm({
               name="mobile"
               type="tel"
               required
-              defaultValue={patient?.mobile || ""}
+              value={mobile}
+              onChange={(e) => handleMobileChange(e.target.value)}
               placeholder="10-digit mobile"
+              className={mobileError ? "border-destructive" : ""}
             />
+            {mobileError && (
+              <p className="text-xs text-destructive">{mobileError}</p>
+            )}
+            {duplicatePatient && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-amber-800">
+                    This mobile is already registered to{" "}
+                    <Link
+                      href={`/patients/${duplicatePatient.id}`}
+                      className="font-medium underline"
+                      target="_blank"
+                    >
+                      #{duplicatePatient.code} {duplicatePatient.name}
+                    </Link>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
