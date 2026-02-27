@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { isReportLocked, isAdmin } from "@/lib/permissions";
+import { isReportLocked, isAdmin, canExamine } from "@/lib/permissions";
 
 export async function saveExamination(
   visitId: number,
@@ -20,6 +20,9 @@ export async function saveExamination(
   }
 ) {
   const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can create or edit clinical reports");
+  }
 
   // Check if a report already exists for this visit
   const existing = await prisma.clinicalReport.findFirst({
@@ -85,6 +88,9 @@ export async function saveExamination(
 
 export async function finalizeReport(reportId: number) {
   const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can finalize reports");
+  }
 
   const report = await prisma.clinicalReport.findUnique({
     where: { id: reportId },
@@ -126,6 +132,9 @@ export async function unlockReport(reportId: number) {
 
 export async function addAddendum(reportId: number, content: string) {
   const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can add addendums");
+  }
 
   const report = await prisma.clinicalReport.findUnique({
     where: { id: reportId },
@@ -146,6 +155,9 @@ export async function addAddendum(reportId: number, content: string) {
 
 export async function saveQuickNote(visitId: number, content: string) {
   const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can add clinical notes");
+  }
   if (!content.trim()) throw new Error("Note content is required");
 
   const existing = await prisma.clinicalReport.findFirst({

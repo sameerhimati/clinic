@@ -207,6 +207,7 @@ export function ExaminationForm({
   permissionLevel,
   nextPatientId,
   nextPatientCode,
+  readOnly,
   previousReports,
   operationName,
 }: {
@@ -223,6 +224,7 @@ export function ExaminationForm({
   lockedByName: string | null;
   lockedAt: string | null;
   permissionLevel?: number;
+  readOnly?: boolean;
   nextPatientId?: number | null;
   nextPatientCode?: number | null;
   previousReports?: PreviousReport[];
@@ -397,12 +399,13 @@ export function ExaminationForm({
     );
   }
 
-  // Locked state: show read-only view
-  if (isLocked && existingReport) {
+  // Read-only state for non-doctors viewing reports, or locked reports
+  if ((readOnly || isLocked) && existingReport) {
     return (
       <SideBySideWrapper>
       <div className="space-y-4">
-        {/* Lock banner */}
+        {/* Lock banner (only for locked reports, not just readOnly) */}
+        {isLocked && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -421,6 +424,7 @@ export function ExaminationForm({
             )}
           </div>
         </div>
+        )}
 
         {/* Read-only display */}
         <Card>
@@ -471,7 +475,8 @@ export function ExaminationForm({
           </Card>
         )}
 
-        {/* Add addendum form */}
+        {/* Add addendum form — only for doctors */}
+        {!readOnly && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -497,6 +502,7 @@ export function ExaminationForm({
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
       </SideBySideWrapper>
     );

@@ -144,7 +144,7 @@ export default async function VisitDetailPage({
         { label: `Case #${visit.caseNo || visit.id}` },
       ]} />
       {/* Post-create CTA */}
-      {newVisit === "1" && !clinicalReport && (
+      {newVisit === "1" && !clinicalReport && isDoctor && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-blue-800">
@@ -207,19 +207,27 @@ export default async function VisitDetailPage({
               </Link>
             </Button>
           )}
-          <Button variant={clinicalReport ? "outline" : "default"} size="sm" asChild>
-            <Link href={`/visits/${visit.id}/examine`}>
-              {clinicalReport ? (
-                reportLocked ? (
-                  <><MessageSquarePlus className="mr-2 h-4 w-4" />Add Note</>
+          {isDoctor ? (
+            <Button variant={clinicalReport ? "outline" : "default"} size="sm" asChild>
+              <Link href={`/visits/${visit.id}/examine`}>
+                {clinicalReport ? (
+                  reportLocked ? (
+                    <><MessageSquarePlus className="mr-2 h-4 w-4" />Add Note</>
+                  ) : (
+                    <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
+                  )
                 ) : (
-                  <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
-                )
-              ) : (
-                <><ClipboardPlus className="mr-2 h-4 w-4" />Add Notes</>
-              )}
-            </Link>
-          </Button>
+                  <><ClipboardPlus className="mr-2 h-4 w-4" />Add Notes</>
+                )}
+              </Link>
+            </Button>
+          ) : clinicalReport ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/visits/${visit.id}/examine`}>
+                <FileText className="mr-2 h-4 w-4" />View Notes
+              </Link>
+            </Button>
+          ) : null}
           {canCollect && balance > 0 && (
             <Button size="sm" asChild>
               <Link href={`/patients/${visit.patientId}/checkout`}>

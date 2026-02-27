@@ -185,9 +185,6 @@ export default async function DashboardPage() {
           <Link href="/patients/new"><UserPlus className="mr-2 h-4 w-4" />New Patient</Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
-        </Button>
-        <Button variant="ghost" size="sm" asChild>
           <Link href="/appointments/new"><CalendarDays className="mr-2 h-4 w-4" />Schedule</Link>
         </Button>
         {canCollect && (

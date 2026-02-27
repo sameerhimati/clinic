@@ -202,11 +202,18 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </Button>
       );
     } else if (todayAppt.status === "IN_PROGRESS" && todayAppt.visitId) {
-      primaryCta = (
+      primaryCta = isDoctor ? (
         <Button size="sm" asChild>
           <Link href={`/visits/${todayAppt.visitId}/examine`}>
             <FileText className="mr-1 h-3.5 w-3.5" />
             Continue Exam
+          </Link>
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/visits/${todayAppt.visitId}`}>
+            <FileText className="mr-1 h-3.5 w-3.5" />
+            View Visit
           </Link>
         </Button>
       );
@@ -225,10 +232,18 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   }
 
   if (!primaryCta) {
-    primaryCta = (
+    // Default: Schedule Appointment for reception, New Visit for doctors
+    primaryCta = isDoctor ? (
       <Button size="sm" onClick={openNewVisit}>
         <Plus className="mr-1 h-3.5 w-3.5" />
         New Visit
+      </Button>
+    ) : (
+      <Button size="sm" asChild>
+        <Link href={`/appointments/new?patientId=${patient.id}`}>
+          <CalendarDays className="mr-1 h-3.5 w-3.5" />
+          Schedule Appointment
+        </Link>
       </Button>
     );
   }

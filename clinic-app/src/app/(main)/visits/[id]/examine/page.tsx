@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
 import { requireAuth } from "@/lib/auth";
-import { isReportLocked, hoursUntilAutoLock, isAdmin } from "@/lib/permissions";
+import { isReportLocked, hoursUntilAutoLock, isAdmin, canExamine } from "@/lib/permissions";
 import { todayString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,17 @@ export default async function ExaminePage({
   });
 
   if (!visit) notFound();
+
+  // Non-doctors can only VIEW existing reports, not create new ones
+  const userCanExamine = canExamine(currentUser.permissionLevel);
+  const existingReportCheck = await prisma.clinicalReport.findFirst({
+    where: { visitId },
+    select: { id: true },
+  });
+  if (!userCanExamine && !existingReportCheck) {
+    // No report exists and user can't create one — redirect to visit detail
+    redirect(`/visits/${visitId}`);
+  }
 
   // Fetch previous reports in the treatment chain (for follow-up visits)
   let previousReports: {
@@ -202,6 +213,7 @@ export default async function ExaminePage({
         lockedByName={existingReport?.lockedBy?.name ?? null}
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
         permissionLevel={currentUser.permissionLevel}
+        readOnly={!userCanExamine}
         nextPatientId={nextPatientId}
         nextPatientCode={nextPatientCode}
         previousReports={previousReports}

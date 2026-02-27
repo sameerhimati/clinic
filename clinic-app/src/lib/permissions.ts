@@ -26,6 +26,11 @@ export function canManageSystem(permissionLevel: number): boolean {
   return permissionLevel <= 1;
 }
 
+/** Can create/edit clinical examination reports (doctors only) */
+export function canExamine(permissionLevel: number): boolean {
+  return permissionLevel === 3;
+}
+
 /** Admin can unlock reports and visits */
 export function isAdmin(permissionLevel: number): boolean {
   return permissionLevel <= 1;

@@ -133,6 +133,36 @@ export async function claimAppointment(appointmentId: number) {
   revalidatePath("/dashboard");
 }
 
+export async function createWalkIn(patientId: number, doctorId?: number, reason?: string) {
+  const currentUser = await requireAuth();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // L3 doctors can only assign to themselves
+  const resolvedDoctorId = currentUser.permissionLevel === 3
+    ? currentUser.id
+    : (doctorId || null);
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      patientId,
+      doctorId: resolvedDoctorId,
+      date: today,
+      timeSlot: "Walk-in",
+      reason: reason || "Walk-in",
+      status: "ARRIVED",
+      createdById: currentUser.id,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+  revalidatePath(`/patients/${patientId}`);
+
+  return { appointmentId: appointment.id };
+}
+
 export async function deleteAppointment(appointmentId: number) {
   const currentUser = await requireAuth();
   if (!isAdmin(currentUser.permissionLevel)) throw new Error("Admin only");

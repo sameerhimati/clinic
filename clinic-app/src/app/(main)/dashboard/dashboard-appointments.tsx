@@ -130,10 +130,10 @@ export function DashboardAppointmentList({
                         </Link>
                       </Button>
                     )}
-                    {appt.status === "IN_PROGRESS" && (
-                      <Button size="sm" variant="default" className="h-7 text-xs" asChild>
-                        <Link href={appt.visitId ? `/visits/${appt.visitId}/examine` : `/patients/${appt.patientId}`}>
-                          Examine
+                    {appt.status === "IN_PROGRESS" && appt.visitId && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                        <Link href={`/visits/${appt.visitId}`}>
+                          View
                         </Link>
                       </Button>
                     )}

@@ -113,13 +113,22 @@ function PrimaryAction({
     );
   }
   if (appt.status === "IN_PROGRESS" && appt.visitId) {
-    return (
+    return isDoctor ? (
       <Button size="sm" variant="default" className="h-7 text-xs" asChild>
         <Link
           href={`/visits/${appt.visitId}/examine`}
           onClick={(e) => e.stopPropagation()}
         >
           Examine
+        </Link>
+      </Button>
+    ) : (
+      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+        <Link
+          href={`/visits/${appt.visitId}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          View
         </Link>
       </Button>
     );
