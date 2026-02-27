@@ -24,7 +24,7 @@ export async function createAppointment(formData: FormData) {
     ? currentUser.id
     : (parsed.doctorId || null);
 
-  await prisma.appointment.create({
+  const appointment = await prisma.appointment.create({
     data: {
       patientId: parsed.patientId,
       doctorId: doctorId || null,
@@ -33,12 +33,19 @@ export async function createAppointment(formData: FormData) {
       timeSlot: parsed.timeSlot,
       reason: parsed.reason,
       notes: parsed.notes,
+      isWalkIn: parsed.isWalkIn || false,
+      status: parsed.isWalkIn ? "ARRIVED" : "SCHEDULED",
       createdById: currentUser.id,
     },
   });
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
+
+  if (parsed.isWalkIn) {
+    revalidatePath(`/patients/${parsed.patientId}`);
+    redirect(`/patients/${parsed.patientId}`);
+  }
   redirect(`/appointments?date=${parsed.date}&created=1`);
 }
 
@@ -59,9 +66,7 @@ export async function updateAppointmentStatus(
     throw new Error(`Cannot transition from ${appointment.status} to ${newStatus}`);
   }
 
-  if (newStatus === "CANCELLED" && !cancelReason) {
-    throw new Error("Cancel reason is required");
-  }
+  // cancelReason is optional — appointments cancelled from patient detail may not have one
 
   await prisma.appointment.update({
     where: { id: appointmentId },
@@ -112,6 +117,8 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
+  revalidatePath(`/patients/${appointment.patientId}`);
+  redirect(`/patients/${appointment.patientId}`);
 }
 
 export async function claimAppointment(appointmentId: number) {
@@ -131,36 +138,6 @@ export async function claimAppointment(appointmentId: number) {
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
-}
-
-export async function createWalkIn(patientId: number, doctorId?: number, reason?: string) {
-  const currentUser = await requireAuth();
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // L3 doctors can only assign to themselves
-  const resolvedDoctorId = currentUser.permissionLevel === 3
-    ? currentUser.id
-    : (doctorId || null);
-
-  const appointment = await prisma.appointment.create({
-    data: {
-      patientId,
-      doctorId: resolvedDoctorId,
-      date: today,
-      timeSlot: "Walk-in",
-      reason: reason || "Walk-in",
-      status: "ARRIVED",
-      createdById: currentUser.id,
-    },
-  });
-
-  revalidatePath("/appointments");
-  revalidatePath("/dashboard");
-  revalidatePath(`/patients/${patientId}`);
-
-  return { appointmentId: appointment.id };
 }
 
 export async function deleteAppointment(appointmentId: number) {

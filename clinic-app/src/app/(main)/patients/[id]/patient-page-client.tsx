@@ -25,7 +25,8 @@ import {
   Stethoscope,
   UserCheck,
   FileText,
-  Zap,
+  XCircle,
+  RefreshCw,
 } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { TreatmentTimeline, type VisitWithRelations, type FollowUpContext } from "@/components/treatment-timeline";
@@ -37,7 +38,7 @@ import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ToastOnParam } from "@/components/toast-on-param";
-import { updateAppointmentStatus, createWalkIn } from "@/app/(main)/appointments/actions";
+import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
 import type { Operation, Doctor, Lab } from "@/components/visit-form";
@@ -127,6 +128,7 @@ export type PatientPageData = {
   ageDisplay: string | null;
   missingNotesCount: number;
   todayAppointment: TodayAppointment | null;
+  todayAppointments: PastAppointment[];
   futureAppointments: FutureAppointment[];
   pastAppointments: PastAppointment[];
   files: PatientFile[];
@@ -171,56 +173,60 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
     setSheetOpen(true);
   }
 
-  function handleMarkArrived(appointmentId: number) {
+  function handleStatusChange(appointmentId: number, status: string) {
     startTransition(async () => {
       try {
-        await updateAppointmentStatus(appointmentId, "ARRIVED");
+        await updateAppointmentStatus(appointmentId, status);
         router.refresh();
-        toast.success("Marked as arrived");
+        toast.success(status === "ARRIVED" ? "Checked in" : status === "CANCELLED" ? "Appointment cancelled" : "Status updated");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to update status");
       }
     });
   }
 
-  function handleWalkIn() {
-    startTransition(async () => {
-      try {
-        await createWalkIn(patient.id);
-        router.refresh();
-        toast.success("Walk-in registered — patient marked as arrived");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to create walk-in");
-      }
-    });
-  }
-
-  // Determine primary CTA
+  // Determine primary CTA + secondary actions based on appointment state
   const todayAppt = data.todayAppointment;
   let primaryCta: React.ReactNode = null;
+  let appointmentActions: React.ReactNode = null;
 
   if (todayAppt) {
     if (todayAppt.status === "SCHEDULED") {
+      // SCHEDULED: Check In (primary), Reschedule + Cancel (secondary)
       primaryCta = (
-        <Button size="sm" onClick={() => handleMarkArrived(todayAppt.id)} disabled={isPending}>
+        <Button size="sm" onClick={() => handleStatusChange(todayAppt.id, "ARRIVED")} disabled={isPending}>
           <UserCheck className="mr-1 h-3.5 w-3.5" />
-          Mark Arrived
+          Check In
         </Button>
+      );
+      appointmentActions = (
+        <>
+          <DropdownMenuItem asChild>
+            <Link href={`/appointments/${todayAppt.id}/reschedule`}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reschedule
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleStatusChange(todayAppt.id, "CANCELLED")}
+            className="text-destructive"
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Cancel Appointment
+          </DropdownMenuItem>
+        </>
       );
     } else if (todayAppt.status === "ARRIVED") {
-      primaryCta = isDoctor ? (
-        <Button size="sm" onClick={openNewVisit}>
-          <Stethoscope className="mr-1 h-3.5 w-3.5" />
-          Start Treatment
-        </Button>
-      ) : (
-        <Button size="sm" asChild>
-          <Link href={`/visits/new?patientId=${patient.id}&appointmentId=${todayAppt.id}${todayAppt.doctorName ? "" : ""}`}>
+      // ARRIVED: Doctor starts treatment. Reception just sees status — no CTA needed.
+      if (isDoctor) {
+        primaryCta = (
+          <Button size="sm" onClick={openNewVisit}>
             <Stethoscope className="mr-1 h-3.5 w-3.5" />
-            Start Visit
-          </Link>
-        </Button>
-      );
+            Start Treatment
+          </Button>
+        );
+      }
+      // Reception: primaryCta stays null → falls through to default (Schedule Appointment / Collect)
     } else if (todayAppt.status === "IN_PROGRESS" && todayAppt.visitId) {
       primaryCta = isDoctor ? (
         <Button size="sm" asChild>
@@ -240,32 +246,36 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
     }
   }
 
-  if (!primaryCta && data.canCollect && data.totalBalance > 0) {
-    primaryCta = (
-      <Button size="sm" asChild>
-        <Link href={`/patients/${patient.id}/checkout`}>
-          <IndianRupee className="mr-1 h-3.5 w-3.5" />
-          Collect ₹{data.totalBalance.toLocaleString("en-IN")}
-        </Link>
-      </Button>
-    );
-  }
-
+  // No appointment-driven CTA — default actions
   if (!primaryCta) {
-    // Default: Schedule Appointment for reception, New Visit for doctors
-    primaryCta = isDoctor ? (
-      <Button size="sm" onClick={openNewVisit}>
-        <Plus className="mr-1 h-3.5 w-3.5" />
-        New Visit
-      </Button>
-    ) : (
-      <Button size="sm" asChild>
-        <Link href={`/appointments/new?patientId=${patient.id}`}>
-          <CalendarDays className="mr-1 h-3.5 w-3.5" />
-          Schedule Appointment
-        </Link>
-      </Button>
-    );
+    const hasActiveAppointment = todayAppt && ["ARRIVED", "IN_PROGRESS"].includes(todayAppt.status);
+    if (data.canCollect && data.totalBalance > 0) {
+      primaryCta = (
+        <Button size="sm" asChild>
+          <Link href={`/patients/${patient.id}/checkout`}>
+            <IndianRupee className="mr-1 h-3.5 w-3.5" />
+            Collect ₹{data.totalBalance.toLocaleString("en-IN")}
+          </Link>
+        </Button>
+      );
+    } else if (isDoctor) {
+      primaryCta = (
+        <Button size="sm" onClick={openNewVisit}>
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          New Visit
+        </Button>
+      );
+    } else if (!hasActiveAppointment) {
+      // Only show "Schedule Appointment" if there's no active appointment today
+      primaryCta = (
+        <Button size="sm" asChild>
+          <Link href={`/appointments/new?patientId=${patient.id}`}>
+            <CalendarDays className="mr-1 h-3.5 w-3.5" />
+            Schedule Appointment
+          </Link>
+        </Button>
+      );
+    }
   }
 
   // Active visit ID for auto-expanding timeline
@@ -331,42 +341,21 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {isDoctor ? (
-                  <>
-                    <DropdownMenuItem onClick={openNewVisit}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      New Visit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem onClick={handleWalkIn} disabled={isPending}>
-                      <Zap className="mr-2 h-4 w-4" />
-                      Walk-in
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/appointments/new?patientId=${patient.id}`}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Schedule Appointment
-                      </Link>
-                    </DropdownMenuItem>
-                    {data.canCollect && data.totalBalance > 0 && (
-                      <DropdownMenuItem asChild>
-                        <Link href={`/patients/${patient.id}/checkout`}>
-                          <IndianRupee className="mr-2 h-4 w-4" />
-                          Collect Payment
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                  </>
-                )}
+                {appointmentActions}
+                {appointmentActions && <DropdownMenuSeparator />}
                 {data.canEdit && (
                   <DropdownMenuItem asChild>
                     <Link href={`/patients/${patient.id}/edit`}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Patient
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {data.canCollect && data.totalBalance > 0 && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/patients/${patient.id}/checkout`}>
+                      <IndianRupee className="mr-2 h-4 w-4" />
+                      Collect Payment
                     </Link>
                   </DropdownMenuItem>
                 )}
@@ -398,7 +387,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       )}
 
       {/* Appointments */}
-      {(data.futureAppointments.length > 0 || data.pastAppointments.length > 0) && (
+      {(data.todayAppointments.length > 0 || data.futureAppointments.length > 0 || data.pastAppointments.length > 0) && (
         <section>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
@@ -412,6 +401,38 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
+                {data.todayAppointments.map((appt) => (
+                  <div key={`t-${appt.id}`} className={`flex items-center justify-between px-4 py-3 ${
+                    appt.status === "ARRIVED" ? "bg-green-50 border-l-4 border-l-green-500" :
+                    appt.status === "IN_PROGRESS" ? "bg-blue-50 border-l-4 border-l-blue-500" :
+                    "bg-amber-50 border-l-4 border-l-amber-400"
+                  }`}>
+                    <div>
+                      <div className="font-medium text-sm flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today</span>
+                        {appt.timeSlot && <span>{appt.timeSlot}</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {appt.doctorName && `Dr. ${appt.doctorName}`}
+                        {appt.reason && ` · ${appt.reason}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {appt.status === "SCHEDULED" && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleStatusChange(appt.id, "ARRIVED")}
+                          disabled={isPending}
+                        >
+                          <UserCheck className="mr-1 h-3 w-3" />
+                          Check In
+                        </Button>
+                      )}
+                      <StatusBadge status={appt.status} />
+                    </div>
+                  </div>
+                ))}
                 {data.futureAppointments.map((appt) => (
                   <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
                     <div>

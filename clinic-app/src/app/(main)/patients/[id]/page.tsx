@@ -252,6 +252,14 @@ export default async function PatientDetailPage({
     ageDisplay,
     missingNotesCount,
     todayAppointment,
+    todayAppointments: todayAppointments.map(a => ({
+      id: a.id,
+      date: a.date,
+      timeSlot: a.timeSlot,
+      doctorName: a.doctor?.name || null,
+      reason: a.reason,
+      status: a.status,
+    })),
     futureAppointments: futureAppointments.map(a => ({
       id: a.id,
       date: a.date,

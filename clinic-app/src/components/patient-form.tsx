@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +118,7 @@ export function PatientForm({
     if (err) { setMobileError(err); toast.error(`Mobile: ${err}`); return; }
     startTransition(async () => {
       try { await action(formData); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Something went wrong"); }
+      catch (e) { if (isRedirectError(e)) throw e; toast.error(e instanceof Error ? e.message : "Something went wrong"); }
     });
   }
 

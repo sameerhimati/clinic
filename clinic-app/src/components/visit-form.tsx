@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { PatientSearch } from "@/components/patient-search";
 import Link from "next/link";
 import { X, Search, Check, ChevronsUpDown, ChevronDown, Plus, Lock } from "lucide-react";
@@ -301,6 +302,7 @@ export function VisitForm({
       try {
         await action(formData);
       } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error(e instanceof Error ? e.message : "Something went wrong");
       }
     });

@@ -152,6 +152,7 @@ export const appointmentSchema = z.object({
   timeSlot: optionalString,
   reason: optionalString,
   notes: optionalString,
+  isWalkIn: z.string().optional().transform((s) => s === "true"),
 });
 
 export type AppointmentInput = z.output<typeof appointmentSchema>;

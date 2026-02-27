@@ -8,16 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PatientSearch } from "@/components/patient-search";
-import { createAppointment, createWalkIn } from "@/app/(main)/appointments/actions";
+import { createAppointment, updateAppointment } from "@/app/(main)/appointments/actions";
 import Link from "next/link";
-import { X, Zap } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { todayString } from "@/lib/validations";
 
 const TIME_SLOTS = [
-  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM",
-  "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM",
+  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
+  "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM",
+  "5:00 PM", "5:30 PM", "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM",
+  "8:00 PM", "8:30 PM", "9:00 PM",
 ];
 
 type Doctor = { id: number; name: string };
@@ -29,51 +32,76 @@ export function AppointmentForm({
   rooms,
   defaultPatient,
   defaultDoctorId,
+  defaultRoomId,
   defaultDate,
+  defaultTimeSlot,
   defaultReason,
+  defaultNotes,
   permissionLevel,
   currentDoctorName,
+  appointmentId,
+  mode = "create",
 }: {
   doctors: Doctor[];
   rooms?: RoomOption[];
   defaultPatient?: DefaultPatient | null;
   defaultDoctorId?: number;
+  defaultRoomId?: number;
   defaultDate?: string;
+  defaultTimeSlot?: string;
   defaultReason?: string;
+  defaultNotes?: string;
   permissionLevel?: number;
   currentDoctorName?: string;
+  appointmentId?: number;
+  mode?: "create" | "reschedule";
 }) {
   const isDoctor = permissionLevel === 3;
-  const router = useRouter();
+  const isReschedule = mode === "reschedule";
   const [selectedPatient, setSelectedPatient] = useState<DefaultPatient | null>(
     defaultPatient || null
   );
   const [isPending, startTransition] = useTransition();
-  const [timeSlotMode, setTimeSlotMode] = useState<"preset" | "custom">("preset");
-  const [customTimeSlot, setCustomTimeSlot] = useState("");
+  const isDefaultCustomTime = defaultTimeSlot ? !TIME_SLOTS.includes(defaultTimeSlot) : false;
+  const [timeSlotMode, setTimeSlotMode] = useState<"preset" | "custom">(isDefaultCustomTime ? "custom" : "preset");
+  const [customTimeSlot, setCustomTimeSlot] = useState(isDefaultCustomTime ? (defaultTimeSlot || "") : "");
   const [isWalkIn, setIsWalkIn] = useState(false);
+
+  // Nearest 30-min time slot from now (e.g. 10:00 AM, 10:30 AM)
+  function getNearestTimeSlot(): string {
+    const now = new Date();
+    let hours = now.getHours();
+    let minutes = now.getMinutes();
+    minutes = minutes < 30 ? 0 : 30;
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
+  }
+
+  function handleWalkInToggle(checked: boolean) {
+    setIsWalkIn(checked);
+    if (checked) {
+      // Auto-fill time to nearest 30-min slot
+      const slot = getNearestTimeSlot();
+      setTimeSlotMode("custom");
+      setCustomTimeSlot(slot);
+    } else {
+      setTimeSlotMode("preset");
+      setCustomTimeSlot("");
+    }
+  }
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
       try {
-        await createAppointment(formData);
+        if (isReschedule && appointmentId) {
+          await updateAppointment(appointmentId, formData);
+          toast.success("Appointment rescheduled");
+        } else {
+          await createAppointment(formData);
+        }
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Something went wrong");
-      }
-    });
-  }
-
-  function handleWalkIn() {
-    if (!selectedPatient) {
-      toast.error("Please select a patient first");
-      return;
-    }
-    startTransition(async () => {
-      try {
-        await createWalkIn(selectedPatient.id);
-        toast.success("Walk-in registered — patient marked as arrived");
-        router.push(`/patients/${selectedPatient.id}`);
-      } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error(e instanceof Error ? e.message : "Something went wrong");
       }
     });
@@ -86,6 +114,7 @@ export function AppointmentForm({
       {selectedPatient && (
         <input type="hidden" name="patientId" value={selectedPatient.id} />
       )}
+      {isWalkIn && <input type="hidden" name="isWalkIn" value="true" />}
 
       <Card>
         <CardHeader>
@@ -104,7 +133,7 @@ export function AppointmentForm({
                   {selectedPatient.salutation && `${selectedPatient.salutation}. `}
                   {selectedPatient.name}
                 </Badge>
-                {!isDoctor && (
+                {!isDoctor && !isReschedule && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -152,7 +181,7 @@ export function AppointmentForm({
               <Label htmlFor="roomId">Room</Label>
               <select
                 name="roomId"
-                defaultValue=""
+                defaultValue={defaultRoomId || ""}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
               >
                 <option value="">No room assigned</option>
@@ -183,7 +212,7 @@ export function AppointmentForm({
             {timeSlotMode === "preset" ? (
               <select
                 name="timeSlot"
-                defaultValue=""
+                defaultValue={defaultTimeSlot || ""}
                 onChange={(e) => {
                   if (e.target.value === "__other__") {
                     setTimeSlotMode("custom");
@@ -233,8 +262,26 @@ export function AppointmentForm({
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="notes">Notes</Label>
-            <Textarea name="notes" rows={2} placeholder="Additional notes..." />
+            <Textarea name="notes" rows={2} placeholder="Additional notes..." defaultValue={defaultNotes || ""} />
           </div>
+
+          {/* Walk-in toggle — only for new appointments */}
+          {!isReschedule && <div className="sm:col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+              <input
+                type="checkbox"
+                checked={isWalkIn}
+                onChange={(e) => handleWalkInToggle(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <div>
+                <div className="text-sm font-medium">Walk-in patient</div>
+                <div className="text-xs text-muted-foreground">
+                  Auto-fills current time and marks patient as arrived
+                </div>
+              </div>
+            </label>
+          </div>}
         </CardContent>
       </Card>
 
@@ -242,17 +289,8 @@ export function AppointmentForm({
         <Button type="button" variant="outline" asChild>
           <Link href={defaultPatient ? `/patients/${defaultPatient.id}` : "/appointments"}>Cancel</Link>
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!selectedPatient || isPending}
-          onClick={handleWalkIn}
-        >
-          <Zap className="mr-1 h-3.5 w-3.5" />
-          {isPending ? "..." : "Walk-in"}
-        </Button>
         <Button type="submit" disabled={!selectedPatient || isPending}>
-          {isPending ? "Scheduling..." : "Schedule Appointment"}
+          {isPending ? "Saving..." : isReschedule ? "Reschedule" : isWalkIn ? "Register Walk-in" : "Schedule Appointment"}
         </Button>
       </div>
     </form>

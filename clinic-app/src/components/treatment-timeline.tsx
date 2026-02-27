@@ -505,14 +505,8 @@ export function TreatmentTimeline({
 }) {
   if (visits.length === 0) {
     return (
-      <div className="text-center py-8 space-y-3">
+      <div className="text-center py-8">
         <p className="text-muted-foreground">No visits recorded</p>
-        <Button size="sm" variant="outline" asChild>
-          <Link href={`/appointments/new?patientId=${patientId}`}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Schedule First Appointment
-          </Link>
-        </Button>
       </div>
     );
   }

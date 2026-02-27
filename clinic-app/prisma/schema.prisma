@@ -326,6 +326,7 @@ model Appointment {
   reason       String?
   notes        String?
   cancelReason String?
+  isWalkIn     Boolean  @default(false)
   createdById  Int?
   createdBy    Doctor?  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
   createdAt    DateTime @default(now())

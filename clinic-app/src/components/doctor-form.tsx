@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export function DoctorForm({
       try {
         await action(formData);
       } catch (e) {
+        if (isRedirectError(e)) throw e;
         toast.error(e instanceof Error ? e.message : "Something went wrong");
       }
     });
