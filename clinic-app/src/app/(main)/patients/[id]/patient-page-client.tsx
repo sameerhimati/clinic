@@ -268,7 +268,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
                 {data.firstVisit && <span> · First: {format(new Date(data.firstVisit), "MMM yyyy")}</span>}
                 {data.lastVisit && <span> · Last: {format(new Date(data.lastVisit), "MMM d, yyyy")}</span>}
-                {data.totalBalance > 0 && (
+                {data.canCollect && data.totalBalance > 0 && (
                   <span className="text-destructive font-medium"> · ₹{data.totalBalance.toLocaleString("en-IN")} due</span>
                 )}
                 {nextFutureAppt && (

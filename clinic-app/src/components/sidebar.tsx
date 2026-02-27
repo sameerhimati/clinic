@@ -61,7 +61,7 @@ function NavItems({
   return (
     <nav className="flex flex-col gap-1 p-2">
       {filtered.map((item) => {
-        const isActive = pathname.startsWith(item.href);
+        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
         return (
           <Link
             key={item.href}
