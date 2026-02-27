@@ -29,6 +29,74 @@ export default async function ExaminePage({
 
   if (!visit) notFound();
 
+  // Fetch previous reports in the treatment chain (for follow-up visits)
+  let previousReports: {
+    visitId: number;
+    caseNo: number | null;
+    stepLabel: string | null;
+    doctorName: string;
+    reportDate: string;
+    complaint: string | null;
+    examination: string | null;
+    diagnosis: string | null;
+    treatmentNotes: string | null;
+    medication: string | null;
+    addendums: { content: string; doctorName: string; createdAt: string }[];
+  }[] = [];
+
+  if (visit.parentVisitId) {
+    // Find the root parent (flat chain — parentVisitId always points to root)
+    const rootId = visit.parentVisitId;
+
+    // Fetch all visits in the chain: the root + all siblings sharing the same parent
+    const chainVisits = await prisma.visit.findMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { parentVisitId: rootId },
+        ],
+        id: { not: visitId }, // exclude the current visit
+      },
+      include: {
+        doctor: { select: { name: true } },
+        clinicalReports: {
+          include: {
+            doctor: { select: { name: true } },
+            addendums: {
+              include: { doctor: { select: { name: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+          take: 1,
+        },
+      },
+      orderBy: { visitDate: "asc" },
+    });
+
+    previousReports = chainVisits
+      .filter((v) => v.clinicalReports.length > 0)
+      .map((v) => {
+        const r = v.clinicalReports[0];
+        return {
+          visitId: v.id,
+          caseNo: v.caseNo,
+          stepLabel: v.stepLabel,
+          doctorName: r.doctor.name,
+          reportDate: format(new Date(r.reportDate), "MMM d, yyyy"),
+          complaint: r.complaint,
+          examination: r.examination,
+          diagnosis: r.diagnosis,
+          treatmentNotes: r.treatmentNotes,
+          medication: r.medication,
+          addendums: r.addendums.map((a) => ({
+            content: a.content,
+            doctorName: a.doctor.name,
+            createdAt: format(new Date(a.createdAt), "MMM d, yyyy"),
+          })),
+        };
+      });
+  }
+
   // Load existing clinical report if any
   const existingReport = await prisma.clinicalReport.findFirst({
     where: { visitId },
@@ -78,8 +146,10 @@ export default async function ExaminePage({
     }
   }
 
+  const operationName = visit.operation?.name || "Visit";
+
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className={previousReports.length > 0 ? "space-y-6" : "max-w-3xl space-y-6"}>
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: visit.patient.name, href: `/patients/${visit.patient.id}` },
@@ -98,7 +168,7 @@ export default async function ExaminePage({
           {visit.patient.ageAtRegistration && ` \u00b7 ${visit.patient.ageAtRegistration} yrs`}
         </p>
         <p className="text-sm text-muted-foreground">
-          {visit.operation?.name || "Visit"} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "MMM d, yyyy")}
+          {operationName} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "MMM d, yyyy")}
         </p>
       </div>
 
@@ -134,6 +204,8 @@ export default async function ExaminePage({
         permissionLevel={currentUser.permissionLevel}
         nextPatientId={nextPatientId}
         nextPatientCode={nextPatientCode}
+        previousReports={previousReports}
+        operationName={operationName}
       />
     </div>
   );

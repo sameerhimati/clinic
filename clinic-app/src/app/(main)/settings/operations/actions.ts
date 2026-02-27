@@ -60,3 +60,27 @@ export async function toggleOperationActive(formData: FormData) {
 
   revalidatePath("/settings/operations");
 }
+
+export async function saveTreatmentSteps(
+  operationId: number,
+  steps: { name: string; description?: string; defaultDayGap: number }[]
+) {
+  await requireAdmin();
+
+  // Delete all existing steps for this operation, then recreate
+  await prisma.treatmentStep.deleteMany({ where: { operationId } });
+
+  if (steps.length > 0) {
+    await prisma.treatmentStep.createMany({
+      data: steps.map((s, i) => ({
+        operationId,
+        stepNumber: i + 1,
+        name: s.name.trim(),
+        description: s.description?.trim() || null,
+        defaultDayGap: Math.max(0, Math.round(s.defaultDayGap)),
+      })),
+    });
+  }
+
+  revalidatePath("/settings/operations");
+}

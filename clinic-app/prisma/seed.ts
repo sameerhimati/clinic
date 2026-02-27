@@ -937,6 +937,66 @@ async function main() {
   console.log(`   - ${labs.length} labs`);
   console.log(`   - ${doctors.length} doctors`);
   console.log(`   - ${patients.length} patients`);
+  // ==========================================
+  // TREATMENT STEPS — multi-step procedure templates
+  // ==========================================
+  // Lookup operations by code for stable references
+  const opRCT = await prisma.operation.findFirst({ where: { code: 15 } });
+  const opCeramicPFM = await prisma.operation.findFirst({ where: { code: 58 } });
+  const opOrtho = await prisma.operation.findFirst({ where: { code: 34 } });
+  const opImplant = await prisma.operation.findFirst({ where: { code: 94 } });
+  const opBridge = await prisma.operation.findFirst({ where: { code: 21 } });
+
+  const treatmentSteps = [];
+
+  if (opRCT) {
+    treatmentSteps.push(
+      { operationId: opRCT.id, stepNumber: 1, name: "Initial Assessment", defaultDayGap: 0 },
+      { operationId: opRCT.id, stepNumber: 2, name: "Access Opening", defaultDayGap: 7 },
+      { operationId: opRCT.id, stepNumber: 3, name: "BMP / Obturation", defaultDayGap: 7 },
+      { operationId: opRCT.id, stepNumber: 4, name: "Crown Prep", defaultDayGap: 14 },
+      { operationId: opRCT.id, stepNumber: 5, name: "Crown Fitting", defaultDayGap: 14 },
+    );
+  }
+
+  if (opCeramicPFM) {
+    treatmentSteps.push(
+      { operationId: opCeramicPFM.id, stepNumber: 1, name: "Tooth Prep & Impression", defaultDayGap: 0 },
+      { operationId: opCeramicPFM.id, stepNumber: 2, name: "Try-in", defaultDayGap: 10 },
+      { operationId: opCeramicPFM.id, stepNumber: 3, name: "Cementation", defaultDayGap: 7 },
+    );
+  }
+
+  if (opOrtho) {
+    treatmentSteps.push(
+      { operationId: opOrtho.id, stepNumber: 1, name: "Consultation", defaultDayGap: 0 },
+      { operationId: opOrtho.id, stepNumber: 2, name: "Bonding", defaultDayGap: 7 },
+      { operationId: opOrtho.id, stepNumber: 3, name: "Monthly Adjustment", defaultDayGap: 30, description: "Repeating step — schedule as many as needed" },
+    );
+  }
+
+  if (opImplant) {
+    treatmentSteps.push(
+      { operationId: opImplant.id, stepNumber: 1, name: "Assessment & Planning", defaultDayGap: 0 },
+      { operationId: opImplant.id, stepNumber: 2, name: "Implant Placement", defaultDayGap: 14 },
+      { operationId: opImplant.id, stepNumber: 3, name: "Healing Check", defaultDayGap: 90 },
+      { operationId: opImplant.id, stepNumber: 4, name: "Abutment", defaultDayGap: 14 },
+      { operationId: opImplant.id, stepNumber: 5, name: "Crown", defaultDayGap: 14 },
+    );
+  }
+
+  if (opBridge) {
+    treatmentSteps.push(
+      { operationId: opBridge.id, stepNumber: 1, name: "Tooth Prep & Impression", defaultDayGap: 0 },
+      { operationId: opBridge.id, stepNumber: 2, name: "Try-in", defaultDayGap: 10 },
+      { operationId: opBridge.id, stepNumber: 3, name: "Cementation", defaultDayGap: 7 },
+    );
+  }
+
+  if (treatmentSteps.length > 0) {
+    await prisma.treatmentStep.createMany({ data: treatmentSteps });
+  }
+
   console.log(`   - ${visits.length + 10 + 12 + 7} visits (incl. follow-up chains + 3 scenarios)`);
   console.log(`   - ${receipts.length} + scenario receipts`);
   console.log(`   - ${clinicalReports.length + 1} + scenario clinical reports`);
@@ -945,6 +1005,7 @@ async function main() {
   console.log(`   - ${appointments.length} appointments`);
   console.log("   - 5 rooms");
   console.log("   - 1 clinic settings");
+  console.log(`   - ${treatmentSteps.length} treatment steps`);
 }
 
 main()

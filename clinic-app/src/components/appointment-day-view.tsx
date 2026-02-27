@@ -25,6 +25,7 @@ import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from
 import { updateAppointmentStatus, claimAppointment } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
+import { AppointmentDetailPanel } from "@/components/appointment-detail-panel";
 import { VALID_TRANSITIONS } from "@/lib/appointment-status";
 
 type Appointment = {
@@ -43,6 +44,12 @@ type Appointment = {
   reason: string | null;
   notes: string | null;
   cancelReason: string | null;
+  // Enriched fields
+  operationName: string | null;
+  stepLabel: string | null;
+  diseases: string[];
+  visitCount: number;
+  previousDiagnosis: string | null;
 };
 
 type ColumnDoctor = { id: number; name: string };
@@ -177,6 +184,7 @@ function AppointmentCard({
   onStatusChange,
   onClaim,
   onExamine,
+  onCardClick,
   isDoctor,
 }: {
   appt: Appointment;
@@ -185,9 +193,9 @@ function AppointmentCard({
   onStatusChange: (id: number, status: string, reason?: string) => void;
   onClaim?: (id: number) => void;
   onExamine?: (patientId: number, appointmentId: number) => void;
+  onCardClick?: (id: number) => void;
   isDoctor?: boolean;
 }) {
-  const router = useRouter();
   const isCancelled = appt.status === "CANCELLED";
   const isTerminal = isCancelled || appt.status === "NO_SHOW";
   const abbreviatedName =
@@ -201,8 +209,8 @@ function AppointmentCard({
         isTerminal ? "opacity-60" : "cursor-pointer hover:border-primary/50"
       }`}
       onClick={() => {
-        if (!isTerminal) {
-          router.push(`/patients/${appt.patientId}`);
+        if (!isTerminal && onCardClick) {
+          onCardClick(appt.id);
         }
       }}
     >
@@ -217,14 +225,44 @@ function AppointmentCard({
         </div>
         <SecondaryActions appt={appt} onStatusChange={onStatusChange} />
       </div>
+      {/* Treatment / operation name — bold */}
+      {appt.operationName && (
+        <div className="font-medium truncate">{appt.operationName}</div>
+      )}
+      {/* Step label for follow-ups */}
+      {appt.stepLabel && (
+        <div className="text-primary truncate">{appt.stepLabel}</div>
+      )}
       {appt.timeSlot && (
         <div className="text-muted-foreground">{appt.timeSlot}</div>
       )}
       {showDoctorName && appt.doctorName && (
         <div className="text-muted-foreground">Dr. {appt.doctorName}</div>
       )}
-      {appt.reason && (
+      {/* Reason fallback (only if no operation name) */}
+      {!appt.operationName && appt.reason && (
         <div className="text-muted-foreground truncate">{appt.reason}</div>
+      )}
+      {/* Medical flags */}
+      {appt.diseases.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {appt.diseases.slice(0, 3).map((d) => {
+            // Abbreviate common diseases
+            const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d.length > 10 ? d.slice(0, 8) + "…" : d;
+            return (
+              <span key={d} className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium leading-tight">
+                {abbr}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {/* Visit count + previous diagnosis for returning patients */}
+      {appt.visitCount > 1 && (
+        <div className="text-muted-foreground">{appt.visitCount} visits</div>
+      )}
+      {appt.previousDiagnosis && (
+        <div className="text-muted-foreground truncate italic">Dx: {appt.previousDiagnosis}</div>
       )}
       <div className="flex items-center gap-1 flex-wrap">
         <StatusBadge status={appt.status} />
@@ -275,6 +313,7 @@ export function AppointmentDayView({
   const [cancelReason, setCancelReason] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("room");
+  const [panelApptId, setPanelApptId] = useState<number | null>(null);
 
   const isDoctor = permissionLevel === 3;
 
@@ -305,6 +344,8 @@ export function AppointmentDayView({
     isDoctor && !showAll
       ? appointments.filter((a) => a.doctorId === currentUserId)
       : appointments;
+
+  const panelAppt = panelApptId ? filteredAppointments.find((a) => a.id === panelApptId) || null : null;
 
   // Status summary (based on filtered)
   const counts: Record<string, number> = {};
@@ -618,6 +659,7 @@ export function AppointmentDayView({
                             onStatusChange={handleStatusChange}
                             onClaim={isDoctor ? handleClaim : undefined}
                             onExamine={isDoctor ? handleExamine : undefined}
+                            onCardClick={(id) => setPanelApptId(id)}
                             isDoctor={isDoctor}
                           />
                         ))}
@@ -643,6 +685,7 @@ export function AppointmentDayView({
                     showDoctorName={viewMode === "room"}
                     onStatusChange={handleStatusChange}
                     onClaim={isDoctor ? handleClaim : undefined}
+                    onCardClick={(id) => setPanelApptId(id)}
                   />
                 ))}
               </div>
@@ -667,7 +710,7 @@ export function AppointmentDayView({
                     <div
                       key={appt.id}
                       className="rounded-lg border p-3 text-sm space-y-1 cursor-pointer hover:border-primary/50"
-                      onClick={() => router.push(`/patients/${appt.patientId}`)}
+                      onClick={() => setPanelApptId(appt.id)}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -693,8 +736,25 @@ export function AppointmentDayView({
                         </span>
                         <span className="font-medium">{appt.patientName}</span>
                       </div>
-                      {appt.reason && (
+                      {/* Enriched info on mobile */}
+                      {appt.operationName && (
+                        <div className="font-medium">{appt.operationName}</div>
+                      )}
+                      {appt.stepLabel && (
+                        <div className="text-primary text-xs">{appt.stepLabel}</div>
+                      )}
+                      {!appt.operationName && appt.reason && (
                         <div className="text-muted-foreground">{appt.reason}</div>
+                      )}
+                      {appt.diseases.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {appt.diseases.slice(0, 3).map((d) => {
+                            const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d.length > 10 ? d.slice(0, 8) + "…" : d;
+                            return (
+                              <span key={d} className="px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium leading-tight">{abbr}</span>
+                            );
+                          })}
+                        </div>
                       )}
                       <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
                         <PrimaryAction appt={appt} onStatusChange={handleStatusChange} onExamine={isDoctor ? handleExamine : undefined} isDoctor={isDoctor} />
@@ -759,6 +819,21 @@ export function AppointmentDayView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Appointment detail panel */}
+      <AppointmentDetailPanel
+        appointment={panelAppt}
+        open={panelApptId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPanelApptId(null);
+        }}
+        onStatusChange={(id, status) => {
+          handleStatusChange(id, status);
+          setPanelApptId(null);
+        }}
+        onExamine={isDoctor ? handleExamine : undefined}
+        isDoctor={isDoctor}
+      />
 
       {/* Loading indicator — thin top bar instead of full-screen overlay */}
       {isPending && (

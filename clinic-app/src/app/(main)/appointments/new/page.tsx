@@ -11,6 +11,8 @@ export default async function NewAppointmentPage({
     doctorId?: string;
     date?: string;
     visitId?: string;
+    reason?: string;
+    stepLabel?: string;
   }>;
 }) {
   const currentUser = await requireAuth();
@@ -37,8 +39,8 @@ export default async function NewAppointmentPage({
     });
   }
 
-  let defaultReason: string | undefined;
-  if (params.visitId) {
+  let defaultReason: string | undefined = params.reason;
+  if (!defaultReason && params.visitId) {
     const visit = await prisma.visit.findUnique({
       where: { id: parseInt(params.visitId) },
       include: { operation: { select: { name: true } } },

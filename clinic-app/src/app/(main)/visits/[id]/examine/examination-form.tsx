@@ -21,8 +21,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { format } from "date-fns";
+
+type PreviousReport = {
+  visitId: number;
+  caseNo: number | null;
+  stepLabel: string | null;
+  doctorName: string;
+  reportDate: string;
+  complaint: string | null;
+  examination: string | null;
+  diagnosis: string | null;
+  treatmentNotes: string | null;
+  medication: string | null;
+  addendums: { content: string; doctorName: string; createdAt: string }[];
+};
 
 const COMMON_COMPLAINTS = [
   "PAIN",
@@ -63,6 +77,120 @@ type Addendum = {
   doctorName: string;
 };
 
+function PreviousNoteCard({ report }: { report: PreviousReport }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasContent = report.complaint || report.diagnosis || report.treatmentNotes || report.examination || report.medication;
+
+  if (!hasContent) return null;
+
+  return (
+    <div className="rounded-md border bg-card p-3 text-xs space-y-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <span className="font-medium text-sm">
+            {report.stepLabel || "Initial Assessment"}
+          </span>
+          <div className="text-muted-foreground">
+            Dr. {report.doctorName} · {report.reportDate}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="shrink-0 rounded p-1 hover:bg-accent"
+        >
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+
+      {/* Collapsed: truncated fields */}
+      {!expanded && (
+        <div className="space-y-1 text-muted-foreground">
+          {report.complaint && (
+            <div className="line-clamp-2"><span className="font-medium text-foreground">C: </span>{report.complaint}</div>
+          )}
+          {report.diagnosis && (
+            <div className="line-clamp-2"><span className="font-medium text-foreground">D: </span>{report.diagnosis}</div>
+          )}
+          {report.treatmentNotes && (
+            <div className="line-clamp-2"><span className="font-medium text-foreground">Tx: </span>{report.treatmentNotes}</div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded: all fields */}
+      {expanded && (
+        <div className="space-y-2 text-foreground">
+          {report.complaint && (
+            <div><span className="text-muted-foreground font-medium">Complaint: </span><span className="whitespace-pre-wrap">{report.complaint}</span></div>
+          )}
+          {report.examination && (
+            <div><span className="text-muted-foreground font-medium">Examination: </span><span className="whitespace-pre-wrap">{report.examination}</span></div>
+          )}
+          {report.diagnosis && (
+            <div><span className="text-muted-foreground font-medium">Diagnosis: </span><span className="whitespace-pre-wrap">{report.diagnosis}</span></div>
+          )}
+          {report.treatmentNotes && (
+            <div><span className="text-muted-foreground font-medium">Treatment: </span><span className="whitespace-pre-wrap">{report.treatmentNotes}</span></div>
+          )}
+          {report.medication && (
+            <div><span className="text-muted-foreground font-medium">Medication: </span><span className="whitespace-pre-wrap">{report.medication}</span></div>
+          )}
+          {report.addendums.length > 0 && (
+            <div className="border-t pt-1.5 mt-1.5 space-y-1">
+              {report.addendums.map((a, i) => (
+                <div key={i} className="text-xs text-muted-foreground">
+                  <span className="italic">{a.content}</span>
+                  <span className="ml-1">— Dr. {a.doctorName}, {a.createdAt}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreviousNotesPanel({
+  reports,
+  operationName,
+  collapsed,
+  onToggle,
+}: {
+  reports: PreviousReport[];
+  operationName: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div
+        className={`flex items-center justify-between ${onToggle ? "cursor-pointer" : ""}`}
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">{operationName} — Previous Notes</h3>
+          <span className="text-xs text-muted-foreground">({reports.length} visit{reports.length !== 1 ? "s" : ""})</span>
+        </div>
+        {onToggle && (
+          <button type="button" className="shrink-0 rounded p-1 hover:bg-accent">
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+      {!collapsed && (
+        <div className="space-y-2">
+          {reports.map((r) => (
+            <PreviousNoteCard key={r.visitId} report={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ExaminationForm({
   visitId,
   patientId,
@@ -79,6 +207,8 @@ export function ExaminationForm({
   permissionLevel,
   nextPatientId,
   nextPatientCode,
+  previousReports,
+  operationName,
 }: {
   visitId: number;
   patientId?: number;
@@ -95,6 +225,8 @@ export function ExaminationForm({
   permissionLevel?: number;
   nextPatientId?: number | null;
   nextPatientCode?: number | null;
+  previousReports?: PreviousReport[];
+  operationName?: string;
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -143,6 +275,8 @@ export function ExaminationForm({
   }, [isDirty]);
 
   const isDoctor = permissionLevel === 3;
+  const hasPreviousNotes = previousReports && previousReports.length > 0;
+  const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
 
   async function handleSave(redirectTarget: "detail" | "print" | "next-patient") {
     startTransition(async () => {
@@ -229,9 +363,44 @@ export function ExaminationForm({
     });
   }
 
+  // Wrap content with side-by-side layout when previous notes exist
+  function SideBySideWrapper({ children }: { children: React.ReactNode }) {
+    if (!hasPreviousNotes) return <>{children}</>;
+    return (
+      <>
+        {/* Mobile: collapsible panel above form */}
+        <div className="lg:hidden">
+          <Card className="mb-4">
+            <CardContent className="p-3">
+              <PreviousNotesPanel
+                reports={previousReports!}
+                operationName={operationName || "Treatment"}
+                collapsed={!mobileNotesOpen}
+                onToggle={() => setMobileNotesOpen(!mobileNotesOpen)}
+              />
+            </CardContent>
+          </Card>
+        </div>
+        {/* Desktop: side-by-side */}
+        <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
+          <div className="lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:sticky lg:top-[72px] pr-1">
+            <PreviousNotesPanel
+              reports={previousReports!}
+              operationName={operationName || "Treatment"}
+            />
+          </div>
+          <div className="max-w-3xl">{children}</div>
+        </div>
+        {/* Mobile: show the form (already rendered collapsible above) */}
+        <div className="lg:hidden">{children}</div>
+      </>
+    );
+  }
+
   // Locked state: show read-only view
   if (isLocked && existingReport) {
     return (
+      <SideBySideWrapper>
       <div className="space-y-4">
         {/* Lock banner */}
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
@@ -329,11 +498,13 @@ export function ExaminationForm({
           </CardContent>
         </Card>
       </div>
+      </SideBySideWrapper>
     );
   }
 
   // Editable form — consolidated into 2 cards with sticky save bar
   return (
+    <SideBySideWrapper>
     <div className="space-y-4 pb-20">
       {/* Auto-lock warning */}
       {existingReport && hoursUntilLock > 0 && hoursUntilLock < 24 && (
@@ -537,5 +708,6 @@ export function ExaminationForm({
         </div>
       </div>
     </div>
+    </SideBySideWrapper>
   );
 }

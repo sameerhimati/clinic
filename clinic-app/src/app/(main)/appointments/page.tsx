@@ -26,9 +26,33 @@ export default async function AppointmentsPage({
         date: { gte: date, lt: nextDay },
       },
       include: {
-        patient: { select: { id: true, code: true, name: true, salutation: true } },
+        patient: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            salutation: true,
+            diseases: { include: { disease: { select: { name: true } } } },
+            _count: { select: { visits: true } },
+          },
+        },
         doctor: { select: { id: true, name: true } },
-        visit: { select: { id: true, caseNo: true } },
+        visit: {
+          select: {
+            id: true,
+            caseNo: true,
+            stepLabel: true,
+            operation: { select: { name: true } },
+            parentVisit: {
+              select: {
+                clinicalReports: {
+                  select: { diagnosis: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
         room: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: "asc" },
@@ -81,6 +105,8 @@ export default async function AppointmentsPage({
     a.name.localeCompare(b.name)
   );
 
+  const canCollect = currentUser.permissionLevel <= 2;
+
   // Serialize for client
   const serialized = appointments.map((a) => ({
     id: a.id,
@@ -98,6 +124,12 @@ export default async function AppointmentsPage({
     reason: a.reason,
     notes: a.notes,
     cancelReason: a.cancelReason,
+    // Enriched fields
+    operationName: a.visit?.operation?.name || null,
+    stepLabel: a.visit?.stepLabel || null,
+    diseases: a.patient.diseases.map((d) => d.disease.name),
+    visitCount: a.patient._count.visits,
+    previousDiagnosis: a.visit?.parentVisit?.clinicalReports?.[0]?.diagnosis || null,
   }));
 
   return (

@@ -22,18 +22,34 @@ model Disease {
 }
 
 model Operation {
-  id            Int      @id @default(autoincrement())
-  code          Int?     @unique
-  name          String
-  category      String?
-  defaultMinFee Float?
-  defaultMaxFee Float?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  visits        Visit[]
+  id              Int              @id @default(autoincrement())
+  code            Int?             @unique
+  name            String
+  category        String?
+  defaultMinFee   Float?
+  defaultMaxFee   Float?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  visits          Visit[]
+  treatmentSteps  TreatmentStep[]
 
   @@map("operations")
+}
+
+model TreatmentStep {
+  id            Int       @id @default(autoincrement())
+  operationId   Int
+  operation     Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  stepNumber    Int
+  name          String
+  description   String?
+  defaultDayGap Int       @default(7)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([operationId, stepNumber])
+  @@map("treatment_steps")
 }
 
 model Lab {

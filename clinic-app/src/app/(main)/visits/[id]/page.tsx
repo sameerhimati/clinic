@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, ChevronRight } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, ChevronRight, Check, ArrowRight, Circle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
@@ -70,6 +70,56 @@ export default async function VisitDetailPage({
   });
 
   if (!visit) notFound();
+
+  // Fetch treatment steps for the operation (if any)
+  const treatmentSteps = visit.operationId
+    ? await prisma.treatmentStep.findMany({
+        where: { operationId: visit.operationId },
+        orderBy: { stepNumber: "asc" },
+      })
+    : [];
+
+  // Get the root visit id for the treatment chain
+  const rootVisitId = visit.parentVisitId || visit.id;
+
+  // Fetch all visits in the chain (root + follow-ups)
+  const chainVisits = treatmentSteps.length > 0
+    ? await prisma.visit.findMany({
+        where: {
+          OR: [
+            { id: rootVisitId },
+            { parentVisitId: rootVisitId },
+          ],
+        },
+        include: {
+          doctor: { select: { name: true } },
+          clinicalReports: { take: 1, select: { id: true } },
+        },
+        orderBy: { visitDate: "asc" },
+      })
+    : [];
+
+  // Match chain visits to template steps
+  const completedSteps = chainVisits.map((v) => ({
+    visitId: v.id,
+    stepLabel: v.stepLabel,
+    visitDate: v.visitDate,
+    doctorName: v.doctor?.name || null,
+    hasReport: v.clinicalReports.length > 0,
+  }));
+
+  // Find next unmatched step
+  const nextStepIndex = completedSteps.length;
+  const nextStep = treatmentSteps[nextStepIndex] || null;
+
+  // Compute suggested date for next step
+  let suggestedDate: string | null = null;
+  if (nextStep && completedSteps.length > 0) {
+    const lastVisit = completedSteps[completedSteps.length - 1];
+    const lastDate = new Date(lastVisit.visitDate);
+    const suggested = new Date(lastDate.getTime() + nextStep.defaultDayGap * 86400000);
+    suggestedDate = `${suggested.getFullYear()}-${String(suggested.getMonth() + 1).padStart(2, "0")}-${String(suggested.getDate()).padStart(2, "0")}`;
+  }
 
   const billed = calcBilled(visit);
   const paid = calcPaid(visit.receipts);
@@ -209,6 +259,73 @@ export default async function VisitDetailPage({
                 </Link>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Treatment Progress — shown when operation has treatment steps */}
+      {treatmentSteps.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {visit.operation?.name} — Treatment Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {treatmentSteps.map((step, i) => {
+              const matchedVisit = completedSteps[i];
+              const isCurrent = i === nextStepIndex - 1 && matchedVisit?.visitId === visit.id;
+              const isCompleted = i < completedSteps.length;
+              const isNext = i === nextStepIndex;
+
+              return (
+                <div key={step.id} className="flex items-start gap-3 text-sm">
+                  <div className="shrink-0 mt-0.5">
+                    {isCompleted ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : isNext ? (
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className={`font-medium ${isCompleted ? "text-foreground" : isNext ? "text-primary" : "text-muted-foreground"}`}>
+                      Step {step.stepNumber}: {step.name}
+                    </span>
+                    {matchedVisit && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({format(new Date(matchedVisit.visitDate), "MMM d")}{matchedVisit.doctorName ? ` · Dr. ${matchedVisit.doctorName}` : ""})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Schedule next step button */}
+            {nextStep && (
+              <div className="pt-3 border-t mt-3">
+                <Button size="sm" asChild>
+                  <Link href={`/appointments/new?patientId=${visit.patientId}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(nextStep.name)}&stepLabel=${encodeURIComponent(nextStep.name)}${suggestedDate ? `&date=${suggestedDate}` : ""}`}>
+                    <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                    Schedule Step {nextStep.stepNumber}: {nextStep.name}
+                    {suggestedDate && (
+                      <span className="text-xs ml-1 opacity-70">
+                        (suggested: {format(new Date(suggestedDate + "T00:00:00"), "MMM d")})
+                      </span>
+                    )}
+                  </Link>
+                </Button>
+              </div>
+            )}
+
+            {/* All steps complete */}
+            {!nextStep && completedSteps.length >= treatmentSteps.length && (
+              <div className="pt-3 border-t mt-3 text-sm text-green-700 font-medium">
+                All treatment steps completed
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
