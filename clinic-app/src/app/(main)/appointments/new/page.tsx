@@ -51,7 +51,7 @@ export default async function NewAppointmentPage({
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-2xl space-y-6">
       <Breadcrumbs items={[
         { label: "Appointments", href: "/appointments" },
         { label: "Schedule" },

@@ -58,6 +58,15 @@ type FutureAppointment = {
   status: string;
 };
 
+type PastAppointment = {
+  id: number;
+  date: Date;
+  timeSlot: string | null;
+  doctorName: string | null;
+  reason: string | null;
+  status: string;
+};
+
 type PatientFile = {
   id: number;
   fileName: string | null;
@@ -118,6 +127,7 @@ export type PatientPageData = {
   missingNotesCount: number;
   todayAppointment: TodayAppointment | null;
   futureAppointments: FutureAppointment[];
+  pastAppointments: PastAppointment[];
   files: PatientFile[];
   receipts: Receipt[];
   allDiseases: Disease[];
@@ -344,15 +354,23 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </div>
       )}
 
-      {/* Upcoming Appointments */}
-      {data.futureAppointments.length > 0 && (
+      {/* Appointments */}
+      {(data.futureAppointments.length > 0 || data.pastAppointments.length > 0) && (
         <section>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Upcoming Appointments</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
+            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+              <Link href={`/appointments/new?patientId=${patient.id}`}>
+                <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                Schedule
+              </Link>
+            </Button>
+          </div>
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
                 {data.futureAppointments.map((appt) => (
-                  <div key={appt.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
                     <div>
                       <div className="font-medium text-sm">
                         {format(new Date(appt.date), "EEE, dd MMM")}
@@ -368,6 +386,21 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                         <Link href={`/appointments?date=${format(new Date(appt.date), "yyyy-MM-dd")}`}>View</Link>
                       </Button>
                     </div>
+                  </div>
+                ))}
+                {data.pastAppointments.map((appt) => (
+                  <div key={`p-${appt.id}`} className="flex items-center justify-between px-4 py-2.5 opacity-60">
+                    <div>
+                      <div className="text-sm">
+                        {format(new Date(appt.date), "dd MMM yyyy")}
+                        {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {appt.doctorName && `Dr. ${appt.doctorName}`}
+                        {appt.reason && ` · ${appt.reason}`}
+                      </div>
+                    </div>
+                    <StatusBadge status={appt.status} />
                   </div>
                 ))}
               </div>

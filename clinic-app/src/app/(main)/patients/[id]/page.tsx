@@ -25,7 +25,7 @@ export default async function PatientDetailPage({
 
   const today = todayString();
 
-  const [patient, todayAppointments, futureAppointments, operations, doctors, labs, allDiseases] = await Promise.all([
+  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -108,6 +108,16 @@ export default async function PatientDetailPage({
       include: { doctor: { select: { name: true } } },
       orderBy: { date: "asc" },
       take: 3,
+    }),
+    // Past appointments (completed, cancelled, no-show)
+    prisma.appointment.findMany({
+      where: {
+        patientId,
+        status: { in: ["COMPLETED", "CANCELLED", "NO_SHOW"] },
+      },
+      include: { doctor: { select: { name: true } } },
+      orderBy: { date: "desc" },
+      take: 5,
     }),
     // Operations for Quick Visit
     prisma.operation.findMany({
@@ -244,6 +254,14 @@ export default async function PatientDetailPage({
       date: a.date,
       timeSlot: a.timeSlot,
       doctorName: a.doctor?.name || null,
+      status: a.status,
+    })),
+    pastAppointments: pastAppointments.map(a => ({
+      id: a.id,
+      date: a.date,
+      timeSlot: a.timeSlot,
+      doctorName: a.doctor?.name || null,
+      reason: a.reason,
       status: a.status,
     })),
     files: patient.files as PatientPageData["files"],

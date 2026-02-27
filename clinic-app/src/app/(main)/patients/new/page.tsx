@@ -12,7 +12,7 @@ export default async function NewPatientPage() {
   const diseases = await prisma.disease.findMany({ orderBy: { id: "asc" } });
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-2xl space-y-6">
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: "Register" },

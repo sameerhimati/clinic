@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PatientSearch } from "@/components/patient-search";
 import { createAppointment } from "@/app/(main)/appointments/actions";
+import Link from "next/link";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { todayString } from "@/lib/validations";
@@ -71,9 +72,9 @@ export function AppointmentForm({
         <CardHeader>
           <CardTitle>Appointment Details</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           {/* Patient selection */}
-          <div className="space-y-2 sm:col-span-2">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label>
               Patient <span className="text-destructive">*</span>
             </Label>
@@ -102,7 +103,7 @@ export function AppointmentForm({
           </div>
 
           {isDoctor ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Doctor</Label>
               <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
               <Badge variant="secondary" className="text-sm py-1 px-3">
@@ -110,7 +111,7 @@ export function AppointmentForm({
               </Badge>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="doctorId">Doctor</Label>
               <select
                 name="doctorId"
@@ -128,7 +129,7 @@ export function AppointmentForm({
           )}
 
           {!isDoctor && rooms && rooms.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="roomId">Room</Label>
               <select
                 name="roomId"
@@ -145,7 +146,7 @@ export function AppointmentForm({
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="date">
               Date <span className="text-destructive">*</span>
             </Label>
@@ -158,7 +159,7 @@ export function AppointmentForm({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="timeSlot">Time</Label>
             {timeSlotMode === "preset" ? (
               <select
@@ -202,7 +203,7 @@ export function AppointmentForm({
             )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="reason">Reason</Label>
             <Input
               name="reason"
@@ -211,16 +212,21 @@ export function AppointmentForm({
             />
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="notes">Notes</Label>
             <Textarea name="notes" rows={2} placeholder="Additional notes..." />
           </div>
         </CardContent>
       </Card>
 
-      <Button type="submit" disabled={!selectedPatient || isPending}>
-        {isPending ? "Scheduling..." : "Schedule Appointment"}
-      </Button>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="button" variant="outline" asChild>
+          <Link href={defaultPatient ? `/patients/${defaultPatient.id}` : "/appointments"}>Cancel</Link>
+        </Button>
+        <Button type="submit" disabled={!selectedPatient || isPending}>
+          {isPending ? "Scheduling..." : "Schedule Appointment"}
+        </Button>
+      </div>
     </form>
   );
 }

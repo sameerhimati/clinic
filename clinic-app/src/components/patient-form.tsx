@@ -9,13 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { dateToString } from "@/lib/validations";
 import { AlertTriangle } from "lucide-react";
 
@@ -129,7 +122,7 @@ export function PatientForm({
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={handleSubmit} className="space-y-6">
 
       {/* ── Personal Details ── */}
       <Card>
@@ -137,31 +130,33 @@ export function PatientForm({
           <CardTitle className="text-base">Personal Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-[100px_1fr]">
-            <div className="space-y-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-[120px_1fr]">
+            <div className="space-y-1.5">
               <Label>Title</Label>
-              <Select name="salutation" defaultValue={patient?.salutation || ""}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {["Mr", "Mrs", "Ms", "Baby", "Master", "Dr"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                name="salutation"
+                defaultValue={patient?.salutation || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+              >
+                <option value="">—</option>
+                {["Mr", "Mrs", "Ms", "Baby", "Master", "Dr"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
-            <div className="space-y-2">
-              <Label>Full Name <span className="text-destructive">*</span></Label>
+            <div className="space-y-1.5">
+              <Label>Full Name <span className="text-destructive/70">*</span></Label>
               <Input name="name" required defaultValue={patient?.name || ""} placeholder="Patient name" />
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
               <Label>Father / Husband</Label>
               <Input name="fatherHusbandName" defaultValue={patient?.fatherHusbandName || ""} />
             </div>
-            <div className="space-y-2">
-              <Label>Mobile <span className="text-destructive">*</span></Label>
+            <div className="space-y-1.5">
+              <Label>Mobile <span className="text-destructive/70">*</span></Label>
               <Input
                 name="mobile" type="tel" required value={mobile}
                 onChange={(e) => handleMobileChange(e.target.value)}
@@ -170,21 +165,26 @@ export function PatientForm({
               />
               {mobileError && <p className="text-xs text-destructive mt-1">{mobileError}</p>}
               {duplicatePatient && (
-                <div className="flex items-center gap-1.5 mt-1.5 rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                  <span>
-                    Already registered to{" "}
-                    <Link href={`/patients/${duplicatePatient.id}`} className="font-medium underline" target="_blank">
-                      #{duplicatePatient.code} {duplicatePatient.name}
-                    </Link>
-                  </span>
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-amber-900">Possible duplicate</p>
+                      <p className="text-xs text-amber-800">
+                        This mobile number is already registered to{" "}
+                        <Link href={`/patients/${duplicatePatient.id}`} className="font-medium underline" target="_blank">
+                          #{duplicatePatient.code} {duplicatePatient.name}
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div className="space-y-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5">
               <Label>Date of Birth</Label>
               <Input
                 name="dateOfBirth" type="date"
@@ -192,47 +192,50 @@ export function PatientForm({
                 onChange={(e) => handleDobChange(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Age</Label>
               <Input
                 name="ageAtRegistration" type="number" min={0} max={150}
                 value={age} onChange={(e) => setAge(e.target.value)} placeholder="—"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Gender</Label>
-              <Select name="gender" defaultValue={patient?.gender || ""}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="M">Male</SelectItem>
-                  <SelectItem value="F">Female</SelectItem>
-                  <SelectItem value="O">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                name="gender"
+                defaultValue={patient?.gender || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+              >
+                <option value="">—</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+              </select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Blood Group</Label>
-              <Select name="bloodGroup" defaultValue={patient?.bloodGroup || ""}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
-                    <SelectItem key={bg} value={bg}>{bg}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                name="bloodGroup"
+                defaultValue={patient?.bloodGroup || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+              >
+                <option value="">—</option>
+                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
+                  <option key={bg} value={bg}>{bg}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
               <Label>Occupation</Label>
               <Input name="occupation" defaultValue={patient?.occupation || ""} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Phone</Label>
               <Input name="phone" type="tel" defaultValue={patient?.phone || ""} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Email</Label>
               <Input name="email" type="email" defaultValue={patient?.email || ""} />
             </div>
@@ -246,24 +249,24 @@ export function PatientForm({
           <CardTitle className="text-base">Address</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Address Line 1</Label>
             <Input name="addressLine1" defaultValue={patient?.addressLine1 || ""} />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Address Line 2</Label>
             <Input name="addressLine2" defaultValue={patient?.addressLine2 || ""} />
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
               <Label>Area / Landmark</Label>
               <Input name="addressLine3" defaultValue={patient?.addressLine3 || ""} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>City</Label>
               <Input name="city" defaultValue={patient?.city || ""} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Pincode</Label>
               <Input name="pincode" defaultValue={patient?.pincode || ""} />
             </div>
@@ -277,12 +280,12 @@ export function PatientForm({
           <CardTitle className="text-base">Medical History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0">
             {diseases.map((disease) => (
               <label
                 key={disease.id}
                 htmlFor={`disease-${disease.id}`}
-                className="flex items-center gap-2.5 cursor-pointer rounded-md px-2 py-2 text-sm hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-2 cursor-pointer select-none rounded px-1.5 py-1 text-sm hover:bg-muted/40 transition-colors"
               >
                 <Checkbox
                   id={`disease-${disease.id}`}
@@ -308,11 +311,16 @@ export function PatientForm({
         </CardContent>
       </Card>
 
-      <Button type="submit" size="lg" disabled={isPending} className="w-full">
-        {isPending
-          ? (patient ? "Updating..." : "Registering...")
-          : (patient ? "Update Patient" : "Register Patient")}
-      </Button>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="button" variant="outline" asChild>
+          <Link href="/patients">Cancel</Link>
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending
+            ? (patient ? "Updating..." : "Registering...")
+            : (patient ? "Update Patient" : "Register Patient")}
+        </Button>
+      </div>
     </form>
   );
 }

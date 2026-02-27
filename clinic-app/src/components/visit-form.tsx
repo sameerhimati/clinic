@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { PatientSearch } from "@/components/patient-search";
+import Link from "next/link";
 import { X, Search, Check, ChevronsUpDown, ChevronDown, Plus, Lock } from "lucide-react";
 import { todayString } from "@/lib/validations";
 
@@ -310,7 +311,7 @@ export function VisitForm({
   const rateDiffersFromTariff = tariffRate != null && tariffRate > 0 && rateNum !== tariffRate;
 
   return (
-    <form action={handleSubmit} className="space-y-5">
+    <form action={handleSubmit} className="space-y-6">
       {/* Hidden fields */}
       {appointmentId && <input type="hidden" name="appointmentId" value={appointmentId} />}
       {isFollowUp && (
@@ -370,7 +371,7 @@ export function VisitForm({
 
       {/* --- Treatment + Rate + Discount --- */}
       <div className="rounded-lg border p-4 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Treatment <span className="text-destructive">*</span></Label>
             <OperationCombobox
@@ -407,7 +408,7 @@ export function VisitForm({
 
         {/* Amount + Discount — hidden for doctors */}
         {!isDoctor && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Rate ({"\u20B9"})</Label>
               <div className="relative">
@@ -457,7 +458,7 @@ export function VisitForm({
       {/* --- Doctor --- */}
       {!isDoctor && (
         <div className="space-y-3">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Doctor</Label>
               <select
@@ -544,7 +545,7 @@ export function VisitForm({
                   <X className="h-3 w-3 mr-1" /> Remove
                 </Button>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Lab</Label>
                   <select
@@ -601,9 +602,14 @@ export function VisitForm({
         <Textarea name="notes" rows={2} placeholder="Optional visit notes..." />
       </div>
 
-      <Button type="submit" disabled={isPending || !selectedPatient} className="w-full sm:w-auto">
-        {isPending ? "Creating..." : (isFollowUp ? "Create Follow-up" : "Create Visit")}
-      </Button>
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="button" variant="outline" asChild>
+          <Link href={defaultPatient ? `/patients/${defaultPatient.id}` : "/dashboard"}>Cancel</Link>
+        </Button>
+        <Button type="submit" disabled={isPending || !selectedPatient}>
+          {isPending ? "Creating..." : (isFollowUp ? "Create Follow-up" : "Create Visit")}
+        </Button>
+      </div>
     </form>
   );
 }

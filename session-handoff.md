@@ -1,131 +1,92 @@
 # Session Handoff
-> Last updated: 2026-02-27 (Session 15 — Workflow Testing & Form Polish)
+> Last updated: 2026-02-27 (Session 16 — Form Polish + Workflow Testing Start)
 
 ## Completed This Session
 
-### Housekeeping
-- Removed duplicate `clinic-app/SESSION-HANDOFF.md` (stale Session 13) — single handoff at project root now
-- Fixed readonly DB error — re-seeded fresh (`rm dev.db && prisma db push && bun prisma/seed.ts`)
-- Installed **Playwright MCP** for browser-based UI testing: `claude mcp add playwright -- npx @playwright/mcp@latest`
+### Form UI Polish (app-wide consistency)
+- Established design system tokens across ALL forms: `space-y-6` between cards, `space-y-1.5` field containers, `gap-x-6 gap-y-4` grids
+- Page max-width: all form pages → `max-w-2xl` (focused column, premium pattern)
+- Submit buttons: right-aligned with Cancel link (Cancel navigates contextually — back to patient if coming from patient, else to parent list)
+- Patient form: Title/Gender/Blood Group switched from shadcn `Select` to native `<select>` to fix auto-fill bug (shadcn Select picks first option when no value selected)
+- Removed "Other" gender option (just Male/Female)
+- Medical history checkboxes: 3-col max, tighter spacing (`gap-x-4 gap-y-0`, `py-1`, `select-none`)
+- Duplicate warning: upgraded to proper alert banner with title + description
+- Applied same patterns to: visit-form, appointment-form, doctor-form + all page wrappers
 
-### Code Verification
-- Traced full daily patient flow through code (all 10 steps verified working):
-  1. Patient creation (auto code, redirect) ✓
-  2. Book appointment (SCHEDULED) ✓
-  3. Arrived → Start Visit (status flow) ✓
-  4. BDS exam (blank form, save, auto-complete appt) ✓
-  5. Visit detail + treatment progress card ✓
-  6. "Schedule Next Step" (pre-fills appointment) ✓
-  7. Consultant follow-up (fetches chain reports) ✓
-  8. Side-by-side panel (desktop sticky, mobile collapsible) ✓
-  9. Auto-complete appointment on exam save ✓
-  10. Checkout / payment collection ✓
+### Bug Fixes
+- **Readonly DB error**: Turbopack internal cache corruption (`.next/` directory) was the root cause — NOT the SQLite DB. Fixed by `rm -rf .next` + restart. Also re-seeded fresh DB for good measure.
+- **Edit Patient hanging**: Same Turbopack cache corruption. Fixed with cache clear.
 
-### Patient Form Rework (in progress)
-- Removed Referring Physician fields from UI (kept in DB schema for legacy data)
-- Page width: `max-w-3xl` → `max-w-4xl` on both new + edit pages
-- Multiple layout iterations — **current version** uses Card/grid pattern matching rest of app:
-  - `grid gap-4 sm:grid-cols-2` / `sm:grid-cols-3` / `sm:grid-cols-4`
-  - Same Card + CardHeader + CardContent structure as visit form and exam form
-- **NEEDS VISUAL REVIEW** — user wants Apple/Notion/Linear quality. Use Playwright MCP to screenshot and iterate.
-
-## Design Research: Premium Form Patterns (from Linear, Stripe, Vercel, healthcare SaaS)
-
-### Layout
-- **Max width `max-w-2xl` (672px)** — premium forms don't stretch wide. Focused column reduces eye travel.
-- **`space-y-8` between cards** (not `space-y-4`) — sections need room to breathe
-
-### Typography
-- Labels: `text-sm font-medium text-foreground` (not muted — labels should be readable)
-- Required asterisk: `text-xs text-destructive/70 ml-0.5` — subdued, not screaming
-- Section titles: `text-sm font-medium uppercase tracking-wide text-muted-foreground`
-- Helper text: `text-xs text-muted-foreground mt-1`
-
-### Spacing Rhythm (4-8-16-24-32 scale)
-- Label → input: `space-y-1.5` (6px)
-- Between fields in a section: `gap-4` to `gap-5` (16-20px)
-- Column gaps in grids: `gap-x-6` (24px)
-- Card internal padding: `p-6` (24px) — shadcn default
-- Between cards/sections: `space-y-8` (32px)
-
-### Grid Rules
-- Title + Name: `grid gap-4 sm:grid-cols-[120px_1fr]`
-- Two equal fields: `grid gap-x-6 gap-y-4 sm:grid-cols-2`
-- Four small fields (DOB/Age/Gender/Blood): `grid gap-4 sm:grid-cols-2 lg:grid-cols-4` — graceful 2x2 on tablets
-- **Never more than 2 cols on mobile**
-
-### Medical History Checkboxes
-- Max 3 columns (not 4) — `grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0.5`
-- Each item: `flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted/40 select-none`
-- `select-none` prevents accidental text selection during rapid clicking
-
-### Submit Button
-- Right-aligned, not full-width: `flex justify-end gap-3 pt-4`
-- Include Cancel button: `<Button variant="outline">Cancel</Button>`
-- Save sticky bar for long forms (exam), not registration
-
-### Duplicate Warning
-- Upgrade from inline `text-xs` to proper alert banner with title "Possible duplicate" + description
-
-## ⚠️ IMMEDIATE NEXT: Patient Form UI Polish
-
-The patient form (`src/components/patient-form.tsx`) needs visual polish. The user described the goal as: **"Think Apple, Google, Uber, Notion, Figma. Smart, elegant, intentional design."**
-
-**Use Playwright MCP** to:
-1. Navigate to `http://localhost:3000/patients/new` (login as MURALIDHAR/admin first)
-2. Screenshot the form at desktop viewport
-3. Iterate on spacing, grid layout, visual hierarchy
-4. Screenshot after each change to verify
-
-Current issues the user flagged:
-- Grid columns collapsing to single-column on their viewport
-- Spacing feels inconsistent / "random AI generated"
-- Needs intentional density — practical but modern
-
-## ⚠️ CRITICAL: Before Proceeding with Roadmap
-
-**DO NOT start new roadmap items until the user has fully tested the Daily Patient Flow:**
-
-```
-Reception creates patient + appointment
-  → BDS doctor (SURENDER) examines (blank form, fills it)
-  → BDS schedules follow-up with consultant (RAMANA REDDY)
-  → Consultant opens follow-up exam (should see BDS notes in left panel)
-  → Consultant examines + saves
-  → Visit detail shows treatment progress (step 2/5 done)
-  → "Schedule Step 3" button works with pre-filled date
-  → Repeat through all steps
-  → Reception collects payment
-```
-
-**Ask the user at session start:**
-> "Have you finished testing the daily patient flow? Any bugs or workflow issues to fix before we move on?"
-
-After testing completes, next is **defining remaining core workflows**:
-- Lab work flow (send to lab → receive → fit)
-- Emergency walk-in flow
-- Insurance/billing flow
-- Monthly reporting flow
+### Patient Profile — Appointments Section
+- Added past appointments (COMPLETED, CANCELLED, NO_SHOW) to patient detail page
+- Combined "Upcoming" + "Past" into unified "Appointments" section with Schedule button
+- Past appointments render with `opacity-60` to distinguish from active ones
 
 ## Current State
 - **Branch:** main
-- **Last commit:** `f3331a3` — Session handoff + CLAUDE.md (uncommitted: patient form rework + housekeeping)
+- **Last commit:** `3d489e9` — Session 15
 - **Build:** ✅ Passes cleanly (34 routes)
-- **DB:** Freshly re-seeded (50 patients, 49 visits, 19 treatment steps)
-- **Dev server:** running on port 3000
-- **Playwright MCP:** Installed, available after session restart
+- **Uncommitted changes:** YES — 10 modified files (all form/page polish + patient detail appointments)
+- **DB:** Freshly re-seeded (50 patients + 1 TEST PATIENT created during testing)
+- **Dev server:** Was running on port 3000. May need restart after session break. If Turbopack panics, `rm -rf .next` first.
+- **Blockers:** None
+
+## ⚠️ CRITICAL: Workflow Testing in Progress
+
+User is testing the Daily Patient Flow. **Step 1 (Register Patient) passed.** Step 2 (Schedule Appointment) is next.
+
+### Workflow Issues Discovered During Testing (to address next session)
+
+1. **Visit should require an appointment** — Currently you can create a visit without an appointment. The flow should be: Appointment → Arrived → Start Visit. Direct "New Visit" without an appointment should not be the default path. On patient detail, if no active appointment exists, the primary action should be "Schedule Appointment" not "New Visit".
+
+2. **Walk-in / immediate appointment** — Need a quick "Walk-in" flow that creates an appointment with current date/time and immediately moves to ARRIVED status, bypassing the scheduling step. This is for patients who show up without an appointment.
+
+3. **L2 (Reception) should NOT be able to examine** — Reception can create patients, appointments, visits, collect payments. But the "Examine" button (clinical notes) should only be available to L3 (doctors). Reception should be able to VIEW examination reports but not create/edit them.
+
+4. **"New Visit" vs "Schedule Appointment" is confusing** — The user found these two concepts unclear. Consider:
+   - Remove standalone "New Visit" from dashboard quick actions for reception
+   - Primary path: Schedule Appointment → Arrived → Start Visit (creates visit automatically)
+   - "Record First Visit" on empty patient page should become "Schedule Appointment"
+   - Keep "New Visit" accessible but secondary (for backdating, walk-ins, etc.)
+
+5. **Patient detail "New Visit" button** — Should show "Schedule Appointment" when no active appointment. When there IS an active appointment (ARRIVED/IN_PROGRESS), show "Start Visit" or "Examine" as appropriate.
+
+## Design Decisions Made
+- Native `<select>` over shadcn `Select` for fields that need true empty/null state (Title, Gender, Blood Group). Shadcn Select doesn't support `value=""` properly.
+- `max-w-2xl` for ALL form pages (patient, visit, appointment, doctor). Premium apps use narrow focused columns.
+- Cancel button always navigates contextually: if we know the patient, go back to their profile.
 
 ## Context to Remember
-- **Playwright MCP** is installed — use it to visually test UI changes. Screenshot before/after every CSS change.
-- **Form design pattern:** Use `Card` + `grid gap-4 sm:grid-cols-N` + `space-y-2` per field. This is the established pattern across visit form, exam form, etc.
-- **User's UI bar is HIGH** — they want premium SaaS quality, not "basic form." Every spacing decision should be intentional.
-- **Workflow-first development** — define real clinic workflows before building features.
-- **Treatment chain model:** `Visit.parentVisitId` → flat chain to root.
-- **Roles for testing:** MURALIDHAR/admin = Reception (L2), SURENDER/doctor = BDS (L3), RAMANA REDDY/doctor = Consultant (L3)
-- **Mobile validation:** strips `[\s\-()\/]`, requires `^[6-9]\d{9}$`. Duplicate check via `/api/patients/search`.
-- Light-only theme, `bun` package manager, `$HOME/.bun/bin` in PATH
+- **Turbopack cache corruption** is a recurring issue. If pages hang or crash, `rm -rf .next` fixes it. This is a Next.js 16 + Turbopack bug, not our code.
+- **Form selects**: Use native `<select>` (not shadcn `Select`) when an empty/null default is needed. Shadcn Select auto-fills the first option.
+- **DB re-seed**: `rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts`. TEST PATIENT (#10051) was created manually during testing.
+- **Patient #52** may also exist from testing (created after re-seed).
+- **Playwright MCP** is installed and working for visual testing. Login as MURALIDHAR/admin first.
+- User's UI bar is HIGH — "Think Apple, Google, Uber, Notion, Figma."
+
+## Files Modified (uncommitted)
+```
+clinic-app/src/components/patient-form.tsx       # Major: native selects, spacing, medical history, submit
+clinic-app/src/components/visit-form.tsx          # Spacing, grid gaps, contextual cancel
+clinic-app/src/components/appointment-form.tsx    # Spacing, grid gaps, contextual cancel
+clinic-app/src/components/doctor-form.tsx         # Spacing, grid gaps, cancel link
+clinic-app/src/app/(main)/patients/new/page.tsx   # max-w-2xl, space-y-6
+clinic-app/src/app/(main)/patients/[id]/edit/page.tsx  # max-w-2xl, space-y-6
+clinic-app/src/app/(main)/visits/new/page.tsx     # max-w-2xl, space-y-6
+clinic-app/src/app/(main)/appointments/new/page.tsx # max-w-2xl, space-y-6
+clinic-app/src/app/(main)/patients/[id]/page.tsx  # Added pastAppointments query
+clinic-app/src/app/(main)/patients/[id]/patient-page-client.tsx  # Appointments section (past+future)
+```
+
+## Next Session Should
+1. **Commit current work** — all form polish + patient appointments section
+2. **Implement appointment-first visit flow** — visit creation requires an appointment (or walk-in). Remove/demote standalone "New Visit" for reception. Add walk-in shortcut.
+3. **Gate clinical examination to L3 only** — Reception (L2) can view but not create/edit exam reports
+4. **Rework patient detail action buttons** — "Schedule Appointment" as primary when no active appt; "Start Visit"/"Examine" when there is one
+5. **Continue workflow testing from Step 2** — Schedule Appointment → Arrived → Start Visit → Examine
+6. **Platform-wide UI consistency** — the form polish is done, but list pages, detail pages, settings pages still need spacing audit (see previous session's audit)
 
 ## Start Command
 ```bash
-export PATH="$HOME/.bun/bin:$PATH" && cd /Users/sameer/Desktop/Code/clinic/clinic-app && bun dev
+export PATH="$HOME/.bun/bin:$PATH" && cd /Users/sameer/Desktop/Code/clinic/clinic-app && rm -rf .next && bun dev
 ```
