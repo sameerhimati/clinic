@@ -29,7 +29,7 @@ export default async function EditPatientPage({
   const boundAction = updatePatient.bind(null, patientId);
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="max-w-4xl space-y-4">
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: patient.name, href: `/patients/${patientId}` },
