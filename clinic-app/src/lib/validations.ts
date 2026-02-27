@@ -68,7 +68,7 @@ export const patientSchema = z.object({
   bloodGroup: optionalString,
   occupation: optionalString,
   phone: optionalString,
-  mobile: optionalString,
+  mobile: z.string().trim().min(1, "Mobile number is required"),
   email: optionalString,
   addressLine1: optionalString,
   addressLine2: optionalString,

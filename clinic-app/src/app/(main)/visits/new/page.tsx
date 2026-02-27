@@ -119,7 +119,7 @@ export default async function NewVisitPage({
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-green-100">Appointment</Badge>
             <span className="text-sm font-medium">
-              {appointment.reason || "Appointment"} on {format(new Date(appointment.date), "MMM d, yyyy")}
+              {appointment.reason || "Appointment"} on {format(new Date(appointment.date), "dd-MM-yyyy")}
             </span>
           </div>
         </div>

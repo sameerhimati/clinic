@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,25 @@ export function PatientForm({
 }) {
   const patientDiseaseIds = patient?.diseases?.map((d) => d.diseaseId) || [];
   const [isPending, startTransition] = useTransition();
+
+  // Age auto-compute from DOB
+  const [age, setAge] = useState<string>(
+    patient?.ageAtRegistration?.toString() || ""
+  );
+
+  function handleDobChange(dateStr: string) {
+    if (!dateStr) return;
+    const dob = new Date(dateStr);
+    const today = new Date();
+    let years = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      years--;
+    }
+    if (years >= 0 && years <= 150) {
+      setAge(years.toString());
+    }
+  }
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -121,6 +140,7 @@ export function PatientForm({
                   ? dateToString(new Date(patient.dateOfBirth))
                   : ""
               }
+              onChange={(e) => handleDobChange(e.target.value)}
             />
           </div>
 
@@ -132,7 +152,8 @@ export function PatientForm({
               type="number"
               min={0}
               max={150}
-              defaultValue={patient?.ageAtRegistration || ""}
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
             />
           </div>
 
@@ -186,11 +207,14 @@ export function PatientForm({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="mobile">Mobile</Label>
+            <Label htmlFor="mobile">
+              Mobile <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="mobile"
               name="mobile"
               type="tel"
+              required
               defaultValue={patient?.mobile || ""}
               placeholder="10-digit mobile"
             />
@@ -288,22 +312,22 @@ export function PatientForm({
           <CardTitle>Medical History</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2.5">
             {diseases.map((disease) => (
-              <div key={disease.id} className="flex items-center space-x-2">
+              <label
+                key={disease.id}
+                htmlFor={`disease-${disease.id}`}
+                className="flex items-start gap-2 cursor-pointer text-sm min-h-[28px]"
+              >
                 <Checkbox
                   id={`disease-${disease.id}`}
                   name="diseases"
                   value={disease.id.toString()}
                   defaultChecked={patientDiseaseIds.includes(disease.id)}
+                  className="mt-0.5 shrink-0"
                 />
-                <Label
-                  htmlFor={`disease-${disease.id}`}
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {disease.name}
-                </Label>
-              </div>
+                <span className="leading-snug">{disease.name}</span>
+              </label>
             ))}
           </div>
         </CardContent>

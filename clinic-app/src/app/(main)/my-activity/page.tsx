@@ -76,7 +76,7 @@ export default async function MyActivityPage({
       <div>
         <h2 className="text-2xl font-bold">My Activity</h2>
         <p className="text-sm text-muted-foreground">
-          {format(from, "MMM d, yyyy")} — {format(to, "MMM d, yyyy")}
+          {format(from, "dd-MM-yyyy")} — {format(to, "dd-MM-yyyy")}
         </p>
       </div>
 
@@ -166,7 +166,7 @@ export default async function MyActivityPage({
                     {visit.patient.name}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {visit.operation?.name || "Visit"} · {format(new Date(visit.visitDate), "MMM d, yyyy")}
+                    {visit.operation?.name || "Visit"} · {format(new Date(visit.visitDate), "dd-MM-yyyy")}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export default async function MyActivityPage({
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">
-                        Last: {format(new Date(lastFollowUp?.visitDate || visit.visitDate), "MMM d")}
+                        Last: {format(new Date(lastFollowUp?.visitDate || visit.visitDate), "dd MMM")}
                       </div>
                       {hasExam ? (
                         <Badge variant="secondary" className="text-xs">Examined</Badge>

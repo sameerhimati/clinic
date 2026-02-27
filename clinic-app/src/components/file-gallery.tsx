@@ -111,7 +111,7 @@ export function FileGallery({
             )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                {format(new Date(file.createdAt), "MMM d, yyyy")}
+                {format(new Date(file.createdAt), "dd-MM-yyyy")}
                 {file.uploadedBy && ` · Dr. ${file.uploadedBy.name}`}
               </p>
               {canDelete && (

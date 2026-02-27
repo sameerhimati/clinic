@@ -115,7 +115,7 @@ export default async function ReceiptsPage({
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {receipt.visit.operation?.name || "Visit"} ·{" "}
-                    {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
+                    {format(new Date(receipt.receiptDate), "dd-MM-yyyy")}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

@@ -171,7 +171,7 @@ export default async function VisitDetailPage({
               #{visit.patient.code} {visit.patient.salutation && `${visit.patient.salutation}. `}{visit.patient.name}
             </Link>
             {" \u00b7 "}
-            {format(new Date(visit.visitDate), "MMM d, yyyy")}
+            {format(new Date(visit.visitDate), "dd-MM-yyyy")}
           </p>
           {/* Step label */}
           {visit.stepLabel && (
@@ -250,7 +250,7 @@ export default async function VisitDetailPage({
                 <Link key={fu.id} href={`/visits/${fu.id}`} className="flex items-center justify-between p-3 hover:bg-accent transition-colors">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-muted-foreground">{i === visit.followUps.length - 1 ? "\u2514\u2500\u2500" : "\u251C\u2500\u2500"}</span>
-                    <span>{format(new Date(fu.visitDate), "MMM d, yyyy")}</span>
+                    <span>{format(new Date(fu.visitDate), "dd-MM-yyyy")}</span>
                     <span className="text-muted-foreground">—</span>
                     <span className="font-medium">{fu.operation?.name || "Visit"}</span>
                     {fu.doctor && <span className="text-muted-foreground">\u00b7 Dr. {fu.doctor.name}</span>}
@@ -295,7 +295,7 @@ export default async function VisitDetailPage({
                     </span>
                     {matchedVisit && (
                       <span className="text-xs text-muted-foreground ml-2">
-                        ({format(new Date(matchedVisit.visitDate), "MMM d")}{matchedVisit.doctorName ? ` · Dr. ${matchedVisit.doctorName}` : ""})
+                        ({format(new Date(matchedVisit.visitDate), "dd MMM")}{matchedVisit.doctorName ? ` · Dr. ${matchedVisit.doctorName}` : ""})
                       </span>
                     )}
                   </div>
@@ -312,7 +312,7 @@ export default async function VisitDetailPage({
                     Schedule Step {nextStep.stepNumber}: {nextStep.name}
                     {suggestedDate && (
                       <span className="text-xs ml-1 opacity-70">
-                        (suggested: {format(new Date(suggestedDate + "T00:00:00"), "MMM d")})
+                        (suggested: {format(new Date(suggestedDate + "T00:00:00"), "dd MMM")})
                       </span>
                     )}
                   </Link>
@@ -381,7 +381,7 @@ export default async function VisitDetailPage({
               <div><div className="text-muted-foreground font-medium">Medication</div><div className="mt-0.5 whitespace-pre-wrap">{clinicalReport.medication}</div></div>
             )}
             <div className="text-xs text-muted-foreground pt-1">
-              By Dr. {clinicalReport.doctor.name} {"\u00b7"} {format(new Date(clinicalReport.reportDate), "MMM d, yyyy")}
+              By Dr. {clinicalReport.doctor.name} {"\u00b7"} {format(new Date(clinicalReport.reportDate), "dd-MM-yyyy")}
             </div>
           </CardContent>
         </Card>
@@ -401,7 +401,7 @@ export default async function VisitDetailPage({
               <div key={a.id} className="rounded-md border p-3 text-sm">
                 <div className="whitespace-pre-wrap">{a.content}</div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Dr. {a.doctor.name} {"\u00b7"} {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                  Dr. {a.doctor.name} {"\u00b7"} {format(new Date(a.createdAt), "dd-MM-yyyy 'at' h:mm a")}
                 </div>
               </div>
             ))}
@@ -475,7 +475,7 @@ export default async function VisitDetailPage({
                         {receipt.receiptNo && <span className="font-mono text-sm text-muted-foreground">Rcpt #{receipt.receiptNo}</span>}
                         {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
                       </div>
-                      <div className="text-sm text-muted-foreground">{format(new Date(receipt.receiptDate), "MMM d, yyyy")}</div>
+                      <div className="text-sm text-muted-foreground">{format(new Date(receipt.receiptDate), "dd-MM-yyyy")}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{receipt.paymentMode}</Badge>

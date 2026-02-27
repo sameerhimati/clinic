@@ -267,12 +267,12 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
               <p className="text-xs text-muted-foreground mt-0.5">
                 {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
                 {data.firstVisit && <span> · First: {format(new Date(data.firstVisit), "MMM yyyy")}</span>}
-                {data.lastVisit && <span> · Last: {format(new Date(data.lastVisit), "MMM d, yyyy")}</span>}
+                {data.lastVisit && <span> · Last: {format(new Date(data.lastVisit), "dd-MM-yyyy")}</span>}
                 {data.canCollect && data.totalBalance > 0 && (
                   <span className="text-destructive font-medium"> · ₹{data.totalBalance.toLocaleString("en-IN")} due</span>
                 )}
                 {nextFutureAppt && (
-                  <span> · Next appt: {format(new Date(nextFutureAppt.date), "MMM d")}</span>
+                  <span> · Next appt: {format(new Date(nextFutureAppt.date), "dd MMM")}</span>
                 )}
               </p>
             </div>
@@ -355,7 +355,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   <div key={appt.id} className="flex items-center justify-between px-4 py-2.5">
                     <div>
                       <div className="font-medium text-sm">
-                        {format(new Date(appt.date), "EEE, MMM d")}
+                        {format(new Date(appt.date), "EEE, dd MMM")}
                         {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -408,7 +408,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
               <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
-              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "MMM d, yyyy") : null} />
+              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "dd-MM-yyyy") : null} />
               <InfoRow label="Occupation" value={patient.occupation} />
               <InfoRow label="Mobile" value={patient.mobile} />
               <InfoRow label="Phone" value={patient.phone} />
@@ -460,7 +460,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                         ₹{receipt.amount.toLocaleString("en-IN")}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {format(new Date(receipt.receiptDate), "MMM d, yyyy")}
+                        {format(new Date(receipt.receiptDate), "dd-MM-yyyy")}
                         {receipt.visitCaseNo && ` · Case #${receipt.visitCaseNo}`}
                         {receipt.visitOperationName && ` · ${receipt.visitOperationName}`}
                         {` · ${receipt.paymentMode}`}

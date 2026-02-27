@@ -236,7 +236,7 @@ export default async function DashboardPage() {
                       <div className="text-sm text-muted-foreground">
                         {visit.operation?.name || "N/A"}
                         {visit.doctor && ` · Dr. ${visit.doctor.name}`}
-                        {" · "}{format(new Date(visit.visitDate), "MMM d")}
+                        {" · "}{format(new Date(visit.visitDate), "dd MMM")}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

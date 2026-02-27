@@ -82,7 +82,7 @@ export default async function ExaminePage({
           caseNo: v.caseNo,
           stepLabel: v.stepLabel,
           doctorName: r.doctor.name,
-          reportDate: format(new Date(r.reportDate), "MMM d, yyyy"),
+          reportDate: format(new Date(r.reportDate), "dd-MM-yyyy"),
           complaint: r.complaint,
           examination: r.examination,
           diagnosis: r.diagnosis,
@@ -91,7 +91,7 @@ export default async function ExaminePage({
           addendums: r.addendums.map((a) => ({
             content: a.content,
             doctorName: a.doctor.name,
-            createdAt: format(new Date(a.createdAt), "MMM d, yyyy"),
+            createdAt: format(new Date(a.createdAt), "dd-MM-yyyy"),
           })),
         };
       });
@@ -168,7 +168,7 @@ export default async function ExaminePage({
           {visit.patient.ageAtRegistration && ` \u00b7 ${visit.patient.ageAtRegistration} yrs`}
         </p>
         <p className="text-sm text-muted-foreground">
-          {operationName} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "MMM d, yyyy")}
+          {operationName} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "dd-MM-yyyy")}
         </p>
       </div>
 

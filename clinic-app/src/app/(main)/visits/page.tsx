@@ -126,7 +126,7 @@ export default async function VisitsPage({
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {visit.operation?.name || "N/A"} ·{" "}
-                      {format(new Date(visit.visitDate), "MMM d, yyyy")}
+                      {format(new Date(visit.visitDate), "dd-MM-yyyy")}
                       {visit.doctor && ` · Dr. ${visit.doctor.name}`}
                     </div>
                   </div>

@@ -171,7 +171,7 @@ export function CheckoutForm({
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Dr. {visit.doctorName} ·{" "}
-                        {format(new Date(visit.visitDate), "MMM d, yyyy")}
+                        {format(new Date(visit.visitDate), "dd-MM-yyyy")}
                       </div>
                     </div>
                     <Badge
@@ -341,7 +341,7 @@ export function CheckoutForm({
                 >
                   <div>
                     <span className="text-muted-foreground">
-                      {format(new Date(r.receiptDate), "MMM d, yyyy")}
+                      {format(new Date(r.receiptDate), "dd-MM-yyyy")}
                     </span>
                     {r.receiptNo && (
                       <span className="ml-2 font-mono">Rcpt #{r.receiptNo}</span>

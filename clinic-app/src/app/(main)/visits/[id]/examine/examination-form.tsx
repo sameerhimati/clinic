@@ -409,7 +409,7 @@ export function ExaminationForm({
               <Lock className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-800">
                 Notes locked
-                {lockedAt && ` on ${format(new Date(lockedAt), "MMM d, yyyy 'at' h:mm a")}`}
+                {lockedAt && ` on ${format(new Date(lockedAt), "dd-MM-yyyy 'at' h:mm a")}`}
                 {lockedByName && ` by Dr. ${lockedByName}`}
               </span>
             </div>
@@ -463,7 +463,7 @@ export function ExaminationForm({
                 <div key={a.id} className="rounded-md border p-3 text-sm">
                   <div className="whitespace-pre-wrap">{a.content}</div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "dd-MM-yyyy 'at' h:mm a")}
                   </div>
                 </div>
               ))}
@@ -641,7 +641,7 @@ export function ExaminationForm({
               <div key={a.id} className="rounded-md border p-3 text-sm">
                 <div className="whitespace-pre-wrap">{a.content}</div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                  Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "dd-MM-yyyy 'at' h:mm a")}
                 </div>
               </div>
             ))}
