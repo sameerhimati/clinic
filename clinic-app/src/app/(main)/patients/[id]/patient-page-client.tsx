@@ -25,6 +25,7 @@ import {
   Stethoscope,
   UserCheck,
   FileText,
+  Zap,
 } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { TreatmentTimeline, type VisitWithRelations, type FollowUpContext } from "@/components/treatment-timeline";
@@ -36,7 +37,7 @@ import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ToastOnParam } from "@/components/toast-on-param";
-import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
+import { updateAppointmentStatus, createWalkIn } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
 import type { Operation, Doctor, Lab } from "@/components/visit-form";
@@ -182,6 +183,18 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
     });
   }
 
+  function handleWalkIn() {
+    startTransition(async () => {
+      try {
+        await createWalkIn(patient.id);
+        router.refresh();
+        toast.success("Walk-in registered — patient marked as arrived");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to create walk-in");
+      }
+    });
+  }
+
   // Determine primary CTA
   const todayAppt = data.todayAppointment;
   let primaryCta: React.ReactNode = null;
@@ -195,10 +208,17 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </Button>
       );
     } else if (todayAppt.status === "ARRIVED") {
-      primaryCta = (
+      primaryCta = isDoctor ? (
         <Button size="sm" onClick={openNewVisit}>
           <Stethoscope className="mr-1 h-3.5 w-3.5" />
           Start Treatment
+        </Button>
+      ) : (
+        <Button size="sm" asChild>
+          <Link href={`/visits/new?patientId=${patient.id}&appointmentId=${todayAppt.id}${todayAppt.doctorName ? "" : ""}`}>
+            <Stethoscope className="mr-1 h-3.5 w-3.5" />
+            Start Visit
+          </Link>
         </Button>
       );
     } else if (todayAppt.status === "IN_PROGRESS" && todayAppt.visitId) {
@@ -311,11 +331,19 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {!isDoctor && (
+                {isDoctor ? (
                   <>
                     <DropdownMenuItem onClick={openNewVisit}>
                       <Plus className="mr-2 h-4 w-4" />
                       New Visit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={handleWalkIn} disabled={isPending}>
+                      <Zap className="mr-2 h-4 w-4" />
+                      Walk-in
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href={`/appointments/new?patientId=${patient.id}`}>

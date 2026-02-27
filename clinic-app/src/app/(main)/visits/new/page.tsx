@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createVisit } from "../actions";
 import { VisitForm } from "@/components/visit-form";
+import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { canSeeInternalCosts } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,12 @@ export default async function NewVisitPage({
   const currentUser = await requireAuth();
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
   const params = await searchParams;
+
+  // Non-doctors must come through an appointment (appointment-first flow)
+  const isDoctor = currentUser.permissionLevel === 3;
+  if (!isDoctor && !params.appointmentId && !params.followUp) {
+    redirect("/appointments/new");
+  }
 
   const [operations, doctors, labs] = await Promise.all([
     prisma.operation.findMany({
