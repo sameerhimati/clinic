@@ -1,5 +1,12 @@
 # Clinic App — Claude Context
 
+## Session Start Rule
+
+**Before starting any new feature or roadmap item, ask the user:**
+> "Have you finished testing the daily patient flow? Any bugs or workflow issues to fix before we move on?"
+
+Do NOT proceed with new roadmap items until the user confirms workflows are tested. The user wants to define ALL core clinical workflows before building more features.
+
 ## Stack
 - Next.js 16 (App Router), TypeScript, Tailwind CSS 4 + shadcn/ui
 - Prisma 6 with SQLite, package manager: bun
