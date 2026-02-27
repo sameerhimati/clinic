@@ -144,10 +144,16 @@ export default async function ReceiptPrintPage({
           <span className="font-medium italic">{amountInWords(receipt.amount)}</span>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between text-sm pt-8">
-          <div className="text-muted-foreground">Patient Signature</div>
-          <div className="text-muted-foreground">Authorized Signature</div>
+        {/* Signature Area */}
+        <div className="flex justify-between text-sm mt-16">
+          <div className="text-center">
+            <div className="border-t border-foreground w-48 mb-1"></div>
+            <div className="text-muted-foreground">Patient / Guardian Signature</div>
+          </div>
+          <div className="text-center">
+            <div className="border-t border-foreground w-48 mb-1"></div>
+            <div className="text-muted-foreground">Authorized Signature</div>
+          </div>
         </div>
       </div>
     </div>

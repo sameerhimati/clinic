@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**, **Tariff Card Integration (65 SDH procedures with auto-fill pricing, tiered discounts, visit form overhaul, terminology consistency)**. 34 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**, **Tariff Card Integration (65 SDH procedures with auto-fill pricing, tiered discounts, visit form overhaul, terminology consistency)**, **Print Polish (page margins, font sizing, signature lines, report print buttons, print-hidden UI elements)**. 34 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
 
 ---
 
@@ -61,6 +61,16 @@ When ready to go live with real data:
 
 ## UX Cleanup & Doctor Activity [DONE]
 ## UX Audit & Tariff Integration [DONE]
+## UX Audit Completion & Print Polish [DONE]
+
+- [x] All 16 UX audit items resolved (date formats, sidebar active state, balance visibility, etc.)
+- [x] Print infrastructure: `@page` margins, font sizing, page-break rules, shadow removal
+- [x] Receipt print: proper signature lines with horizontal rules and spacing
+- [x] Exam report print: signature lines, doctor name pre-printed above signature
+- [x] Commission report: Print button, filters/breadcrumbs hidden on print, TDS/Net columns visible on print
+- [x] Outstanding report: Print button, filters/Pay buttons hidden on print
+- [x] Reusable `PrintPageButton` component (`src/components/print-button.tsx`)
+- [x] Dead code cleanup (back-link.tsx deleted)
 
 ---
 

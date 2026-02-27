@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { Search } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
+import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { dateToString } from "@/lib/validations";
@@ -143,14 +144,22 @@ export default async function CommissionReportPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[
-        { label: "Reports", href: "/reports" },
-        { label: "Commission" },
-      ]} />
-      <h2 className="text-2xl font-bold">Doctor Commission Report</h2>
+      <div className="print:hidden">
+        <Breadcrumbs items={[
+          { label: "Reports", href: "/reports" },
+          { label: "Commission" },
+        ]} />
+      </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Doctor Commission Report</h2>
+        <div className="flex gap-2 print:hidden">
+          <ExportCSVButton rows={rows} />
+          <PrintPageButton />
+        </div>
+      </div>
 
       {/* Filters */}
-      <form className="flex flex-wrap gap-2">
+      <form className="flex flex-wrap gap-2 print:hidden">
         <div className="space-y-1">
           <span className="text-xs text-muted-foreground">From</span>
           <Input name="from" type="date" defaultValue={params.from} className="w-auto" />
@@ -221,10 +230,7 @@ export default async function CommissionReportPage({
       {/* Detail Table */}
       {rows.length > 0 && (
         <>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Detail ({rows.length} entries)</h3>
-            <ExportCSVButton rows={rows} />
-          </div>
+          <h3 className="text-lg font-semibold">Detail ({rows.length} entries)</h3>
           <Card>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -239,8 +245,8 @@ export default async function CommissionReportPage({
                     <TableHead className="text-right">Lab</TableHead>
                     <TableHead className="text-right">%</TableHead>
                     <TableHead className="text-right">Commission</TableHead>
-                    <TableHead className="text-right hidden md:table-cell">TDS</TableHead>
-                    <TableHead className="text-right hidden md:table-cell">Net</TableHead>
+                    <TableHead className="text-right hidden md:table-cell print:table-cell">TDS</TableHead>
+                    <TableHead className="text-right hidden md:table-cell print:table-cell">Net</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -255,8 +261,8 @@ export default async function CommissionReportPage({
                       <TableCell className="text-right">{row.labRate > 0 ? `\u20B9${row.labRate.toLocaleString("en-IN")}` : "-"}</TableCell>
                       <TableCell className="text-right">{row.doctorPercent}%</TableCell>
                       <TableCell className="text-right">{"\u20B9"}{row.doctorAmount.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right hidden md:table-cell">{row.tds > 0 ? `\u20B9${row.tds.toLocaleString("en-IN")}` : "-"}</TableCell>
-                      <TableCell className="text-right font-medium hidden md:table-cell">{"\u20B9"}{row.netCommission.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell print:table-cell">{row.tds > 0 ? `\u20B9${row.tds.toLocaleString("en-IN")}` : "-"}</TableCell>
+                      <TableCell className="text-right font-medium hidden md:table-cell print:table-cell">{"\u20B9"}{row.netCommission.toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -132,11 +132,15 @@ export default async function ClinicalReportPrintPage({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between text-sm pt-12 mt-8">
-          <div className="text-muted-foreground">Patient Signature</div>
+        {/* Signature Area */}
+        <div className="flex justify-between text-sm mt-16">
           <div className="text-center">
-            <div className="font-medium">Dr. {report.doctor.name}</div>
+            <div className="border-t border-foreground w-48 mb-1"></div>
+            <div className="text-muted-foreground">Patient / Guardian Signature</div>
+          </div>
+          <div className="text-center">
+            <div className="font-medium mb-1">Dr. {report.doctor.name}</div>
+            <div className="border-t border-foreground w-48 mb-1"></div>
             <div className="text-muted-foreground">Doctor&apos;s Signature</div>
           </div>
         </div>

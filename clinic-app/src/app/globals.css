@@ -89,12 +89,24 @@
   }
 }
 
+@page {
+  margin: 15mm 10mm;
+}
+
 @media print {
   body {
     background: white !important;
+    font-size: 11pt;
+    line-height: 1.4;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Remove all shadows/borders from print content */
+  h1 { font-size: 14pt; }
+  h2 { font-size: 12pt; }
+  /* Clean print: light borders, no shadows, no card backgrounds */
   .border { border-color: #e5e7eb !important; }
+  .shadow, .shadow-sm, .shadow-md { box-shadow: none !important; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  .bg-muted, .bg-card { background: white !important; }
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Search } from "lucide-react";
+import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 
@@ -75,13 +76,18 @@ export default async function OutstandingReportPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[
-        { label: "Reports", href: "/reports" },
-        { label: "Outstanding" },
-      ]} />
-      <h2 className="text-2xl font-bold">Outstanding Dues Report</h2>
+      <div className="print:hidden">
+        <Breadcrumbs items={[
+          { label: "Reports", href: "/reports" },
+          { label: "Outstanding" },
+        ]} />
+      </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Outstanding Dues Report</h2>
+        <PrintPageButton />
+      </div>
 
-      <form className="flex flex-wrap gap-2">
+      <form className="flex flex-wrap gap-2 print:hidden">
         <div className="space-y-1">
           <span className="text-xs text-muted-foreground">From</span>
           <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
@@ -132,7 +138,7 @@ export default async function OutstandingReportPage({
                   <TableHead className="text-right">Billed</TableHead>
                   <TableHead className="text-right">Paid</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="print:hidden"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -156,7 +162,7 @@ export default async function OutstandingReportPage({
                     <TableCell className="text-right font-medium text-destructive">
                       {"\u20B9"}{row.balance.toLocaleString("en-IN")}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="print:hidden">
                       <Button size="sm" variant="outline" asChild>
                         <Link href={`/patients/${row.patient.id}/checkout`}>Pay</Link>
                       </Button>
