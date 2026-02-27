@@ -13,6 +13,11 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 import { todayString } from "@/lib/validations";
 
+const TIME_SLOTS = [
+  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM",
+  "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM",
+];
+
 type Doctor = { id: number; name: string };
 type RoomOption = { id: number; name: string };
 type DefaultPatient = { id: number; code: number | null; name: string; salutation: string | null };
@@ -41,6 +46,8 @@ export function AppointmentForm({
     defaultPatient || null
   );
   const [isPending, startTransition] = useTransition();
+  const [timeSlotMode, setTimeSlotMode] = useState<"preset" | "custom">("preset");
+  const [customTimeSlot, setCustomTimeSlot] = useState("");
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
@@ -153,10 +160,46 @@ export function AppointmentForm({
 
           <div className="space-y-2">
             <Label htmlFor="timeSlot">Time</Label>
-            <Input
-              name="timeSlot"
-              placeholder="e.g. 10:00 AM, 2:30 PM"
-            />
+            {timeSlotMode === "preset" ? (
+              <select
+                name="timeSlot"
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value === "__other__") {
+                    setTimeSlotMode("custom");
+                    e.target.value = "";
+                  }
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">Select time...</option>
+                {TIME_SLOTS.map((slot) => (
+                  <option key={slot} value={slot}>{slot}</option>
+                ))}
+                <option value="__other__">Other...</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  name="timeSlot"
+                  placeholder="e.g. 1:15 PM"
+                  value={customTimeSlot}
+                  onChange={(e) => setCustomTimeSlot(e.target.value)}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTimeSlotMode("preset");
+                    setCustomTimeSlot("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

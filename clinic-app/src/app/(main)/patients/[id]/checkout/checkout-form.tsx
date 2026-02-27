@@ -66,9 +66,12 @@ export function CheckoutForm({
 
   const allocationMatch = payAmount > 0 && Math.abs(totalAllocated - payAmount) < 0.01;
 
-  function autoAllocate() {
-    if (payAmount <= 0) return;
-    let remaining = payAmount;
+  function autoAllocate(amount: number) {
+    if (amount <= 0) {
+      setAllocations({});
+      return;
+    }
+    let remaining = amount;
     const newAllocations: Record<number, string> = {};
 
     // FIFO — oldest first (visits already sorted by visitDate asc)
@@ -239,7 +242,11 @@ export function CheckoutForm({
                 step="0.01"
                 min="0.01"
                 value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPaymentAmount(val);
+                  autoAllocate(parseFloat(val) || 0);
+                }}
                 placeholder="0.00"
                 className="text-lg font-mono"
               />
@@ -278,16 +285,7 @@ export function CheckoutForm({
             />
           </div>
 
-          <div className="flex items-center justify-between border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={autoAllocate}
-              disabled={payAmount <= 0}
-            >
-              Auto-allocate (oldest first)
-            </Button>
-
+          <div className="flex items-center justify-end border-t pt-4">
             <div className="text-right">
               <div
                 className={`text-sm font-medium ${
@@ -317,8 +315,14 @@ export function CheckoutForm({
             className="w-full"
             size="lg"
           >
-            {isPending ? "Recording Payment..." : "Record Payment"}
+            {isPending ? "Collecting..." : payAmount > 0 ? `Collect ₹${payAmount.toLocaleString("en-IN")}` : "Collect Payment"}
           </Button>
+          {!allocationMatch && payAmount <= 0 && (
+            <p className="text-sm text-muted-foreground text-center">Enter amount above to continue</p>
+          )}
+          {!allocationMatch && payAmount > 0 && (
+            <p className="text-sm text-muted-foreground text-center">Adjust allocations to match ₹{payAmount.toLocaleString("en-IN")}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -337,7 +341,7 @@ export function CheckoutForm({
                 >
                   <div>
                     <span className="text-muted-foreground">
-                      {format(new Date(r.receiptDate), "dd/MM/yy")}
+                      {format(new Date(r.receiptDate), "MMM d, yyyy")}
                     </span>
                     {r.receiptNo && (
                       <span className="ml-2 font-mono">Rcpt #{r.receiptNo}</span>

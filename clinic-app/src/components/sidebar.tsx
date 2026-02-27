@@ -33,7 +33,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/patients", label: "Patients", icon: Users },
-  { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 2 },
+  { href: "/visits", label: "Treatments", icon: Stethoscope, minPermission: 2 },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
   { href: "/doctors", label: "Doctors", icon: UserCog, minPermission: 1 },
@@ -86,6 +86,7 @@ function NavItems({
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved === "true") setCollapsed(true);
@@ -95,7 +96,7 @@ export function Sidebar() {
   return (
     <div className="print:hidden">
       {/* Mobile sidebar */}
-      <Sheet>
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden fixed top-3 left-3 z-50">
             <Menu className="h-5 w-5" />
@@ -105,7 +106,7 @@ export function Sidebar() {
           <div className="flex h-14 items-center border-b px-4">
             <h2 className="text-lg font-semibold">SDH Clinic</h2>
           </div>
-          <NavItems collapsed={false} permissionLevel={doctor.permissionLevel} />
+          <NavItems collapsed={false} onNavigate={() => setMobileOpen(false)} permissionLevel={doctor.permissionLevel} />
         </SheetContent>
       </Sheet>
 

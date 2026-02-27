@@ -35,6 +35,7 @@ import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ToastOnParam } from "@/components/toast-on-param";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
@@ -230,6 +231,8 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
 
   return (
     <div className="space-y-6">
+      <ToastOnParam param="created" message="Patient registered" />
+      <ToastOnParam param="paid" message="Payment collected — receipt created" />
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: patient.name },

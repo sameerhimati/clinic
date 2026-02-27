@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { AppointmentDayView } from "@/components/appointment-day-view";
+import { ToastOnParam } from "@/components/toast-on-param";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,7 @@ export default async function AppointmentsPage({
 
   return (
     <div className="space-y-4">
+      <ToastOnParam param="created" message="Appointment scheduled" />
       <h2 className="text-2xl font-bold">Appointments</h2>
       <AppointmentDayView
       dateStr={dateStr}

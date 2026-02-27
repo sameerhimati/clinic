@@ -138,7 +138,7 @@ export default async function OutstandingReportPage({
               <TableBody>
                 {outstanding.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>{format(new Date(row.visitDate), "dd/MM/yy")}</TableCell>
+                    <TableCell>{format(new Date(row.visitDate), "MMM d, yyyy")}</TableCell>
                     <TableCell>{row.caseNo || row.id}</TableCell>
                     <TableCell>
                       <Link

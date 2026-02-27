@@ -14,6 +14,7 @@ import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { DetailRow } from "@/components/detail-row";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ToastOnParam } from "@/components/toast-on-param";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,7 @@ export default async function VisitDetailPage({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <ToastOnParam param="newVisit" message="Visit created" />
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: visit.patient.name, href: `/patients/${visit.patientId}` },
@@ -119,7 +121,7 @@ export default async function VisitDetailPage({
               #{visit.patient.code} {visit.patient.salutation && `${visit.patient.salutation}. `}{visit.patient.name}
             </Link>
             {" \u00b7 "}
-            {format(new Date(visit.visitDate), "MMMM d, yyyy")}
+            {format(new Date(visit.visitDate), "MMM d, yyyy")}
           </p>
           {/* Step label */}
           {visit.stepLabel && (
@@ -159,7 +161,7 @@ export default async function VisitDetailPage({
             <Link href={`/visits/${visit.id}/examine`}>
               {clinicalReport ? (
                 reportLocked ? (
-                  <><MessageSquarePlus className="mr-2 h-4 w-4" />Add Addendum</>
+                  <><MessageSquarePlus className="mr-2 h-4 w-4" />Add Note</>
                 ) : (
                   <><FileText className="mr-2 h-4 w-4" />Edit Notes</>
                 )
@@ -274,7 +276,7 @@ export default async function VisitDetailPage({
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquarePlus className="h-4 w-4" />
-              Addendums ({clinicalReport.addendums.length})
+              Additional Notes ({clinicalReport.addendums.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">

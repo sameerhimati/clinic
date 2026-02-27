@@ -39,7 +39,7 @@ export async function createAppointment(formData: FormData) {
 
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
-  redirect(`/appointments?date=${parsed.date}`);
+  redirect(`/appointments?date=${parsed.date}&created=1`);
 }
 
 export async function updateAppointmentStatus(

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { PatientSearch } from "@/components/patient-search";
-import { X, Search, Check, ChevronsUpDown, ChevronDown, Lock } from "lucide-react";
+import { X, Search, Check, ChevronsUpDown, ChevronDown, Plus, Lock } from "lucide-react";
 import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
@@ -284,6 +284,7 @@ export function VisitForm({
   const [tariffRate, setTariffRate] = useState<number | null>(null);
   const [discount, setDiscount] = useState(0);
   const [showLabSection, setShowLabSection] = useState(false);
+  const [showAssistingDoctor, setShowAssistingDoctor] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Set initial tariff for follow-up default operation
@@ -371,7 +372,7 @@ export function VisitForm({
       <div className="rounded-lg border p-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label>Treatment</Label>
+            <Label>Treatment <span className="text-destructive">*</span></Label>
             <OperationCombobox
               operations={operations}
               defaultOperationId={defaultOperationId || undefined}
@@ -395,7 +396,7 @@ export function VisitForm({
           )}
 
           <div className="space-y-1.5">
-            <Label>Visit Date</Label>
+            <Label>Visit Date <span className="text-destructive">*</span></Label>
             <Input
               name="visitDate"
               type="date"
@@ -408,7 +409,7 @@ export function VisitForm({
         {!isDoctor && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Rate (₹)</Label>
+              <Label>Rate ({"\u20B9"})</Label>
               <div className="relative">
                 <Input
                   name="operationRate"
@@ -441,47 +442,75 @@ export function VisitForm({
               </div>
             </div>
 
-            <DiscountSelector
-              permissionLevel={permissionLevel}
-              rate={rateNum}
-              discount={discount}
-              onDiscountChange={(amount) => setDiscount(amount)}
-            />
+            {rateNum > 0 && (
+              <DiscountSelector
+                permissionLevel={permissionLevel}
+                rate={rateNum}
+                discount={discount}
+                onDiscountChange={(amount) => setDiscount(amount)}
+              />
+            )}
           </div>
         )}
       </div>
 
       {/* --- Doctor --- */}
       {!isDoctor && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Doctor</Label>
-            <select
-              name="doctorId"
-              defaultValue={defaultDoctorId || ""}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              <option value="">Select doctor...</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {showInternalCosts && d.commissionPercent > 0 ? ` (${d.commissionPercent}%)` : ""}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Doctor</Label>
+              <select
+                name="doctorId"
+                defaultValue={defaultDoctorId || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option value="">Select doctor...</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                    {showInternalCosts && d.commissionPercent > 0 ? ` (${d.commissionPercent}%)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {showAssistingDoctor && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label>Assisting Doctor</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setShowAssistingDoctor(false)}
+                  >
+                    <X className="h-3 w-3 mr-1" /> Remove
+                  </Button>
+                </div>
+                <select
+                  name="assistingDoctorId"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">None</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label>Assisting Doctor</Label>
-            <select
-              name="assistingDoctorId"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+          {!showAssistingDoctor && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAssistingDoctor(true)}
             >
-              <option value="">None</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Assisting Doctor
+            </Button>
+          )}
         </div>
       )}
 
@@ -489,14 +518,15 @@ export function VisitForm({
       {!isDoctor && (
         <>
           {!showLabSection ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setShowLabSection(true)}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ChevronDown className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5 mr-1" />
               Add Lab Work
-            </button>
+            </Button>
           ) : (
             <div className="rounded-lg border p-4 space-y-4">
               <div className="flex items-center justify-between">

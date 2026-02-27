@@ -246,7 +246,7 @@ export default async function CommissionReportPage({
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow key={row.receiptId}>
-                      <TableCell>{format(new Date(row.receiptDate), "dd/MM/yy")}</TableCell>
+                      <TableCell>{format(new Date(row.receiptDate), "MMM d, yyyy")}</TableCell>
                       <TableCell>{row.caseNo || "-"}</TableCell>
                       <TableCell>{row.patientName}</TableCell>
                       <TableCell>{row.operationName}</TableCell>

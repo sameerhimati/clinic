@@ -10,6 +10,17 @@ import { useAuth } from "@/lib/auth-context";
 import { saveExamination, finalizeReport, unlockReport, addAddendum } from "./actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Lock, Unlock, Clock, MessageSquarePlus, Printer } from "lucide-react";
 import { format } from "date-fns";
 
@@ -209,11 +220,11 @@ export function ExaminationForm({
     startTransition(async () => {
       try {
         await addAddendum(reportId, addendumText);
-        toast.success("Addendum added");
+        toast.success("Note added");
         setAddendumText("");
         router.refresh();
       } catch {
-        toast.error("Failed to add addendum");
+        toast.error("Failed to add note");
       }
     });
   }
@@ -276,7 +287,7 @@ export function ExaminationForm({
         {addendums.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Addendums ({addendums.length})</CardTitle>
+              <CardTitle className="text-base">Additional Notes ({addendums.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {addendums.map((a) => (
@@ -296,7 +307,7 @@ export function ExaminationForm({
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquarePlus className="h-4 w-4" />
-              Add Addendum
+              Add Note
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -312,7 +323,7 @@ export function ExaminationForm({
                 disabled={isPending || !addendumText.trim()}
                 size="sm"
               >
-                {isPending ? "Adding..." : "Add Addendum"}
+                {isPending ? "Adding..." : "Add Note"}
               </Button>
             </div>
           </CardContent>
@@ -332,7 +343,7 @@ export function ExaminationForm({
             <span>
               Locks automatically in {hoursUntilLock < 1
                 ? `${Math.round(hoursUntilLock * 60)} minutes`
-                : `${Math.round(hoursUntilLock)} hours`
+                : `${Math.round(hoursUntilLock)} ${Math.round(hoursUntilLock) === 1 ? "hour" : "hours"}`
               }
             </span>
           </div>
@@ -452,7 +463,7 @@ export function ExaminationForm({
       {addendums.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Addendums ({addendums.length})</CardTitle>
+            <CardTitle className="text-base">Additional Notes ({addendums.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {addendums.map((a) => (
@@ -471,15 +482,32 @@ export function ExaminationForm({
       <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t -mx-4 px-4 md:-mx-6 md:px-6 py-3 flex gap-3 justify-between items-center z-20">
         <div>
           {existingReport && (
-            <Button
-              variant="outline"
-              onClick={handleFinalize}
-              disabled={isPending}
-              className="text-amber-700 border-amber-300 hover:bg-amber-50"
-            >
-              <Lock className="mr-1 h-3.5 w-3.5" />
-              Finalize
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isPending}
+                  className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                >
+                  <Lock className="mr-1 h-3.5 w-3.5" />
+                  Finalize
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Lock Clinical Notes?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Only an administrator can unlock them afterwards.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleFinalize}>
+                    Yes, Lock Notes
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
         <div className="flex gap-3">

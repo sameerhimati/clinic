@@ -66,5 +66,5 @@ export async function recordCheckoutPayment(data: {
   revalidatePath("/receipts");
   revalidatePath("/dashboard");
   revalidatePath("/visits");
-  redirect(`/patients/${patientId}`);
+  redirect(`/patients/${patientId}?paid=1`);
 }

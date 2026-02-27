@@ -40,7 +40,7 @@ export async function createPatient(formData: FormData) {
   }
 
   revalidatePath("/patients");
-  redirect(`/patients/${patientId}`);
+  redirect(`/patients/${patientId}?created=1`);
 }
 
 export async function updatePatient(id: number, formData: FormData) {
