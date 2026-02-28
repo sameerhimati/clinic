@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList } from "lucide-react";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
-import { createTreatmentPlan, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
+import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
+import { CheckCircle2, Circle } from "lucide-react";
 
 type PreviousReport = {
   visitId: number;
@@ -207,14 +208,14 @@ export function ExaminationForm({
   lockedByName,
   lockedAt,
   permissionLevel,
-  nextPatientId,
-  nextPatientCode,
   readOnly,
   previousReports,
   operationName,
+  isFollowUp,
   treatmentSteps,
   allDoctors,
   allOperations,
+  matchingPlanItem,
   existingActivePlans,
 }: {
   visitId: number;
@@ -231,13 +232,19 @@ export function ExaminationForm({
   lockedAt: string | null;
   permissionLevel?: number;
   readOnly?: boolean;
-  nextPatientId?: number | null;
-  nextPatientCode?: number | null;
   previousReports?: PreviousReport[];
   operationName?: string;
+  isFollowUp?: boolean;
   treatmentSteps?: { name: string; defaultDayGap: number; description: string | null }[];
   allDoctors?: { id: number; name: string }[];
   allOperations?: { id: number; name: string; category: string | null }[];
+  matchingPlanItem?: {
+    itemId: number;
+    itemLabel: string;
+    planId: number;
+    planTitle: string;
+    allItems: { id: number; label: string; sortOrder: number; isCompleted: boolean }[];
+  } | null;
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
 }) {
   const { doctor: currentDoctor } = useAuth();
@@ -323,7 +330,7 @@ export function ExaminationForm({
     }));
   }
 
-  async function handleSave(redirectTarget: "detail" | "print" | "next-patient") {
+  async function handleSave(redirectTarget: "detail" | "print" | "queue") {
     startTransition(async () => {
       try {
         const result = await saveExamination(visitId, {
@@ -336,8 +343,18 @@ export function ExaminationForm({
           estimate: estimate || null,
           medication: medication || null,
         });
-        // Create treatment plan if editor is active with items
-        if (showPlanEditor && planItems.length > 0 && patientId) {
+
+        // Auto-complete matching plan item for follow-up visits
+        if (matchingPlanItem) {
+          try {
+            await completePlanItems([matchingPlanItem.itemId], visitId);
+            toast.success(`Step completed: ${matchingPlanItem.itemLabel}`);
+          } catch {
+            toast.error("Exam saved but plan step completion failed");
+          }
+        }
+        // Create treatment plan if editor is active with items (new visits only)
+        else if (showPlanEditor && planItems.length > 0 && patientId) {
           const validItems = planItems.filter((i) => !i.isCompleted && i.label.trim());
           if (validItems.length > 0) {
             try {
@@ -374,15 +391,14 @@ export function ExaminationForm({
             },
             duration: 8000,
           });
-        } else if (!showPlanEditor) {
+        } else if (!showPlanEditor && !matchingPlanItem) {
           toast.success("Examination saved");
         }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
-        } else if (redirectTarget === "next-patient" && nextPatientId) {
-          router.push(`/patients/${nextPatientId}`);
+        } else if (redirectTarget === "queue") {
+          router.push(`/dashboard`);
         } else if (isDoctor && patientId) {
-          // Doctors go to patient page instead of visit detail
           router.push(`/patients/${patientId}`);
         } else {
           router.push(`/visits/${visitId}`);
@@ -573,14 +589,14 @@ export function ExaminationForm({
     );
   }
 
-  // Editable form — consolidated into 2 cards with sticky save bar
+  // Editable form — polished cards matching patient/visit form patterns
   const editableContent = (
-    <div className="space-y-5 pb-20">
+    <div className="space-y-6 pb-24">
       {/* Auto-lock warning */}
       {existingReport && hoursUntilLock > 0 && hoursUntilLock < 24 && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-blue-800">
-            <Clock className="h-4 w-4" />
+            <Clock className="h-4 w-4 shrink-0" />
             <span>
               Locks automatically in {hoursUntilLock < 1
                 ? `${Math.round(hoursUntilLock * 60)} minutes`
@@ -591,28 +607,27 @@ export function ExaminationForm({
         </div>
       )}
 
-      {/* Doctor info (read-only) */}
-      <div className="text-sm text-muted-foreground">
-        Recording as <span className="font-medium text-foreground">Dr. {doctorName}</span>
-        {" \u00b7 "}{reportDate}
-      </div>
-
       {/* Card 1: Clinical Assessment */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Clinical Assessment</CardTitle>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Clinical Assessment</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              Dr. {doctorName} {"\u00b7"} {reportDate}
+            </span>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Chief Complaint</Label>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Chief Complaint</Label>
             <div className="flex flex-wrap gap-1.5">
               {COMMON_COMPLAINTS.map((c) => (
                 <button
                   key={c}
                   type="button"
-                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                     complaint.toUpperCase().split(",").map(s => s.trim()).includes(c)
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background border-input hover:bg-accent"
                   }`}
                   onClick={() => {
@@ -630,26 +645,25 @@ export function ExaminationForm({
               ))}
             </div>
             <Textarea
-              placeholder="Additional complaint details..."
+              placeholder="Additional details..."
               value={complaint}
               onChange={(e) => setComplaint(e.target.value)}
               rows={2}
-              className="mt-2"
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Examination Findings</Label>
+          <div className="space-y-1.5">
+            <Label>Examination Findings</Label>
             <Textarea
               placeholder="Record examination findings..."
               value={examination}
               onChange={(e) => setExamination(e.target.value)}
-              rows={4}
+              rows={3}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Diagnosis</Label>
+          <div className="space-y-1.5">
+            <Label>Diagnosis</Label>
             <Textarea
               placeholder="Enter diagnosis..."
               value={diagnosis}
@@ -662,14 +676,14 @@ export function ExaminationForm({
 
       {/* Card 2: Treatment & Prescription */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader>
           <CardTitle className="text-base">Treatment & Prescription</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Treatment Plan / Recommendations</Label>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Treatment Notes</Label>
             <Textarea
-              placeholder="Enter treatment plan..."
+              placeholder="Treatment plan, recommendations, procedures performed..."
               value={treatmentNotes}
               onChange={(e) => setTreatmentNotes(e.target.value)}
               rows={4}
@@ -677,10 +691,10 @@ export function ExaminationForm({
           </div>
 
           {(!permissionLevel || permissionLevel <= 2) && (
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estimate</Label>
+            <div className="space-y-1.5">
+              <Label>Estimate</Label>
               <Textarea
-                placeholder="Enter cost estimate..."
+                placeholder="Cost estimate..."
                 value={estimate}
                 onChange={(e) => setEstimate(e.target.value)}
                 rows={2}
@@ -688,10 +702,10 @@ export function ExaminationForm({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Medication Prescribed</Label>
+          <div className="space-y-1.5">
+            <Label>Medication</Label>
             <Textarea
-              placeholder="Enter prescribed medication..."
+              placeholder="Prescribed medication..."
               value={medication}
               onChange={(e) => setMedication(e.target.value)}
               rows={3}
@@ -700,18 +714,60 @@ export function ExaminationForm({
         </CardContent>
       </Card>
 
-      {/* Treatment Plan — doctors only, when operation has template steps or no existing plan */}
-      {isDoctor && !existingReport && (hasTemplateSteps || !hasExistingPlans) && allDoctors && allOperations && (
+      {/* Treatment Plan — context-aware section */}
+      {/* Case A: Follow-up with matching plan item → show progress card */}
+      {isDoctor && matchingPlanItem && (
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader>
+            <CardTitle className="text-base">{matchingPlanItem.planTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {matchingPlanItem.allItems.map((item) => {
+                const isCurrent = item.id === matchingPlanItem.itemId;
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-2.5 text-sm rounded-md px-3 py-2 ${
+                      isCurrent
+                        ? "bg-primary/8 border border-primary/20 font-medium"
+                        : item.isCompleted
+                          ? "text-muted-foreground"
+                          : ""
+                    }`}
+                  >
+                    {item.isCompleted ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    ) : isCurrent ? (
+                      <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary/20 shrink-0" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    )}
+                    <span className={item.isCompleted ? "line-through" : ""}>
+                      {item.label}
+                    </span>
+                    {isCurrent && (
+                      <span className="ml-auto text-xs text-primary font-normal">
+                        Completes on save
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Case B: First visit, operation has templates, no existing plan → collapsed prompt */}
+      {isDoctor && !existingReport && !isFollowUp && !matchingPlanItem && hasTemplateSteps && allDoctors && allOperations && (
+        <Card>
+          <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Treatment Plan
-              </CardTitle>
+              <CardTitle className="text-base">Treatment Plan</CardTitle>
               {hasExistingPlans && (
                 <span className="text-xs text-muted-foreground">
-                  {existingActivePlans!.length} active plan{existingActivePlans!.length !== 1 ? "s" : ""} for this patient
+                  {existingActivePlans!.length} active plan{existingActivePlans!.length !== 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -719,38 +775,25 @@ export function ExaminationForm({
           <CardContent>
             {!showPlanEditor ? (
               <div className="space-y-3">
-                {hasTemplateSteps && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={initPlanFromTemplate}
-                  >
-                    <ClipboardList className="mr-1 h-3.5 w-3.5" />
-                    Create {operationName} plan ({treatmentSteps!.length} steps)
-                  </Button>
-                )}
-                {!hasTemplateSteps && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowPlanEditor(true)}
-                  >
-                    <ClipboardList className="mr-1 h-3.5 w-3.5" />
-                    Create custom treatment plan
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={initPlanFromTemplate}
+                >
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                  Create {operationName} plan ({treatmentSteps!.length} steps)
+                </Button>
                 {hasExistingPlans && (
                   <p className="text-xs text-muted-foreground">
-                    Active plans: {existingActivePlans!.map((p) => p.title).join(", ")}
+                    Active: {existingActivePlans!.map((p) => p.title).join(", ")}
                   </p>
                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plan Title</Label>
+                <div className="space-y-1.5">
+                  <Label>Plan Title</Label>
                   <input
                     type="text"
                     value={planTitle}
@@ -784,11 +827,12 @@ export function ExaminationForm({
           </CardContent>
         </Card>
       )}
+      {/* Case C: No templates, or follow-up without plan → section hidden entirely */}
 
       {/* Existing addendums */}
       {addendums.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader>
             <CardTitle className="text-base">Additional Notes ({addendums.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -804,62 +848,68 @@ export function ExaminationForm({
         </Card>
       )}
 
-      {/* Sticky save bar */}
-      <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t -mx-4 px-4 md:-mx-6 md:px-6 py-3 flex gap-3 justify-between items-center z-20">
-        <div>
-          {existingReport && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={isPending}
-                  className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                >
-                  <Lock className="mr-1 h-3.5 w-3.5" />
-                  Finalize
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Lock Clinical Notes?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Only an administrator can unlock them afterwards.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleFinalize}>
-                    Yes, Lock Notes
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => handleSave("print")}
-            disabled={isPending}
-          >
-            <Printer className="mr-1 h-3.5 w-3.5" />
-            Print
-          </Button>
-          <Button
-            onClick={() => handleSave("detail")}
-            disabled={isPending}
-          >
-            {isPending ? "Saving..." : "Save"}
-          </Button>
-          {nextPatientId && (
+      {/* Sticky bottom save bar */}
+      <div className="sticky bottom-0 z-20 -mx-4 px-4 md:-mx-6 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+        <div className="flex gap-2 justify-between items-center">
+          <div>
+            {existingReport && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isPending}
+                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    <Lock className="mr-1 h-3.5 w-3.5" />
+                    Finalize
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Lock Clinical Notes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Only an administrator can unlock them afterwards.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleFinalize}>
+                      Yes, Lock Notes
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+          <div className="flex gap-2">
             <Button
-              onClick={() => handleSave("next-patient")}
+              variant="outline"
+              size="sm"
+              onClick={() => handleSave("print")}
               disabled={isPending}
-              variant="default"
             >
-              {isPending ? "Saving..." : `Save & Next → #${nextPatientCode || ""}`}
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Print
             </Button>
-          )}
+            <Button
+              variant={isDoctor ? "outline" : "default"}
+              size="sm"
+              onClick={() => handleSave("detail")}
+              disabled={isPending}
+            >
+              {isPending ? "Saving..." : "Save"}
+            </Button>
+            {isDoctor && (
+              <Button
+                onClick={() => handleSave("queue")}
+                disabled={isPending}
+                size="sm"
+              >
+                {isPending ? "Saving..." : "Save & Queue"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

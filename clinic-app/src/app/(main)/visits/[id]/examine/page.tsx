@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
 import { requireAuth } from "@/lib/auth";
 import { isReportLocked, hoursUntilAutoLock, isAdmin, canExamine } from "@/lib/permissions";
-import { todayString } from "@/lib/validations";
 
 export const dynamic = "force-dynamic";
 
@@ -125,38 +124,6 @@ export default async function ExaminePage({
   const canUnlock = isAdmin(currentUser.permissionLevel);
   const hoursLeft = existingReport && !locked ? hoursUntilAutoLock(existingReport) : 0;
 
-  // Compute next patient for "Save & Next" (D2)
-  // Find today's appointments for this doctor, filter to ARRIVED+SCHEDULED, exclude current patient
-  let nextPatientId: number | null = null;
-  let nextPatientCode: number | null = null;
-  if (currentUser.permissionLevel === 3) {
-    const today = todayString();
-    const todayDate = new Date(today);
-    const tomorrowDate = new Date(todayDate.getTime() + 86400000);
-
-    const queueAppointments = await prisma.appointment.findMany({
-      where: {
-        doctorId: currentUser.id,
-        date: { gte: todayDate, lt: tomorrowDate },
-        status: { in: ["ARRIVED", "SCHEDULED"] },
-        patientId: { not: visit.patientId },
-      },
-      include: {
-        patient: { select: { id: true, code: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    // ARRIVED first, then SCHEDULED
-    const arrived = queueAppointments.filter(a => a.status === "ARRIVED");
-    const scheduled = queueAppointments.filter(a => a.status === "SCHEDULED");
-    const nextAppt = arrived[0] || scheduled[0];
-    if (nextAppt) {
-      nextPatientId = nextAppt.patient.id;
-      nextPatientCode = nextAppt.patient.code;
-    }
-  }
-
   const operationName = visit.operation?.name || "Visit";
 
   // Fetch data for treatment plan creation (doctors + template steps + existing plans)
@@ -182,14 +149,52 @@ export default async function ExaminePage({
         id: true,
         title: true,
         items: {
-          where: { visitId: null },
           orderBy: { sortOrder: "asc" },
-          take: 1,
-          select: { id: true, label: true },
+          select: { id: true, label: true, sortOrder: true, visitId: true, completedAt: true, operationId: true },
         },
       },
     }),
   ]);
+
+  // Find a matching plan item for this visit (follow-ups with active plan)
+  // Match by: operation matches an incomplete item, or stepLabel matches an item label
+  let matchingPlanItem: {
+    itemId: number;
+    itemLabel: string;
+    planId: number;
+    planTitle: string;
+    allItems: { id: number; label: string; sortOrder: number; isCompleted: boolean }[];
+  } | null = null;
+
+  if (visit.parentVisitId) {
+    for (const plan of existingPlans) {
+      const incompleteItems = plan.items.filter((i) => i.visitId === null);
+      // Try to match by stepLabel first, then by operationId (no fallback — must match)
+      const match =
+        (visit.stepLabel
+          ? incompleteItems.find((i) => i.label === visit.stepLabel)
+          : null) ||
+        (visit.operationId
+          ? incompleteItems.find((i) => i.operationId === visit.operationId)
+          : null);
+
+      if (match) {
+        matchingPlanItem = {
+          itemId: match.id,
+          itemLabel: match.label,
+          planId: plan.id,
+          planTitle: plan.title,
+          allItems: plan.items.map((i) => ({
+            id: i.id,
+            label: i.label,
+            sortOrder: i.sortOrder,
+            isCompleted: i.visitId !== null,
+          })),
+        };
+        break;
+      }
+    }
+  }
 
   // Operations for the plan editor
   const allOperations = await prisma.operation.findMany({
@@ -253,17 +258,17 @@ export default async function ExaminePage({
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
         permissionLevel={currentUser.permissionLevel}
         readOnly={!userCanExamine}
-        nextPatientId={nextPatientId}
-        nextPatientCode={nextPatientCode}
         previousReports={previousReports}
         operationName={operationName}
+        isFollowUp={!!visit.parentVisitId}
         treatmentSteps={treatmentSteps}
         allDoctors={activeDoctors}
         allOperations={allOperations}
+        matchingPlanItem={matchingPlanItem}
         existingActivePlans={existingPlans.map((p) => ({
           id: p.id,
           title: p.title,
-          nextItemLabel: p.items[0]?.label || null,
+          nextItemLabel: p.items.find((i) => i.visitId === null)?.label || null,
         }))}
       />
     </div>
