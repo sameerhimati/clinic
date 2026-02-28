@@ -63,9 +63,15 @@ export function DoctorScheduleWidget({
   // Waiting Room: all ARRIVED patients
   const arrivedPatients = sorted.filter((a) => a.status === "ARRIVED");
 
-  // Group by period for the full schedule list
+  // IDs already shown in hero cards — exclude from schedule list
+  const heroIds = new Set<number>();
+  if (nowSeeing) heroIds.add(nowSeeing.id);
+  for (const a of arrivedPatients) heroIds.add(a.id);
+
+  // Group remaining appointments by period for the schedule list
   const periodGroups = new Map<TimePeriod, ScheduleAppointment[]>();
   for (const appt of sorted) {
+    if (heroIds.has(appt.id)) continue;
     const period = classifyTimeSlot(appt.timeSlot);
     if (!periodGroups.has(period)) periodGroups.set(period, []);
     periodGroups.get(period)!.push(appt);

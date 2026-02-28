@@ -412,13 +412,19 @@ export function AppointmentDayView({
     counts[a.status] = (counts[a.status] || 0) + 1;
   }
 
-  // Column source depends on view mode
-  const columns: { id: number; name: string }[] =
+  // Column source depends on view mode — only show columns with appointments
+  const appointmentGroupKeys = new Set(
+    filteredAppointments.map((a) => (viewMode === "doctor" ? a.doctorId : a.roomId))
+  );
+
+  const allColumns: { id: number; name: string }[] =
     viewMode === "doctor"
       ? isDoctor && !showAll
         ? columnDoctors.filter((d) => d.id === currentUserId)
         : columnDoctors
       : columnRooms;
+
+  const columns = allColumns.filter((col) => appointmentGroupKeys.has(col.id));
 
   const columnLabel = (col: { id: number; name: string }) =>
     viewMode === "doctor" ? `Dr. ${col.name}` : col.name;
@@ -579,50 +585,38 @@ export function AppointmentDayView({
         />
       </div>
 
-      {/* View toggles — segmented control */}
+      {/* View toggles */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Doctor/Room toggle */}
-        {columnRooms.length > 0 && (
-          <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
-            <Button
-              variant={viewMode === "doctor" ? "default" : "ghost"}
-              size="sm"
-              className="text-xs h-7 rounded-md"
-              onClick={() => setViewMode("doctor")}
-            >
-              By Doctor
-            </Button>
-            <Button
-              variant={viewMode === "room" ? "default" : "ghost"}
-              size="sm"
-              className="text-xs h-7 rounded-md"
-              onClick={() => setViewMode("room")}
-            >
-              By Room
-            </Button>
-          </div>
-        )}
-
-        {/* My Schedule / Clinic Schedule toggle (for doctors) */}
-        {isDoctor && (
-          <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
-            <Button
-              variant={showAll ? "ghost" : "default"}
-              size="sm"
-              className="text-xs h-7 rounded-md"
-              onClick={() => setShowAll(false)}
-            >
-              My Schedule
-            </Button>
-            <Button
-              variant={showAll ? "default" : "ghost"}
-              size="sm"
-              className="text-xs h-7 rounded-md"
-              onClick={() => setShowAll(true)}
-            >
-              Clinic Schedule
-            </Button>
-          </div>
+        {isDoctor ? (
+          /* Doctors: simple text toggle between My Schedule and Clinic grid */
+          <button
+            className="text-sm text-primary hover:underline"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? "← My Schedule" : "View Clinic Schedule →"}
+          </button>
+        ) : (
+          /* Reception: Room/Doctor toggle only */
+          columnRooms.length > 0 && (
+            <div className="inline-flex rounded-lg border p-0.5 bg-muted/50">
+              <Button
+                variant={viewMode === "room" ? "default" : "ghost"}
+                size="sm"
+                className="text-xs h-7 rounded-md"
+                onClick={() => setViewMode("room")}
+              >
+                By Room
+              </Button>
+              <Button
+                variant={viewMode === "doctor" ? "default" : "ghost"}
+                size="sm"
+                className="text-xs h-7 rounded-md"
+                onClick={() => setViewMode("doctor")}
+              >
+                By Doctor
+              </Button>
+            </div>
+          )
         )}
       </div>
 
@@ -749,7 +743,7 @@ export function AppointmentDayView({
           {unassigned.length > 0 && (
             <div className="mt-4">
               <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-                Unassigned ({unassigned.length})
+                {viewMode === "doctor" ? "No Doctor Assigned" : "No Room Assigned"} ({unassigned.length})
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                 {unassigned.map((appt) => (

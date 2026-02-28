@@ -135,7 +135,6 @@ export default async function AppointmentsPage({
   return (
     <div className="space-y-4">
       <ToastOnParam param="created" message="Appointment scheduled" />
-      <h2 className="text-2xl font-bold">Appointments</h2>
       <AppointmentDayView
       dateStr={dateStr}
       appointments={serialized}
