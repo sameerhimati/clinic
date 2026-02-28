@@ -86,6 +86,14 @@ export async function createVisit(formData: FormData) {
       });
       revalidatePath("/appointments");
     }
+
+    // Link plan item if provided (from search params)
+    if (parsed.planItemId) {
+      await prisma.treatmentPlanItem.update({
+        where: { id: parsed.planItemId },
+        data: { visitId: visit.id, completedAt: new Date() },
+      });
+    }
   } catch (error) {
     throw new Error(toUserError(error));
   }
@@ -114,6 +122,7 @@ type QuickVisitInput = {
   labRateAmount?: number;
   labQuantity?: number;
   appointmentId?: number;
+  planItemId?: number;
 };
 
 export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId: number }> {
@@ -186,6 +195,14 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
         data: { visitId: visit.id, status: "IN_PROGRESS" },
       });
       revalidatePath("/appointments");
+    }
+
+    // Link plan item if provided
+    if (data.planItemId) {
+      await prisma.treatmentPlanItem.update({
+        where: { id: data.planItemId },
+        data: { visitId: visit.id, completedAt: new Date() },
+      });
     }
 
     revalidatePath("/visits");

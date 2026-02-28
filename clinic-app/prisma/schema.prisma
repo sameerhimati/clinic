@@ -35,6 +35,7 @@ model Operation {
   updatedAt       DateTime         @updatedAt
   visits          Visit[]
   treatmentSteps  TreatmentStep[]
+  planItems       TreatmentPlanItem[]
 
   @@map("operations")
 }
@@ -158,6 +159,8 @@ model Doctor {
   uploadedFiles        PatientFile[]
   appointmentsAsDoctor Appointment[]      @relation("AppointmentDoctor")
   appointmentsCreated  Appointment[]      @relation("AppointmentCreatedBy")
+  createdPlans         TreatmentPlan[]    @relation("CreatedPlans")
+  assignedPlanItems    TreatmentPlanItem[] @relation("AssignedPlanItems")
 
   @@map("doctors")
 }
@@ -204,6 +207,7 @@ model Patient {
   visits              Visit[]
   files               PatientFile[]
   appointments        Appointment[]
+  treatmentPlans      TreatmentPlan[]
 
   @@map("patients")
 }
@@ -255,6 +259,7 @@ model Visit {
   clinicalReports         ClinicalReport[]
   files                   PatientFile[]
   appointments            Appointment[]
+  planItems               TreatmentPlanItem[]
 
   @@map("visits")
 }
@@ -356,4 +361,47 @@ model PatientFile {
   createdAt     DateTime @default(now())
 
   @@map("patient_files")
+}
+
+// ============================================
+// TREATMENT PLANS
+// ============================================
+
+model TreatmentPlan {
+  id          Int                 @id @default(autoincrement())
+  patientId   Int
+  patient     Patient             @relation(fields: [patientId], references: [id])
+  title       String              // "RCT + Crown tooth 36" — auto-generated or custom
+  status      String              @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  createdById Int
+  createdBy   Doctor              @relation("CreatedPlans", fields: [createdById], references: [id])
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  items       TreatmentPlanItem[]
+
+  @@index([patientId])
+  @@map("treatment_plans")
+}
+
+model TreatmentPlanItem {
+  id               Int            @id @default(autoincrement())
+  planId           Int
+  plan             TreatmentPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  sortOrder        Int
+  label            String         // "Access Opening", "Crown Prep", or custom text
+  operationId      Int?           // optional — links to Operation for pricing
+  operation        Operation?     @relation(fields: [operationId], references: [id])
+  assignedDoctorId Int?           // optional — which doctor should do this step
+  assignedDoctor   Doctor?        @relation("AssignedPlanItems", fields: [assignedDoctorId], references: [id])
+  estimatedDayGap  Int            @default(7)
+  visitId          Int?           // set when completed — the visit that fulfilled this item
+  visit            Visit?         @relation(fields: [visitId], references: [id])
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([planId])
+  @@map("treatment_plan_items")
 }

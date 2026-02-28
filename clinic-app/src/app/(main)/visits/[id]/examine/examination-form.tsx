@@ -21,7 +21,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList } from "lucide-react";
+import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
+import { createTreatmentPlan, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
 
 type PreviousReport = {
@@ -210,6 +212,10 @@ export function ExaminationForm({
   readOnly,
   previousReports,
   operationName,
+  treatmentSteps,
+  allDoctors,
+  allOperations,
+  existingActivePlans,
 }: {
   visitId: number;
   patientId?: number;
@@ -229,6 +235,10 @@ export function ExaminationForm({
   nextPatientCode?: number | null;
   previousReports?: PreviousReport[];
   operationName?: string;
+  treatmentSteps?: { name: string; defaultDayGap: number; description: string | null }[];
+  allDoctors?: { id: number; name: string }[];
+  allOperations?: { id: number; name: string; category: string | null }[];
+  existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -280,6 +290,39 @@ export function ExaminationForm({
   const hasPreviousNotes = previousReports && previousReports.length > 0;
   const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
 
+  // Treatment plan state
+  const hasTemplateSteps = treatmentSteps && treatmentSteps.length > 0;
+  const hasExistingPlans = existingActivePlans && existingActivePlans.length > 0;
+  const [showPlanEditor, setShowPlanEditor] = useState(false);
+  const [planTitle, setPlanTitle] = useState(operationName || "");
+  const [planItems, setPlanItems] = useState<PlanItemDraft[]>([]);
+
+  // Initialize plan items from template steps when opening the editor
+  function initPlanFromTemplate() {
+    if (!treatmentSteps || treatmentSteps.length === 0) return;
+    const items: PlanItemDraft[] = treatmentSteps.map((step, index) => ({
+      id: crypto.randomUUID(),
+      label: step.name,
+      operationId: null, // same operation for all template steps
+      assignedDoctorId: doctorId,
+      estimatedDayGap: step.defaultDayGap,
+      notes: step.description,
+      isCompleted: index === 0, // first step = this visit
+    }));
+    setPlanItems(items);
+    setPlanTitle(operationName || "Treatment Plan");
+    setShowPlanEditor(true);
+  }
+
+  async function loadTemplateSteps(operationId: number) {
+    const steps = await getOperationSteps(operationId);
+    return steps.map((s) => ({
+      name: s.name,
+      defaultDayGap: s.defaultDayGap,
+      description: s.description,
+    }));
+  }
+
   async function handleSave(redirectTarget: "detail" | "print" | "next-patient") {
     startTransition(async () => {
       try {
@@ -293,6 +336,31 @@ export function ExaminationForm({
           estimate: estimate || null,
           medication: medication || null,
         });
+        // Create treatment plan if editor is active with items
+        if (showPlanEditor && planItems.length > 0 && patientId) {
+          const validItems = planItems.filter((i) => !i.isCompleted && i.label.trim());
+          if (validItems.length > 0) {
+            try {
+              await createTreatmentPlan(
+                patientId,
+                planTitle || operationName || "Treatment Plan",
+                validItems.map((i) => ({
+                  label: i.label,
+                  operationId: i.operationId,
+                  assignedDoctorId: i.assignedDoctorId,
+                  estimatedDayGap: i.estimatedDayGap,
+                  notes: i.notes,
+                })),
+                null,
+                visitId, // link first item to this visit
+              );
+              toast.success("Treatment plan created");
+            } catch {
+              toast.error("Exam saved but plan creation failed");
+            }
+          }
+        }
+
         if (result?.appointmentAutoCompleted && result.completedAppointmentId) {
           const apptId = result.completedAppointmentId;
           toast.success("Appointment completed", {
@@ -306,7 +374,7 @@ export function ExaminationForm({
             },
             duration: 8000,
           });
-        } else {
+        } else if (!showPlanEditor) {
           toast.success("Examination saved");
         }
         if (redirectTarget === "print") {
@@ -631,6 +699,91 @@ export function ExaminationForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* Treatment Plan — doctors only, when operation has template steps or no existing plan */}
+      {isDoctor && !existingReport && (hasTemplateSteps || !hasExistingPlans) && allDoctors && allOperations && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Treatment Plan
+              </CardTitle>
+              {hasExistingPlans && (
+                <span className="text-xs text-muted-foreground">
+                  {existingActivePlans!.length} active plan{existingActivePlans!.length !== 1 ? "s" : ""} for this patient
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!showPlanEditor ? (
+              <div className="space-y-3">
+                {hasTemplateSteps && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={initPlanFromTemplate}
+                  >
+                    <ClipboardList className="mr-1 h-3.5 w-3.5" />
+                    Create {operationName} plan ({treatmentSteps!.length} steps)
+                  </Button>
+                )}
+                {!hasTemplateSteps && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPlanEditor(true)}
+                  >
+                    <ClipboardList className="mr-1 h-3.5 w-3.5" />
+                    Create custom treatment plan
+                  </Button>
+                )}
+                {hasExistingPlans && (
+                  <p className="text-xs text-muted-foreground">
+                    Active plans: {existingActivePlans!.map((p) => p.title).join(", ")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plan Title</Label>
+                  <input
+                    type="text"
+                    value={planTitle}
+                    onChange={(e) => setPlanTitle(e.target.value)}
+                    placeholder="e.g. RCT + Crown tooth 36"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                <TreatmentPlanEditor
+                  items={planItems}
+                  onChange={setPlanItems}
+                  operations={allOperations}
+                  doctors={allDoctors}
+                  defaultDoctorId={doctorId}
+                  onLoadTemplateSteps={loadTemplateSteps}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowPlanEditor(false);
+                    setPlanItems([]);
+                  }}
+                  className="text-muted-foreground"
+                >
+                  Remove plan
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Existing addendums */}
       {addendums.length > 0 && (

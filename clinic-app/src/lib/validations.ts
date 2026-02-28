@@ -103,6 +103,7 @@ export const visitSchema = z.object({
   parentVisitId: optionalInt,
   stepLabel: optionalString,
   appointmentId: optionalInt,
+  planItemId: optionalInt,
   operationRate: numericOrZero,
   discount: numericOrZero,
   labRateAmount: numericOrZero,

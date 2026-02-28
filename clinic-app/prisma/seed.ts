@@ -1075,6 +1075,51 @@ async function main() {
     await prisma.treatmentStep.createMany({ data: treatmentSteps });
   }
 
+  // ==========================================
+  // TREATMENT PLANS
+  // ==========================================
+
+  // Patient 3 (SRINIVAS NARRA): RCT + Crown plan for tooth 36
+  // 3 RCT steps already completed, Crown steps pending
+  const plan3 = await prisma.treatmentPlan.create({
+    data: {
+      patientId: 3,
+      title: "RCT + Crown tooth 36",
+      status: "ACTIVE",
+      createdById: surender!.id,
+      items: {
+        create: [
+          { sortOrder: 1, label: "Initial Assessment", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 0, visitId: rctChain3V1.id, completedAt: daysAgo(14) },
+          { sortOrder: 2, label: "Access Opening", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 7, visitId: rctChain3V2.id, completedAt: daysAgo(7) },
+          { sortOrder: 3, label: "BMP / Obturation", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 7, visitId: rctChain3V3.id, completedAt: today },
+          { sortOrder: 4, label: "Crown Prep", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
+          { sortOrder: 5, label: "Crown Fitting", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
+        ],
+      },
+    },
+  });
+
+  // Patient 28: Implant plan (all pending)
+  if (implant) {
+    await prisma.treatmentPlan.create({
+      data: {
+        patientId: 28,
+        title: "Single Implant tooth 14",
+        status: "ACTIVE",
+        createdById: bhadra!.id,
+        items: {
+          create: [
+            { sortOrder: 1, label: "Implant Placement", operationId: implant.id, assignedDoctorId: bhadra!.id, estimatedDayGap: 0 },
+            { sortOrder: 2, label: "Healing Check (6 weeks)", assignedDoctorId: bhadra!.id, estimatedDayGap: 42 },
+            { sortOrder: 3, label: "Impression for Crown", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 42 },
+            { sortOrder: 4, label: "Crown Try-in", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
+            { sortOrder: 5, label: "Crown Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 7 },
+          ],
+        },
+      },
+    });
+  }
+
   console.log(`   - ${visits.length + 10 + 12 + 7} visits (incl. follow-up chains + 3 scenarios)`);
   console.log(`   - ${receipts.length} + scenario receipts`);
   console.log(`   - ${clinicalReports.length + 1} + scenario clinical reports`);
@@ -1084,6 +1129,7 @@ async function main() {
   console.log("   - 5 rooms");
   console.log("   - 1 clinic settings");
   console.log(`   - ${treatmentSteps.length} treatment steps`);
+  console.log("   - 2 treatment plans (Patient 3 RCT+Crown, Patient 28 Implant)");
 }
 
 main()

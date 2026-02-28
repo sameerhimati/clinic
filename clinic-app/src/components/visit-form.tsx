@@ -15,7 +15,7 @@ import { X, Search, Check, ChevronsUpDown, Lock } from "lucide-react";
 import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
-export type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null };
+export type Operation = { id: number; name: string; category: string | null; defaultMinFee: number | null; labCostEstimate?: number | null; doctorFee?: number | null };
 export type Doctor = { id: number; name: string; commissionPercent: number };
 export type Lab = { id: number; name: string; rates: { id: number; itemName: string; rate: number }[] };
 
@@ -259,6 +259,8 @@ export function VisitForm({
   showInternalCosts = true,
   appointmentId,
   permissionLevel = 0,
+  defaultStepLabel,
+  planItemId,
 }: {
   operations: Operation[];
   doctors: Doctor[];
@@ -271,6 +273,8 @@ export function VisitForm({
   showInternalCosts?: boolean;
   appointmentId?: number;
   permissionLevel?: number;
+  defaultStepLabel?: string;
+  planItemId?: number;
 }) {
   const isFollowUp = mode === "followup" && parentVisit;
 
@@ -310,6 +314,7 @@ export function VisitForm({
     <form action={handleSubmit} className="space-y-6">
       {/* Hidden fields */}
       {appointmentId && <input type="hidden" name="appointmentId" value={appointmentId} />}
+      {planItemId && <input type="hidden" name="planItemId" value={planItemId} />}
       {isFollowUp && (
         <>
           <input type="hidden" name="visitType" value="FOLLOWUP" />
@@ -376,7 +381,7 @@ export function VisitForm({
             {isFollowUp && (
               <div className="space-y-2 sm:col-span-2">
                 <Label>Step Label</Label>
-                <Input name="stepLabel" placeholder="e.g., Impression, Crown Prep, Suture Removal" />
+                <Input name="stepLabel" defaultValue={defaultStepLabel || ""} placeholder="e.g., Impression, Crown Prep, Suture Removal" />
               </div>
             )}
 

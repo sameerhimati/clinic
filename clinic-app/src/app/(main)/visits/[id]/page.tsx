@@ -136,6 +136,62 @@ export default async function VisitDetailPage({
     suggestedDate = `${suggested.getFullYear()}-${String(suggested.getMonth() + 1).padStart(2, "0")}-${String(suggested.getDate()).padStart(2, "0")}`;
   }
 
+  // Check for active treatment plan for this patient
+  const activePlan = await prisma.treatmentPlan.findFirst({
+    where: {
+      patientId: visit.patientId,
+      status: "ACTIVE",
+      items: {
+        some: {
+          OR: [
+            { visitId: visit.id }, // this visit is linked to a plan item
+            { visitId: null },     // plan has uncompleted items
+          ],
+        },
+      },
+    },
+    include: {
+      items: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          operation: { select: { name: true } },
+          assignedDoctor: { select: { name: true } },
+          visit: { select: { id: true, visitDate: true } },
+        },
+      },
+    },
+  });
+
+  // Compute plan-based next step
+  let planNextItem: { id: number; label: string; assignedDoctorId: number | null; estimatedDate: string | null } | null = null;
+  if (activePlan) {
+    const planItems = activePlan.items;
+    const nextIdx = planItems.findIndex((i) => i.visitId === null);
+    if (nextIdx >= 0) {
+      const next = planItems[nextIdx];
+      // Estimate date from last completed item
+      let estDate: string | null = null;
+      for (let i = nextIdx - 1; i >= 0; i--) {
+        if (planItems[i].visit?.visitDate) {
+          const lastDate = new Date(planItems[i].visit!.visitDate);
+          let totalDays = 0;
+          for (let j = i + 1; j <= nextIdx; j++) {
+            totalDays += planItems[j].estimatedDayGap;
+          }
+          const suggested = new Date(lastDate.getTime() + totalDays * 86400000);
+          estDate = `${suggested.getFullYear()}-${String(suggested.getMonth() + 1).padStart(2, "0")}-${String(suggested.getDate()).padStart(2, "0")}`;
+          break;
+        }
+      }
+      planNextItem = {
+        id: next.id,
+        label: next.label,
+        assignedDoctorId: next.assignedDoctorId,
+        estimatedDate: estDate,
+      };
+    }
+  }
+
   const billed = calcBilled(visit);
   const paid = calcPaid(visit.receipts);
   const balance = calcBalance(visit, visit.receipts);
@@ -212,8 +268,11 @@ export default async function VisitDetailPage({
           {/* Next Step — for doctors to create follow-up visits */}
           {isDoctor && (
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${currentUser.id}`}>
-                Next Step
+              <Link href={planNextItem
+                ? `/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${planNextItem.assignedDoctorId || currentUser.id}&stepLabel=${encodeURIComponent(planNextItem.label)}&planItemId=${planNextItem.id}`
+                : `/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${currentUser.id}`
+              }>
+                {planNextItem ? planNextItem.label : "Next Step"}
                 <ChevronRight className="ml-1 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -221,9 +280,12 @@ export default async function VisitDetailPage({
           {/* Schedule Follow-up — reception/admin only */}
           {!isDoctor && (
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}`}>
+              <Link href={planNextItem
+                ? `/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${planNextItem.assignedDoctorId ? `&doctorId=${planNextItem.assignedDoctorId}` : visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(planNextItem.label)}&planItemId=${planNextItem.id}${planNextItem.estimatedDate ? `&date=${planNextItem.estimatedDate}` : ""}`
+                : `/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}`
+              }>
                 <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                Schedule F/U
+                {planNextItem ? `Schedule: ${planNextItem.label}` : "Schedule F/U"}
               </Link>
             </Button>
           )}
@@ -355,16 +417,22 @@ export default async function VisitDetailPage({
               </div>
             )}
 
-            {/* Schedule next step button */}
-            {nextStep && (
+            {/* Schedule next step button — plan-aware */}
+            {(planNextItem || nextStep) && (
               <div className="pt-3 border-t mt-3">
                 <Button size="sm" asChild>
-                  <Link href={`/appointments/new?patientId=${visit.patientId}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(nextStep.name)}&stepLabel=${encodeURIComponent(nextStep.name)}${suggestedDate ? `&date=${suggestedDate}` : ""}`}>
+                  <Link href={planNextItem
+                    ? `/appointments/new?patientId=${visit.patientId}${planNextItem.assignedDoctorId ? `&doctorId=${planNextItem.assignedDoctorId}` : visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(planNextItem.label)}&planItemId=${planNextItem.id}${planNextItem.estimatedDate ? `&date=${planNextItem.estimatedDate}` : ""}`
+                    : `/appointments/new?patientId=${visit.patientId}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(nextStep!.name)}&stepLabel=${encodeURIComponent(nextStep!.name)}${suggestedDate ? `&date=${suggestedDate}` : ""}`
+                  }>
                     <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                    Schedule Step {nextStep.stepNumber}: {nextStep.name}
-                    {suggestedDate && (
+                    {planNextItem
+                      ? `Schedule: ${planNextItem.label}`
+                      : `Schedule Step ${nextStep!.stepNumber}: ${nextStep!.name}`
+                    }
+                    {(planNextItem?.estimatedDate || suggestedDate) && (
                       <span className="text-xs ml-1 opacity-70">
-                        (suggested: {format(new Date(suggestedDate + "T00:00:00"), "dd MMM")})
+                        (suggested: {format(new Date((planNextItem?.estimatedDate || suggestedDate)! + "T00:00:00"), "dd MMM")})
                       </span>
                     )}
                   </Link>

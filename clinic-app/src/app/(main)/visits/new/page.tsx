@@ -11,7 +11,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 export default async function NewVisitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ patientId?: string; followUp?: string; appointmentId?: string; doctorId?: string }>;
+  searchParams: Promise<{ patientId?: string; followUp?: string; appointmentId?: string; doctorId?: string; stepLabel?: string; planItemId?: string }>;
 }) {
   const currentUser = await requireAuth();
   const showInternalCosts = canSeeInternalCosts(currentUser.permissionLevel);
@@ -143,6 +143,8 @@ export default async function NewVisitPage({
         showInternalCosts={showInternalCosts}
         appointmentId={appointment?.id}
         permissionLevel={currentUser.permissionLevel}
+        defaultStepLabel={params.stepLabel || undefined}
+        planItemId={params.planItemId ? parseInt(params.planItemId) : undefined}
       />
     </div>
   );

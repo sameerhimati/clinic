@@ -28,7 +28,7 @@ export default async function PatientDetailPage({
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases] = await Promise.all([
+  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, treatmentPlans] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -126,7 +126,7 @@ export default async function PatientDetailPage({
     prisma.operation.findMany({
       where: { isActive: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, category: true, defaultMinFee: true },
+      select: { id: true, name: true, category: true, defaultMinFee: true, labCostEstimate: true, doctorFee: true },
     }),
     // Doctors for Quick Visit
     prisma.doctor.findMany({
@@ -142,6 +142,22 @@ export default async function PatientDetailPage({
     }),
     // All diseases for inline editor
     canEdit ? prisma.disease.findMany({ orderBy: { id: "asc" } }) : Promise.resolve([]),
+    // Treatment plans
+    prisma.treatmentPlan.findMany({
+      where: { patientId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        createdBy: { select: { name: true } },
+        items: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            operation: { select: { name: true } },
+            assignedDoctor: { select: { name: true } },
+            visit: { select: { id: true, visitDate: true } },
+          },
+        },
+      },
+    }),
   ]);
 
   if (!patient) notFound();
@@ -290,6 +306,29 @@ export default async function PatientDetailPage({
     showInternalCosts,
     canEdit,
     isAdmin: userIsAdmin,
+    treatmentPlans: treatmentPlans.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      status: plan.status,
+      notes: plan.notes,
+      createdAt: plan.createdAt,
+      createdByName: plan.createdBy.name,
+      patientId: plan.patientId,
+      items: plan.items.map((item) => ({
+        id: item.id,
+        sortOrder: item.sortOrder,
+        label: item.label,
+        operationId: item.operationId,
+        operationName: item.operation?.name || null,
+        assignedDoctorId: item.assignedDoctorId,
+        assignedDoctorName: item.assignedDoctor?.name || null,
+        estimatedDayGap: item.estimatedDayGap,
+        visitId: item.visitId,
+        visitDate: item.visit?.visitDate || null,
+        completedAt: item.completedAt,
+        notes: item.notes,
+      })),
+    })),
   };
 
   return <PatientPageClient data={pageData} />;

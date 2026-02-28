@@ -159,6 +159,45 @@ export default async function ExaminePage({
 
   const operationName = visit.operation?.name || "Visit";
 
+  // Fetch data for treatment plan creation (doctors + template steps + existing plans)
+  const [treatmentSteps, activeDoctors, existingPlans] = await Promise.all([
+    visit.operationId
+      ? prisma.treatmentStep.findMany({
+          where: { operationId: visit.operationId },
+          orderBy: { stepNumber: "asc" },
+          select: { name: true, defaultDayGap: true, description: true },
+        })
+      : Promise.resolve([]),
+    prisma.doctor.findMany({
+      where: { permissionLevel: 3, isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.treatmentPlan.findMany({
+      where: {
+        patientId: visit.patientId,
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        title: true,
+        items: {
+          where: { visitId: null },
+          orderBy: { sortOrder: "asc" },
+          take: 1,
+          select: { id: true, label: true },
+        },
+      },
+    }),
+  ]);
+
+  // Operations for the plan editor
+  const allOperations = await prisma.operation.findMany({
+    where: { isActive: true },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, category: true },
+  });
+
   return (
     <div className={previousReports.length > 0 ? "space-y-6" : "max-w-3xl space-y-6"}>
       <Breadcrumbs items={[
@@ -218,6 +257,14 @@ export default async function ExaminePage({
         nextPatientCode={nextPatientCode}
         previousReports={previousReports}
         operationName={operationName}
+        treatmentSteps={treatmentSteps}
+        allDoctors={activeDoctors}
+        allOperations={allOperations}
+        existingActivePlans={existingPlans.map((p) => ({
+          id: p.id,
+          title: p.title,
+          nextItemLabel: p.items[0]?.label || null,
+        }))}
       />
     </div>
   );

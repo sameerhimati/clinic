@@ -1,7 +1,11 @@
 # Clinic App — Roadmap
 
 ## Current State
-Built: Dashboard (role-aware, search-centric), Patient CRUD + global search (topbar + dashboard), Visits with follow-up support (visitType + parentVisitId), Receipts (auto-numbering), Patient Checkout (FIFO allocation), Doctor Commission Report, Outstanding Dues Report, **Auth (cookie-based login, role-based sidebar/dashboard)**, **Clinical Examination (per-visit exam, printable report, locking + addendums)**, **Granular Permissions (doctors see pricing/receipts, not reports/lab costs/commission)**, **File Uploads (drag-and-drop, gallery)**, **Unified Patient Chart (scrollable page, treatment timeline with doctor-colored chains, step labels)**, **Admin Management (Doctor CRUD, Operation CRUD, Lab & Rate CRUD)**, **Navigation back links on all detail + create pages**, **Inline medical history editing**, **Server action auth hardening**, **Appointment Scheduling (dual-view timetable, rooms, status flow, dashboard widget, patient/visit integration)**, **UI/UX Polish (form loading states, error handling, PatientSearch in visit form, AlertDialog safety, StatusBadge component, accessibility improvements)**, **UX Cleanup (receipt URL guards, role-aware appointment form, estimate hidden for doctors, server-side doctorId enforcement)**, **My Activity Report (doctor-only clinical activity page with summary, recent visits, follow-up pipeline)**, **Tariff Card Integration (65 SDH procedures with auto-fill pricing, tiered discounts, visit form overhaul, terminology consistency)**, **Print Polish (page margins, font sizing, signature lines, report print buttons, print-hidden UI elements)**. 34 routes. SQLite local dev. Git repo: `github.com/sameerhimati/clinic` (private).
+All core clinical workflows implemented. 35 routes. SQLite local dev.
+
+**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads, Print infrastructure.
+
+**Awaiting manual end-to-end testing of 9-step daily patient flow before adding new features.**
 
 ---
 
@@ -63,14 +67,18 @@ When ready to go live with real data:
 ## UX Audit & Tariff Integration [DONE]
 ## UX Audit Completion & Print Polish [DONE]
 
-- [x] All 16 UX audit items resolved (date formats, sidebar active state, balance visibility, etc.)
-- [x] Print infrastructure: `@page` margins, font sizing, page-break rules, shadow removal
-- [x] Receipt print: proper signature lines with horizontal rules and spacing
-- [x] Exam report print: signature lines, doctor name pre-printed above signature
-- [x] Commission report: Print button, filters/breadcrumbs hidden on print, TDS/Net columns visible on print
-- [x] Outstanding report: Print button, filters/Pay buttons hidden on print
-- [x] Reusable `PrintPageButton` component (`src/components/print-button.tsx`)
-- [x] Dead code cleanup (back-link.tsx deleted)
+---
+
+## Core Workflow Enhancements (Sessions 18-21) [DONE]
+- [x] Doctor-only visit creation (reception schedules appointments only)
+- [x] Doctor discount (10% tier for L3)
+- [x] Quick doctor reassignment on appointments
+- [x] Doctor dashboard 3-section queue (Now Seeing / Waiting Room / Schedule)
+- [x] Per-operation doctor fees (`Operation.doctorFee`, `Operation.labCostEstimate`)
+- [x] Commission report dual-view: "By Receipt" (legacy) + "By Treatment" (chain view)
+- [x] Minimum collection warnings at checkout (doctorFee + labCost vs collected)
+- [x] Step tracker: "Step X of Y", per-step costs, chain cost summary
+- [x] Seed data: realistic patient stories with coherent treatment chains
 
 ---
 
@@ -212,6 +220,25 @@ Harden auth, close permission gaps, protect patient data.
 - [ ] `deletePatient` pre-check for existing visits
 - [ ] Server-side input length limits on free-text fields
 - [ ] Audit logging for sensitive operations
+
+---
+
+## Phase 5B: Doctor Settlement & Lab Workflow (Pending Design Decisions)
+
+### P5B-1: Settlement Tracking
+- [ ] Decide: `DoctorSettlement` model vs report-only approach
+- [ ] Settlement UI: admin marks completed treatment chains as "settled"
+- [ ] Monthly settlement report (1st of month, all completed unsettled chains)
+- [ ] Settlement history per doctor
+
+### P5B-2: Treatment Chain Finalization
+- [ ] "Mark Treatment Complete" button (early finalization before all steps)
+- [ ] Auto-complete already works (all steps have exams → completed)
+- [ ] Multi-doctor chain fee assignment (BDS starts, consultant finishes — who gets paid?)
+
+### P5B-3: Lab Cost Gating
+- [ ] Warn at visit creation when lab-work visit has insufficient patient payment
+- [ ] Lab order tracking (optional — may not be needed if labCostEstimate is informational only)
 
 ---
 

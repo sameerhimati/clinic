@@ -36,8 +36,10 @@ import { InfoRow } from "@/components/detail-row";
 import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
+import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ToastOnParam } from "@/components/toast-on-param";
+import { ClipboardList } from "lucide-react";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
@@ -146,6 +148,7 @@ export type PatientPageData = {
   showInternalCosts: boolean;
   canEdit: boolean;
   isAdmin: boolean;
+  treatmentPlans: TreatmentPlanData[];
 };
 
 export function PatientPageClient({ data }: { data: PatientPageData }) {
@@ -473,6 +476,34 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </section>
       )}
 
+      {/* Treatment Plans */}
+      {(data.treatmentPlans.length > 0 || isDoctor) && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Plans</h3>
+            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+              <Link href={`/patients/${patient.id}/plan/new`}>
+                <ClipboardList className="h-3.5 w-3.5 mr-1" />
+                New Plan
+              </Link>
+            </Button>
+          </div>
+          {data.treatmentPlans.length > 0 ? (
+            <div className="space-y-4">
+              {data.treatmentPlans.map((plan) => (
+                <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                No treatment plans yet
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      )}
+
       {/* Treatment History */}
       <section>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Treatment History</h3>
@@ -591,6 +622,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         currentDoctorId={currentUser.id}
         followUpContext={followUpContext}
         appointmentId={todayAppt?.status === "ARRIVED" ? todayAppt.id : undefined}
+        totalPaid={data.totalPaid}
       />
     </div>
   );

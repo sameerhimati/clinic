@@ -53,6 +53,7 @@ export function QuickVisitSheet({
   followUpContext,
   appointmentId,
   onCreated,
+  totalPaid,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,6 +68,7 @@ export function QuickVisitSheet({
   followUpContext?: FollowUpContext;
   appointmentId?: number;
   onCreated?: () => void;
+  totalPaid?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -430,6 +432,25 @@ export function QuickVisitSheet({
               placeholder="Optional visit notes..."
             />
           </div>
+
+          {/* Minimum collection warning */}
+          {(() => {
+            if (!selectedOperationId || totalPaid === undefined) return null;
+            const op = operations.find((o) => o.id === selectedOperationId);
+            if (!op) return null;
+            const minNeeded = (op.doctorFee || 0) + (op.labCostEstimate || 0);
+            if (minNeeded <= 0 || totalPaid >= minNeeded) return null;
+            const shortfall = minNeeded - totalPaid;
+            return (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p className="font-medium">Minimum collection warning</p>
+                <p className="text-xs mt-1">
+                  This procedure needs at least ₹{minNeeded.toLocaleString("en-IN")} (doctor fee + lab cost).
+                  Patient has paid ₹{totalPaid.toLocaleString("en-IN")} — short by ₹{shortfall.toLocaleString("en-IN")}.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-2">
