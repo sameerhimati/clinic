@@ -314,7 +314,7 @@ export function PatientForm({
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" asChild>
-          <Link href="/patients">Cancel</Link>
+          <Link href={patient ? `/patients/${patient.id}` : "/patients"}>Cancel</Link>
         </Button>
         <Button type="submit" disabled={isPending}>
           {isPending

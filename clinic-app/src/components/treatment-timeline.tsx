@@ -97,7 +97,7 @@ function QuickNoteForm({ visitId }: { visitId: number }) {
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
       >
         Quick Note
@@ -169,7 +169,7 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
   return (
     <div>
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-full text-left"
       >
         {isLocked && <Lock className="h-3 w-3 text-amber-500 shrink-0" />}

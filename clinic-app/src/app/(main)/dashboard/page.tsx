@@ -34,7 +34,7 @@ async function getAdminDashboardData() {
   const [
     todayVisits,
     todayReceipts,
-    recentVisits,
+    pendingPaymentVisits,
     outstandingVisits,
     todayAppointments,
   ] = await Promise.all([
@@ -47,8 +47,8 @@ async function getAdminDashboardData() {
       _count: true,
     }),
     prisma.visit.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
+      where: { operationRate: { gt: 0 } },
+      orderBy: { visitDate: "desc" },
       include: {
         patient: { select: { id: true, name: true, code: true } },
         operation: { select: { name: true } },
@@ -82,11 +82,16 @@ async function getAdminDashboardData() {
     if (balance > 0) totalOutstanding += balance;
   }
 
+  // Filter to visits with outstanding balance, take top 5
+  const pendingPayments = pendingPaymentVisits
+    .filter((v) => calcBalance(v, v.receipts) > 0)
+    .slice(0, 5);
+
   return {
     todayVisits,
     todayCollections: todayReceipts._sum.amount || 0,
     totalOutstanding,
-    recentVisits,
+    pendingPayments,
     todayAppointments,
   };
 }
@@ -209,18 +214,18 @@ export default async function DashboardPage() {
         }))}
       />
 
-      {/* Recent Visits — de-emphasized */}
-      {data.recentVisits.length > 0 && (
+      {/* Pending Payments — actionable for reception */}
+      {data.pendingPayments.length > 0 && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-muted-foreground text-base font-medium">Recent Visits</CardTitle>
+            <CardTitle className="text-base font-medium">Pending Payments</CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/visits">View All &rarr;</Link>
+              <Link href="/reports/outstanding">View All &rarr;</Link>
             </Button>
           </CardHeader>
           <CardContent>
             <div className="divide-y">
-              {data.recentVisits.map((visit) => {
+              {data.pendingPayments.map((visit) => {
                 const billed = calcBilled(visit);
                 const balance = calcBalance(visit, visit.receipts);
                 return (
@@ -238,16 +243,11 @@ export default async function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <div className="text-sm font-medium">{"\u20B9"}{billed.toLocaleString("en-IN")}</div>
-                        {balance > 0 ? (
-                          <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">Paid</Badge>
-                        )}
+                        <Badge variant="destructive" className="text-xs">Due: {"\u20B9"}{balance.toLocaleString("en-IN")}</Badge>
                       </div>
-                      {canCollect && balance > 0 && (
+                      {canCollect && (
                         <Button size="sm" variant="outline" asChild>
-                          <Link href={`/patients/${visit.patient.id}/checkout`}>Pay</Link>
+                          <Link href={`/patients/${visit.patient.id}/checkout`}>Collect</Link>
                         </Button>
                       )}
                     </div>

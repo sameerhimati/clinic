@@ -124,9 +124,7 @@ export function DashboardAppointmentList({
                       </Button>
                     )}
                     {appt.status === "ARRIVED" && (
-                      <Badge variant="outline" className="border-amber-300 text-amber-700 text-xs">
-                        Waiting
-                      </Badge>
+                      <StatusBadge status={appt.status} />
                     )}
                     {appt.status === "IN_PROGRESS" && appt.visitId && (
                       <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
@@ -135,7 +133,9 @@ export function DashboardAppointmentList({
                         </Link>
                       </Button>
                     )}
-                    <StatusBadge status={appt.status} />
+                    {appt.status === "COMPLETED" && (
+                      <StatusBadge status={appt.status} />
+                    )}
                   </div>
                 </div>
               ))}
