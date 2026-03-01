@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, toTitleCase } from "@/lib/format";
-import { Search } from "lucide-react";
+import { Search, AlertTriangle } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
 import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 export default async function CommissionReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; doctorId?: string; view?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; doctorId?: string; view?: string; consultantsOnly?: string }>;
 }) {
   const currentUser = await requireAuth();
   if (!canSeeReports(currentUser.permissionLevel)) {
@@ -156,13 +156,13 @@ export default async function CommissionReportPage({
     include: {
       patient: { select: { name: true, code: true } },
       operation: { select: { name: true, doctorFee: true, labCostEstimate: true } },
-      doctor: { select: { name: true, id: true } },
+      doctor: { select: { name: true, id: true, isConsultant: true } },
       receipts: { select: { amount: true } },
       clinicalReports: { take: 1, select: { id: true } },
       followUps: {
         include: {
           operation: { select: { name: true, doctorFee: true } },
-          doctor: { select: { name: true, id: true } },
+          doctor: { select: { name: true, id: true, isConsultant: true } },
           receipts: { select: { amount: true } },
           clinicalReports: { take: 1, select: { id: true } },
         },
@@ -179,6 +179,8 @@ export default async function CommissionReportPage({
     patientCode: number | null;
     operationName: string;
     doctorName: string;
+    isConsultant: boolean;
+    isMultiDoctor: boolean;
     doctorFee: number | null;
     labCostEstimate: number | null;
     totalBilled: number;
@@ -190,13 +192,16 @@ export default async function CommissionReportPage({
     status: "In Progress" | "Completed";
   };
 
-  const chainRows: ChainRow[] = chainVisits.map((root) => {
+  const allChainRows: ChainRow[] = chainVisits.map((root) => {
     const allVisits = [root, ...root.followUps];
     const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - (v.discount || 0), 0);
     const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
     const totalLabCost = allVisits.reduce((sum, v) => sum + v.labRateAmount * v.labQuantity, 0);
     const stepsWithExam = allVisits.filter((v) => v.clinicalReports.length > 0).length;
     const isComplete = allVisits.length > 1 && stepsWithExam === allVisits.length;
+    // Detect multi-doctor chains
+    const uniqueDoctorIds = new Set(allVisits.map((v) => v.doctorId).filter(Boolean));
+    const isMultiDoctor = uniqueDoctorIds.size > 1;
 
     return {
       rootVisitId: root.id,
@@ -205,6 +210,8 @@ export default async function CommissionReportPage({
       patientCode: root.patient.code,
       operationName: root.operation?.name || "N/A",
       doctorName: toTitleCase(root.doctor?.name || "N/A"),
+      isConsultant: root.doctor?.isConsultant ?? false,
+      isMultiDoctor,
       doctorFee: root.operation?.doctorFee || null,
       labCostEstimate: root.operation?.labCostEstimate || null,
       totalBilled,
@@ -217,20 +224,27 @@ export default async function CommissionReportPage({
     };
   });
 
+  // Apply consultants-only filter (default on for chain view)
+  const consultantsOnly = params.consultantsOnly !== "off";
+  const chainRows = consultantsOnly
+    ? allChainRows.filter((c) => c.isConsultant)
+    : allChainRows;
+
   // Chain summary by doctor
-  const chainDoctorTotals = new Map<string, { chains: number; completed: number; totalFees: number; totalCollected: number }>();
+  const chainDoctorTotals = new Map<string, { chains: number; completed: number; totalFees: number; totalCollected: number; totalLabCost: number }>();
   for (const chain of chainRows) {
     const key = chain.doctorName;
-    const existing = chainDoctorTotals.get(key) || { chains: 0, completed: 0, totalFees: 0, totalCollected: 0 };
+    const existing = chainDoctorTotals.get(key) || { chains: 0, completed: 0, totalFees: 0, totalCollected: 0, totalLabCost: 0 };
     existing.chains++;
     if (chain.isComplete) existing.completed++;
     existing.totalFees += chain.doctorFee || 0;
     existing.totalCollected += chain.totalPaid;
+    existing.totalLabCost += chain.totalLabCost;
     chainDoctorTotals.set(key, existing);
   }
 
   // Build query string for view toggle
-  const baseQuery = `from=${params.from}&to=${params.to}${params.doctorId ? `&doctorId=${params.doctorId}` : ""}`;
+  const baseQuery = `from=${params.from}&to=${params.to}${params.doctorId ? `&doctorId=${params.doctorId}` : ""}${params.consultantsOnly === "off" ? "&consultantsOnly=off" : ""}`;
 
   return (
     <div className="space-y-6">
@@ -391,9 +405,18 @@ export default async function CommissionReportPage({
       ) : (
         <>
           {/* Treatment Chain view */}
+          <div className="flex items-center gap-3 print:hidden">
+            <Link
+              href={`/reports/commission?from=${params.from}&to=${params.to}${params.doctorId ? `&doctorId=${params.doctorId}` : ""}&view=chains${consultantsOnly ? "&consultantsOnly=off" : ""}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${consultantsOnly ? "bg-blue-50 border-blue-200 text-blue-700" : "border-input hover:bg-muted"}`}
+            >
+              Consultants Only {consultantsOnly ? "✓" : ""}
+            </Link>
+          </div>
+
           {chainDoctorTotals.size > 0 && (
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Summary by Doctor</h3>
+              <h3 className="text-lg font-semibold">Consultant Summary</h3>
               <Card>
                 <CardContent className="p-0 overflow-x-auto">
                   <Table>
@@ -402,20 +425,28 @@ export default async function CommissionReportPage({
                         <TableHead>Doctor</TableHead>
                         <TableHead className="text-right">Treatments</TableHead>
                         <TableHead className="text-right">Completed</TableHead>
-                        <TableHead className="text-right">Total Doctor Fees</TableHead>
-                        <TableHead className="text-right">Total Collected</TableHead>
+                        <TableHead className="text-right">Doctor Fees</TableHead>
+                        <TableHead className="text-right">Collected</TableHead>
+                        <TableHead className="text-right">Shortfall</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {Array.from(chainDoctorTotals.entries()).map(([name, totals]) => (
-                        <TableRow key={name}>
-                          <TableCell className="font-medium">Dr. {name}</TableCell>
-                          <TableCell className="text-right">{totals.chains}</TableCell>
-                          <TableCell className="text-right">{totals.completed}</TableCell>
-                          <TableCell className="text-right font-bold">{"\u20B9"}{totals.totalFees.toLocaleString("en-IN")}</TableCell>
-                          <TableCell className="text-right">{"\u20B9"}{totals.totalCollected.toLocaleString("en-IN")}</TableCell>
-                        </TableRow>
-                      ))}
+                      {Array.from(chainDoctorTotals.entries()).map(([name, totals]) => {
+                        const shortfall = totals.totalFees + totals.totalLabCost - totals.totalCollected;
+                        const isGreen = shortfall <= 0;
+                        return (
+                          <TableRow key={name} className={isGreen ? "bg-green-50/50" : "bg-amber-50/50"}>
+                            <TableCell className="font-medium">Dr. {name}</TableCell>
+                            <TableCell className="text-right">{totals.chains}</TableCell>
+                            <TableCell className="text-right">{totals.completed}/{totals.chains}</TableCell>
+                            <TableCell className="text-right font-bold">{"\u20B9"}{totals.totalFees.toLocaleString("en-IN")}</TableCell>
+                            <TableCell className="text-right">{"\u20B9"}{totals.totalCollected.toLocaleString("en-IN")}</TableCell>
+                            <TableCell className={`text-right font-medium ${isGreen ? "text-green-700" : "text-amber-700"}`}>
+                              {isGreen ? "Covered" : `₹${shortfall.toLocaleString("en-IN")}`}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -454,7 +485,12 @@ export default async function CommissionReportPage({
                             </TableCell>
                             <TableCell>{chain.patientName}</TableCell>
                             <TableCell>{chain.operationName}</TableCell>
-                            <TableCell>Dr. {chain.doctorName}</TableCell>
+                            <TableCell className="flex items-center gap-1">
+                              Dr. {chain.doctorName}
+                              {chain.isMultiDoctor && (
+                                <span title="Multi-consultant chain"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" /></span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-right">{chain.visitCount}</TableCell>
                             <TableCell className="text-right font-medium">
                               {chain.doctorFee ? `\u20B9${chain.doctorFee.toLocaleString("en-IN")}` : "-"}
