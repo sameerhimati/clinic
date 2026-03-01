@@ -23,6 +23,7 @@ type DoctorData = {
   commissionPercent: number;
   commissionRate: number | null;
   tdsPercent: number;
+  isConsultant: boolean;
   password: string | null;
 } | null;
 
@@ -106,6 +107,18 @@ export function DoctorForm({
               <option value="2">Reception</option>
               <option value="3">Doctor</option>
             </select>
+          </div>
+
+          <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="isConsultant"
+              name="isConsultant"
+              defaultChecked={doctor?.isConsultant ?? false}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <Label htmlFor="isConsultant" className="font-normal">Visiting Consultant</Label>
+            <span className="text-xs text-muted-foreground">(receives per-procedure fees)</span>
           </div>
         </CardContent>
       </Card>

@@ -20,6 +20,7 @@ export async function getCurrentDoctor() {
       code: true,
       permissionLevel: true,
       designationId: true,
+      isConsultant: true,
     },
   });
 

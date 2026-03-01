@@ -24,6 +24,7 @@ export async function createDoctor(formData: FormData) {
       commissionPercent: parsed.commissionPercent,
       commissionRate: parsed.commissionRate,
       tdsPercent: parsed.tdsPercent,
+      isConsultant: parsed.isConsultant,
       password: parsed.password,
       isActive: true,
     },
@@ -52,6 +53,7 @@ export async function updateDoctor(formData: FormData) {
       commissionPercent: parsed.commissionPercent,
       commissionRate: parsed.commissionRate,
       tdsPercent: parsed.tdsPercent,
+      isConsultant: parsed.isConsultant,
       ...(parsed.password ? { password: parsed.password } : {}),
     },
   });

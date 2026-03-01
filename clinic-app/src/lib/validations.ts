@@ -176,6 +176,7 @@ export const doctorSchema = z.object({
       return isNaN(n) || n <= 0 ? null : n;
     }),
   tdsPercent: z.coerce.number().min(0).max(100).default(0),
+  isConsultant: z.string().optional().transform((s) => s === "on" || s === "true"),
   password: optionalString,
 });
 

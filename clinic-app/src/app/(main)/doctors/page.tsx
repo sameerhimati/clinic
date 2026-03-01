@@ -51,6 +51,7 @@ export default async function DoctorsPage() {
                       <span className="font-mono text-sm text-muted-foreground">#{doctor.code}</span>
                     )}
                     {toTitleCase(doctor.name)}
+                    {doctor.isConsultant && <Badge className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100">Consultant</Badge>}
                     {!doctor.isActive && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                   </div>
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-2">

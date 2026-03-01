@@ -146,6 +146,7 @@ model Doctor {
   tdsDate           DateTime?
   permissionLevel   Int                      @default(3)
   password          String?
+  isConsultant      Boolean                  @default(false)
   isActive          Boolean                  @default(true)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt

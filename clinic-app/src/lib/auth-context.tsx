@@ -8,6 +8,7 @@ export type AuthDoctor = {
   code: number | null;
   permissionLevel: number;
   designationId: number | null;
+  isConsultant: boolean;
 };
 
 const AuthContext = createContext<{ doctor: AuthDoctor } | null>(null);
