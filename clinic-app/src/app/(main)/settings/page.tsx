@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import Link from "next/link";
-import { Stethoscope, FlaskConical, Building2, ChevronRight, DoorOpen } from "lucide-react";
+import { Stethoscope, FlaskConical, Building2, ChevronRight, DoorOpen, FolderUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +41,17 @@ export default async function SettingsPage() {
             <div className="flex items-center gap-3">
               <DoorOpen className="h-5 w-5 text-muted-foreground" />
               <div className="font-medium">Rooms</div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+
+          <Link href="/settings/bulk-upload" className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent transition-colors">
+            <div className="flex items-center gap-3">
+              <FolderUp className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="font-medium">Bulk Upload</div>
+                <div className="text-sm text-muted-foreground">Import X-rays and scanned records</div>
+              </div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>

@@ -357,6 +357,7 @@ model PatientFile {
   fileName      String?
   description   String?
   fileType      String?
+  category      String   @default("OTHER")
   uploadedById  Int?
   uploadedBy    Doctor?  @relation(fields: [uploadedById], references: [id])
   createdAt     DateTime @default(now())

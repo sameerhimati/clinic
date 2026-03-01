@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, Loader2 } from "lucide-react";
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR } from "@/lib/file-constants";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR, FILE_CATEGORIES, detectCategory } from "@/lib/file-constants";
+import type { FileCategory } from "@/lib/file-constants";
 
 export function FileUpload({
   patientId,
@@ -18,6 +19,7 @@ export function FileUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<FileCategory>("OTHER");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -33,6 +35,7 @@ export function FileUpload({
       return;
     }
     setFile(f);
+    setCategory(detectCategory(f.name));
   }, []);
 
   const handleDrop = useCallback(
@@ -54,6 +57,7 @@ export function FileUpload({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("patientId", String(patientId));
+    formData.append("category", category);
     if (visitId) formData.append("visitId", String(visitId));
     if (description.trim()) formData.append("description", description.trim());
 
@@ -66,6 +70,7 @@ export function FileUpload({
       }
       setFile(null);
       setDescription("");
+      setCategory("OTHER");
       if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
     } catch {
@@ -114,32 +119,47 @@ export function FileUpload({
       </div>
 
       {file && (
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
-            <Input
-              placeholder="Description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+        <div className="space-y-2">
+          <div className="flex gap-2 items-center">
+            <label className="text-sm text-muted-foreground shrink-0">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as FileCategory)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {Object.entries(FILE_CATEGORIES).map(([key, { label }]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
           </div>
-          <Button onClick={handleUpload} disabled={uploading}>
-            {uploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            Upload
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setFile(null);
-              setDescription("");
-              if (fileInputRef.current) fileInputRef.current.value = "";
-            }}
-          >
-            Cancel
-          </Button>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <Input
+                placeholder="Description (optional)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Upload
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setFile(null);
+                setDescription("");
+                setCategory("OTHER");
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 

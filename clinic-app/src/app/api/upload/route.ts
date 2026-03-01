@@ -3,7 +3,8 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR } from "@/lib/file-constants";
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE, FILE_TYPE_ERROR, FILE_SIZE_ERROR, FILE_CATEGORIES, detectCategory } from "@/lib/file-constants";
+import type { FileCategory } from "@/lib/file-constants";
 
 export async function POST(req: NextRequest) {
   const currentUser = await requireAuth();
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
     ? parseInt(formData.get("visitId") as string)
     : null;
   const description = (formData.get("description") as string) || null;
+  const categoryInput = (formData.get("category") as string) || null;
 
   if (!file || !patientId) {
     return NextResponse.json(
@@ -30,6 +32,12 @@ export async function POST(req: NextRequest) {
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: FILE_SIZE_ERROR }, { status: 400 });
   }
+
+  // Validate category or auto-detect
+  const category: FileCategory =
+    categoryInput && categoryInput in FILE_CATEGORIES
+      ? (categoryInput as FileCategory)
+      : detectCategory(file.name);
 
   const uploadDir = path.join(
     process.cwd(),
@@ -60,6 +68,7 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
       description,
       fileType,
+      category,
       uploadedById: currentUser.id,
     },
   });

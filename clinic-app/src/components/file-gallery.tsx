@@ -18,13 +18,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { formatDate } from "@/lib/format";
+import { FILE_CATEGORIES } from "@/lib/file-constants";
+import type { FileCategory } from "@/lib/file-constants";
+import { FileLightbox } from "@/components/file-lightbox";
 
-type FileItem = {
+export type FileItem = {
   id: number;
   filePath: string;
   fileName: string | null;
   description: string | null;
   fileType: string | null;
+  category?: string;
   createdAt: Date;
   uploadedBy: { name: string } | null;
   visit?: {
@@ -43,6 +47,8 @@ export function FileGallery({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FileCategory | "ALL">("ALL");
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const handleDelete = async (id: number) => {
     setDeleting(id);
@@ -72,85 +78,148 @@ export function FileGallery({
   const isImage = (fileType: string | null) =>
     fileType && ["jpg", "jpeg", "png", "gif", "webp"].includes(fileType.toLowerCase());
 
+  // Count files per category for filter pills
+  const categoryCounts = files.reduce<Record<string, number>>((acc, f) => {
+    const cat = f.category || "OTHER";
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+
+  const filteredFiles = activeFilter === "ALL"
+    ? files
+    : files.filter((f) => (f.category || "OTHER") === activeFilter);
+
+  const categoryMeta = (cat: string) =>
+    FILE_CATEGORIES[cat as FileCategory] || FILE_CATEGORIES.OTHER;
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      {files.map((file) => (
-        <Card key={file.id} className="overflow-hidden group">
-          <a
-            href={file.filePath}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block"
+    <div className="space-y-4">
+      {/* Filter pills */}
+      {Object.keys(categoryCounts).length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setActiveFilter("ALL")}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              activeFilter === "ALL"
+                ? "bg-foreground text-background"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
           >
-            <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
-              {isImage(file.fileType) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={file.filePath}
-                  alt={file.fileName || "Patient file"}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <FileText className="h-12 w-12 text-muted-foreground" />
-              )}
-            </div>
-          </a>
-          <CardContent className="p-3 space-y-1">
-            <p className="text-sm font-medium truncate">
-              {file.fileName || "Untitled"}
-            </p>
-            {file.description && (
-              <p className="text-xs text-muted-foreground truncate">
-                {file.description}
-              </p>
-            )}
-            {file.visit && (
-              <p className="text-xs text-muted-foreground">
-                Case #{file.visit.caseNo} — {file.visit.operation?.name || "Visit"}
-              </p>
-            )}
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {formatDate(file.createdAt)}
-                {file.uploadedBy && ` · Dr. ${file.uploadedBy.name}`}
-              </p>
-              {canDelete && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.preventDefault()}
-                      disabled={deleting === file.id}
-                    >
-                      {deleting === file.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete file?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete &ldquo;{file.fileName || "this file"}&rdquo;. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(file.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            All ({files.length})
+          </button>
+          {Object.entries(categoryCounts).map(([cat, count]) => {
+            const meta = categoryMeta(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveFilter(cat as FileCategory)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  activeFilter === cat
+                    ? "bg-foreground text-background"
+                    : `${meta.color} hover:opacity-80`
+                }`}
+              >
+                {meta.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* File grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filteredFiles.map((file, idx) => {
+          const cat = categoryMeta(file.category || "OTHER");
+          return (
+            <Card key={file.id} className="overflow-hidden group">
+              <button
+                onClick={() => setLightboxIndex(idx)}
+                className="block w-full text-left"
+              >
+                <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
+                  {isImage(file.fileType) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={file.filePath}
+                      alt={file.fileName || "Patient file"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FileText className="h-12 w-12 text-muted-foreground" />
+                  )}
+                  {/* Category badge */}
+                  <span className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${cat.color}`}>
+                    {cat.label}
+                  </span>
+                </div>
+              </button>
+              <CardContent className="p-3 space-y-1">
+                <p className="text-sm font-medium truncate">
+                  {file.fileName || "Untitled"}
+                </p>
+                {file.description && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {file.description}
+                  </p>
+                )}
+                {file.visit && (
+                  <p className="text-xs text-muted-foreground">
+                    Case #{file.visit.caseNo} — {file.visit.operation?.name || "Visit"}
+                  </p>
+                )}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(file.createdAt)}
+                    {file.uploadedBy && ` · Dr. ${file.uploadedBy.name}`}
+                  </p>
+                  {canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={deleting === file.id}
+                        >
+                          {deleting === file.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete file?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete &ldquo;{file.fileName || "this file"}&rdquo;. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(file.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <FileLightbox
+          files={filteredFiles}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }
