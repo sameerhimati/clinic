@@ -25,6 +25,7 @@ import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
+import { toTitleCase, formatDateTime } from "@/lib/format";
 import { CheckCircle2, Circle } from "lucide-react";
 
 type PreviousReport = {
@@ -41,23 +42,42 @@ type PreviousReport = {
   addendums: { content: string; doctorName: string; createdAt: string }[];
 };
 
-const COMMON_COMPLAINTS = [
+const TOP_COMPLAINTS = [
   "PAIN",
   "SWELLING",
   "SENSITIVITY",
   "BROKEN TOOTH",
   "BLEEDING GUMS",
+  "REGULAR CHECKUP",
+];
+
+const MORE_COMPLAINTS = [
   "LOOSE TOOTH",
   "BAD BREATH",
   "DISCOLORATION",
   "SPACING",
   "DIFFICULTY CHEWING",
   "JAW PAIN",
-  "REGULAR CHECKUP",
   "REFERRED BY DOCTOR",
   "FOLLOW UP",
   "ORTHODONTIC CONSULTATION",
   "OTHER",
+];
+
+const COMMON_MEDICATIONS = [
+  "Amoxicillin 500mg TDS x 5d",
+  "Ibuprofen 400mg SOS",
+  "Omeprazole 20mg OD x 5d",
+  "Chlorhexidine MW BD x 2w",
+  "Metronidazole 400mg TDS x 5d",
+  "Dolo 650mg SOS",
+];
+
+const MORE_MEDICATIONS = [
+  "Augmentin 625mg BD x 5d",
+  "Ketorol DT SOS",
+  "Ornidazole 500mg BD x 5d",
+  "Betadine Gargle TDS x 1w",
 ];
 
 type ExistingReport = {
@@ -194,6 +214,113 @@ function PreviousNotesPanel({
   );
 }
 
+function ComplaintPills({ complaint, setComplaint }: { complaint: string; setComplaint: (v: string) => void }) {
+  const [showMore, setShowMore] = useState(false);
+  const selectedParts = complaint.toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
+  // Auto-expand if any MORE_COMPLAINTS are already selected
+  const hasMoreSelected = MORE_COMPLAINTS.some(c => selectedParts.includes(c));
+  const visibleComplaints = (showMore || hasMoreSelected) ? [...TOP_COMPLAINTS, ...MORE_COMPLAINTS] : TOP_COMPLAINTS;
+
+  const toggle = (c: string) => {
+    const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
+    const upperParts = parts.map(s => s.toUpperCase());
+    if (upperParts.includes(c)) {
+      setComplaint(parts.filter((_, i) => upperParts[i] !== c).join(", "));
+    } else {
+      setComplaint(complaint ? complaint + ", " + c : c);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Chief Complaint</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleComplaints.map((c) => (
+          <button
+            key={c}
+            type="button"
+            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+              selectedParts.includes(c)
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-input hover:bg-accent"
+            }`}
+            onClick={() => toggle(c)}
+          >
+            {c}
+          </button>
+        ))}
+        {!showMore && !hasMoreSelected && (
+          <button
+            type="button"
+            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
+            onClick={() => setShowMore(true)}
+          >
+            More…
+          </button>
+        )}
+      </div>
+      <Textarea
+        placeholder="Additional details..."
+        value={complaint}
+        onChange={(e) => setComplaint(e.target.value)}
+        rows={2}
+      />
+    </div>
+  );
+}
+
+function MedicationPills({ medication, setMedication }: { medication: string; setMedication: (v: string) => void }) {
+  const [showMore, setShowMore] = useState(false);
+  const lines = medication.split("\n").map(s => s.trim()).filter(Boolean);
+  const hasMoreSelected = MORE_MEDICATIONS.some(m => lines.includes(m));
+  const visibleMeds = (showMore || hasMoreSelected) ? [...COMMON_MEDICATIONS, ...MORE_MEDICATIONS] : COMMON_MEDICATIONS;
+
+  const toggle = (med: string) => {
+    if (lines.includes(med)) {
+      setMedication(lines.filter(l => l !== med).join("\n"));
+    } else {
+      setMedication(medication.trim() ? medication.trim() + "\n" + med : med);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Medication</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleMeds.map((m) => (
+          <button
+            key={m}
+            type="button"
+            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+              lines.includes(m)
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-input hover:bg-accent"
+            }`}
+            onClick={() => toggle(m)}
+          >
+            {m}
+          </button>
+        ))}
+        {!showMore && !hasMoreSelected && (
+          <button
+            type="button"
+            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
+            onClick={() => setShowMore(true)}
+          >
+            More…
+          </button>
+        )}
+      </div>
+      <Textarea
+        placeholder="Prescribed medication (one per line)..."
+        value={medication}
+        onChange={(e) => setMedication(e.target.value)}
+        rows={3}
+      />
+    </div>
+  );
+}
+
 export function ExaminationForm({
   visitId,
   patientId,
@@ -253,7 +380,7 @@ export function ExaminationForm({
 
   // Auto-set doctor: use existing report's doctor, then visit's doctor, then current user
   const doctorId = existingReport?.doctorId || defaultDoctorId || currentDoctor.id;
-  const doctorName = existingReport?.doctorName || defaultDoctorName || currentDoctor.name;
+  const doctorName = existingReport?.doctorName || defaultDoctorName || toTitleCase(currentDoctor.name);
 
   // Auto-set report date: preserve existing, default to today for new (local time)
   const reportDate = existingReport?.reportDate || format(new Date(), "yyyy-MM-dd");
@@ -485,7 +612,7 @@ export function ExaminationForm({
               <Lock className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-800">
                 Notes locked
-                {lockedAt && ` on ${format(new Date(lockedAt), "dd-MM-yyyy 'at' h:mm a")}`}
+                {lockedAt && ` on ${formatDateTime(lockedAt)}`}
                 {lockedByName && ` by Dr. ${lockedByName}`}
               </span>
             </div>
@@ -538,7 +665,7 @@ export function ExaminationForm({
                 <div key={a.id} className="rounded-md border p-3 text-sm">
                   <div className="whitespace-pre-wrap">{a.content}</div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "dd-MM-yyyy 'at' h:mm a")}
+                    Dr. {a.doctorName} {"\u00b7"} {formatDateTime(a.createdAt)}
                   </div>
                 </div>
               ))}
@@ -618,39 +745,7 @@ export function ExaminationForm({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Chief Complaint</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {COMMON_COMPLAINTS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-                    complaint.toUpperCase().split(",").map(s => s.trim()).includes(c)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-input hover:bg-accent"
-                  }`}
-                  onClick={() => {
-                    const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
-                    const upperParts = parts.map(s => s.toUpperCase());
-                    if (upperParts.includes(c)) {
-                      setComplaint(parts.filter((_, i) => upperParts[i] !== c).join(", "));
-                    } else {
-                      setComplaint(complaint ? complaint + ", " + c : c);
-                    }
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <Textarea
-              placeholder="Additional details..."
-              value={complaint}
-              onChange={(e) => setComplaint(e.target.value)}
-              rows={2}
-            />
-          </div>
+          <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
 
           <div className="space-y-1.5">
             <Label>Examination Findings</Label>
@@ -702,15 +797,7 @@ export function ExaminationForm({
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label>Medication</Label>
-            <Textarea
-              placeholder="Prescribed medication..."
-              value={medication}
-              onChange={(e) => setMedication(e.target.value)}
-              rows={3}
-            />
-          </div>
+          <MedicationPills medication={medication} setMedication={setMedication} />
         </CardContent>
       </Card>
 
@@ -840,7 +927,7 @@ export function ExaminationForm({
               <div key={a.id} className="rounded-md border p-3 text-sm">
                 <div className="whitespace-pre-wrap">{a.content}</div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  Dr. {a.doctorName} {"\u00b7"} {format(new Date(a.createdAt), "dd-MM-yyyy 'at' h:mm a")}
+                  Dr. {a.doctorName} {"\u00b7"} {formatDateTime(a.createdAt)}
                 </div>
               </div>
             ))}

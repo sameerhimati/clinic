@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, CheckCircle2, Clock, Users, Stethoscope, ClipboardList, GitBranch } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { toTitleCase, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,7 @@ export default async function MyActivityPage({
       <div>
         <h2 className="text-2xl font-bold">My Activity</h2>
         <p className="text-sm text-muted-foreground">
-          {format(from, "dd-MM-yyyy")} — {format(to, "dd-MM-yyyy")}
+          {formatDate(from)} — {formatDate(to)}
         </p>
       </div>
 
@@ -163,10 +164,10 @@ export default async function MyActivityPage({
                     <span className="font-mono text-sm text-muted-foreground">
                       #{visit.patient.code}
                     </span>
-                    {visit.patient.name}
+                    {toTitleCase(visit.patient.name)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {visit.operation?.name || "Visit"} · {format(new Date(visit.visitDate), "dd-MM-yyyy")}
+                    {visit.operation?.name || "Visit"} · {formatDate(visit.visitDate)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -214,7 +215,7 @@ export default async function MyActivityPage({
                         <span className="font-mono text-sm text-muted-foreground">
                           #{visit.patient.code}
                         </span>
-                        {visit.patient.name}
+                        {toTitleCase(visit.patient.name)}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {visit.operation?.name || "Treatment"} · {stepCount} visit{stepCount !== 1 ? "s" : ""} in chain
@@ -222,7 +223,7 @@ export default async function MyActivityPage({
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">
-                        Last: {format(new Date(lastFollowUp?.visitDate || visit.visitDate), "dd MMM")}
+                        Last: {formatDate(lastFollowUp?.visitDate || visit.visitDate)}
                       </div>
                       {hasExam ? (
                         <Badge variant="secondary" className="text-xs">Examined</Badge>

@@ -12,6 +12,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { PatientSearch } from "@/components/patient-search";
 import Link from "next/link";
 import { X, Search, Check, ChevronsUpDown, Lock } from "lucide-react";
+import { toTitleCase } from "@/lib/format";
 import { todayString } from "@/lib/validations";
 
 type SelectedPatient = { id: number; name: string; code: number | null; salutation: string | null };
@@ -332,7 +333,7 @@ export function VisitForm({
             <Badge variant="outline" className="bg-blue-100 text-xs">Follow-up</Badge>
             <span className="text-sm font-medium">
               Case #{parentVisit.caseNo} — {parentVisit.operationName || "Visit"}
-              {parentVisit.doctorName && ` · Dr. ${parentVisit.doctorName}`}
+              {parentVisit.doctorName && ` · Dr. ${toTitleCase(parentVisit.doctorName)}`}
             </span>
           </div>
         </div>

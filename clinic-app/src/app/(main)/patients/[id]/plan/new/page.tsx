@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { toTitleCase } from "@/lib/format";
 import { NewPlanForm } from "./new-plan-form";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function NewPlanPage({
       <Breadcrumbs
         items={[
           { label: "Patients", href: "/patients" },
-          { label: patient.name, href: `/patients/${patient.id}` },
+          { label: toTitleCase(patient.name), href: `/patients/${patient.id}` },
           { label: "New Treatment Plan" },
         ]}
       />
@@ -47,7 +48,7 @@ export default async function NewPlanPage({
       <p className="text-muted-foreground">
         for{" "}
         <span className="font-medium text-foreground">
-          #{patient.code} {patient.name}
+          #{patient.code} {toTitleCase(patient.name)}
         </span>
       </p>
       <NewPlanForm

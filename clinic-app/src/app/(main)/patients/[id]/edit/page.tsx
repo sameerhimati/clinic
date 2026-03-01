@@ -5,6 +5,7 @@ import { PatientForm } from "@/components/patient-form";
 import { updatePatient } from "../../actions";
 import { requireAuth } from "@/lib/auth";
 import { canEditPatients } from "@/lib/permissions";
+import { toTitleCase } from "@/lib/format";
 
 export default async function EditPatientPage({
   params,
@@ -32,10 +33,10 @@ export default async function EditPatientPage({
     <div className="max-w-2xl space-y-6">
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
-        { label: patient.name, href: `/patients/${patientId}` },
+        { label: toTitleCase(patient.name), href: `/patients/${patientId}` },
         { label: "Edit" },
       ]} />
-      <h2 className="text-2xl font-bold">Edit Patient: {patient.name}</h2>
+      <h2 className="text-2xl font-bold">Edit Patient: {toTitleCase(patient.name)}</h2>
       <PatientForm diseases={diseases} patient={patient} action={boundAction} />
     </div>
   );

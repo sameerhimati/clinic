@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { calcBilled, calcBalance } from "@/lib/billing";
@@ -78,7 +78,7 @@ export default async function VisitsPage({
           <option value="">All Doctors</option>
           {doctors.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {toTitleCase(d.name)}
             </option>
           ))}
         </select>
@@ -113,15 +113,15 @@ export default async function VisitsPage({
                           #{visit.patient.code}
                         </span>
                       )}
-                      {visit.patient.name}
+                      {toTitleCase(visit.patient.name)}
                       <span className="text-muted-foreground font-normal text-sm">
                         Case #{visit.caseNo || visit.id}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {visit.operation?.name || "N/A"} ·{" "}
-                      {format(new Date(visit.visitDate), "dd-MM-yyyy")}
-                      {visit.doctor && ` · Dr. ${visit.doctor.name}`}
+                      {formatDate(visit.visitDate)}
+                      {visit.doctor && ` · Dr. ${toTitleCase(visit.doctor.name)}`}
                     </div>
                   </div>
                   <div className="text-right">

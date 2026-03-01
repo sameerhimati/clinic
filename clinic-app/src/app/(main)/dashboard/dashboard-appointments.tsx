@@ -10,6 +10,7 @@ import { CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { StatusBadge } from "@/components/status-badge";
+import { toTitleCase } from "@/lib/format";
 
 type DashboardAppointment = {
   id: number;

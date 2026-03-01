@@ -16,6 +16,7 @@ import {
 import { ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { OperationCombobox, type Operation, type Doctor, type Lab } from "@/components/visit-form";
+import { toTitleCase } from "@/lib/format";
 import { createQuickVisit } from "@/app/(main)/visits/actions";
 import { todayString } from "@/lib/validations";
 
@@ -174,7 +175,7 @@ export function QuickVisitSheet({
           <div>
             <Badge variant="secondary" className="text-sm py-1 px-3">
               <span className="font-mono mr-1">#{patientCode}</span>
-              {patientName}
+              {toTitleCase(patientName)}
             </Badge>
           </div>
 
@@ -186,7 +187,7 @@ export function QuickVisitSheet({
                 <span className="text-sm font-medium">
                   {followUpContext.caseNo && `Case #${followUpContext.caseNo} — `}
                   {followUpContext.operationName}
-                  {followUpContext.doctorName && ` · Dr. ${followUpContext.doctorName}`}
+                  {followUpContext.doctorName && ` · Dr. ${toTitleCase(followUpContext.doctorName)}`}
                 </span>
               </div>
               {!isDoctor && (
@@ -333,7 +334,7 @@ export function QuickVisitSheet({
               >
                 <option value="">Select doctor...</option>
                 {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>{toTitleCase(d.name)}</option>
                 ))}
               </select>
             </div>

@@ -11,6 +11,7 @@ import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
+import { toTitleCase } from "@/lib/format";
 
 type ScheduleAppointment = {
   id: number;
@@ -107,7 +108,7 @@ export function DoctorScheduleWidget({
                   #{nowSeeing.patientCode}
                 </span>
                 <span className="text-lg font-semibold">
-                  {nowSeeing.patientName}
+                  {toTitleCase(nowSeeing.patientName)}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground mt-0.5">
@@ -157,7 +158,7 @@ export function DoctorScheduleWidget({
                       #{appt.patientCode}
                     </span>
                     <span className="font-medium text-sm">
-                      {appt.patientName}
+                      {toTitleCase(appt.patientName)}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -236,7 +237,7 @@ export function DoctorScheduleWidget({
                             #{appt.patientCode}
                           </span>
                           <span className={`font-medium text-sm ${isCompleted ? "line-through" : ""}`}>
-                            {appt.patientName}
+                            {toTitleCase(appt.patientName)}
                           </span>
                         </div>
                         {appt.reason && (

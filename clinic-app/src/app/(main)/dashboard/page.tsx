@@ -9,7 +9,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { toTitleCase, formatDate, formatFullDate } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
@@ -133,8 +133,8 @@ export default async function DashboardPage() {
         {/* Compact header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-2xl font-bold">{greeting}, Dr. {doctor.name}</h2>
-            <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
+            <h2 className="text-2xl font-bold">{greeting}, Dr. {toTitleCase(doctor.name)}</h2>
+            <span className="text-sm text-muted-foreground">{formatFullDate(new Date())}</span>
           </div>
           <Button size="sm" asChild>
             <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
             id: appt.id,
             patientId: appt.patient.id,
             patientCode: appt.patient.code,
-            patientName: appt.patient.name,
+            patientName: toTitleCase(appt.patient.name),
             visitId: appt.visit?.id || null,
             timeSlot: appt.timeSlot,
             status: appt.status,
@@ -166,8 +166,8 @@ export default async function DashboardPage() {
       {/* Header with inline stats */}
       <div>
         <div className="flex items-baseline gap-2">
-          <h2 className="text-2xl font-bold">{greeting}, {doctor.name}</h2>
-          <span className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</span>
+          <h2 className="text-2xl font-bold">{greeting}, {toTitleCase(doctor.name)}</h2>
+          <span className="text-sm text-muted-foreground">{formatFullDate(new Date())}</span>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Link href="/visits" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm hover:bg-accent transition-colors">
@@ -205,8 +205,8 @@ export default async function DashboardPage() {
           id: appt.id,
           patientId: appt.patient.id,
           patientCode: appt.patient.code,
-          patientName: appt.patient.name,
-          doctorName: appt.doctor?.name || null,
+          patientName: toTitleCase(appt.patient.name),
+          doctorName: appt.doctor?.name ? toTitleCase(appt.doctor.name) : null,
           visitId: appt.visit?.id || null,
           timeSlot: appt.timeSlot,
           status: appt.status,
@@ -233,12 +233,12 @@ export default async function DashboardPage() {
                     <div>
                       <Link href={`/patients/${visit.patientId}`} className="font-medium hover:underline flex items-center gap-2">
                         <span className="font-mono text-sm text-muted-foreground">#{visit.patient.code}</span>
-                        {visit.patient.name}
+                        {toTitleCase(visit.patient.name)}
                       </Link>
                       <div className="text-sm text-muted-foreground">
                         {visit.operation?.name || "N/A"}
-                        {visit.doctor && ` · Dr. ${visit.doctor.name}`}
-                        {" · "}{format(new Date(visit.visitDate), "dd MMM")}
+                        {visit.doctor && ` · Dr. ${toTitleCase(visit.doctor.name)}`}
+                        {" · "}{formatDate(visit.visitDate)}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

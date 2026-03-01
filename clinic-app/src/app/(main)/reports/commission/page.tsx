@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { Search } from "lucide-react";
 import { ExportCSVButton } from "./export-button";
 import { PrintPageButton } from "@/components/print-button";
@@ -118,9 +118,9 @@ export default async function CommissionReportPage({
       receiptId: receipt.id,
       receiptDate: receipt.receiptDate,
       caseNo: visit.caseNo,
-      patientName: visit.patient.name,
+      patientName: toTitleCase(visit.patient.name),
       operationName: visit.operation?.name || "N/A",
-      doctorName: doctor.name,
+      doctorName: toTitleCase(doctor.name),
       receivedAmount: receipt.amount,
       labRate,
       doctorPercent: visit.doctorCommissionPercent || doctor.commissionPercent,
@@ -201,10 +201,10 @@ export default async function CommissionReportPage({
     return {
       rootVisitId: root.id,
       caseNo: root.caseNo,
-      patientName: root.patient.name,
+      patientName: toTitleCase(root.patient.name),
       patientCode: root.patient.code,
       operationName: root.operation?.name || "N/A",
-      doctorName: root.doctor?.name || "N/A",
+      doctorName: toTitleCase(root.doctor?.name || "N/A"),
       doctorFee: root.operation?.doctorFee || null,
       labCostEstimate: root.operation?.labCostEstimate || null,
       totalBilled,
@@ -266,7 +266,7 @@ export default async function CommissionReportPage({
           <option value="">All Doctors</option>
           {doctors.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {toTitleCase(d.name)}
             </option>
           ))}
         </select>
@@ -360,7 +360,7 @@ export default async function CommissionReportPage({
                     <TableBody>
                       {rows.map((row) => (
                         <TableRow key={row.receiptId}>
-                          <TableCell>{format(new Date(row.receiptDate), "dd-MM-yyyy")}</TableCell>
+                          <TableCell>{formatDate(row.receiptDate)}</TableCell>
                           <TableCell>{row.caseNo || "-"}</TableCell>
                           <TableCell>{row.patientName}</TableCell>
                           <TableCell>{row.operationName}</TableCell>

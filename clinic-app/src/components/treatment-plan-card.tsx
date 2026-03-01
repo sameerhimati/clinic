@@ -27,6 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { completePlan, cancelPlan } from "@/app/(main)/patients/[id]/plan/actions";
 import { toast } from "sonner";
 
@@ -141,7 +142,7 @@ export function TreatmentPlanCard({
             <p className="text-xs text-muted-foreground mt-0.5">
               {completedCount} of {totalCount} steps
               {nextItem && nextEstimatedDate && (
-                <> · Next: {nextItem.label} (~{format(nextEstimatedDate, "dd MMM")})</>
+                <> · Next: {nextItem.label} (~{formatDate(nextEstimatedDate)})</>
               )}
             </p>
           </div>
@@ -186,14 +187,14 @@ export function TreatmentPlanCard({
                   {/* Completed: show date + doctor */}
                   {isItemCompleted && item.visitDate && (
                     <span className="text-xs text-muted-foreground ml-2">
-                      {format(new Date(item.visitDate), "dd MMM")}
+                      {formatDate(item.visitDate)}
                       {item.assignedDoctorName && ` · Dr. ${item.assignedDoctorName}`}
                     </span>
                   )}
                   {/* Future: show estimated date + assigned doctor */}
                   {!isItemCompleted && (
                     <span className="text-xs text-muted-foreground ml-2">
-                      {estimated && `~${format(estimated, "dd MMM")}`}
+                      {estimated && `~${formatDate(estimated)}`}
                       {item.assignedDoctorName && ` · Dr. ${item.assignedDoctorName}`}
                     </span>
                   )}

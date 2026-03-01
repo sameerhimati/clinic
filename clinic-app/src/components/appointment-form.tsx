@@ -11,6 +11,7 @@ import { PatientSearch } from "@/components/patient-search";
 import { createAppointment, updateAppointment } from "@/app/(main)/appointments/actions";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { toTitleCase } from "@/lib/format";
 import { toast } from "sonner";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { todayString } from "@/lib/validations";
@@ -218,7 +219,7 @@ export function AppointmentForm({
                 <Label>Doctor</Label>
                 <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
                 <Badge variant="secondary" className="text-sm py-1 px-3">
-                  Dr. {currentDoctorName}
+                  Dr. {toTitleCase(currentDoctorName || "")}
                 </Badge>
               </div>
             ) : (
@@ -232,7 +233,7 @@ export function AppointmentForm({
                   <option value="">Unassigned</option>
                   {doctors.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {toTitleCase(d.name)}
                     </option>
                   ))}
                 </select>

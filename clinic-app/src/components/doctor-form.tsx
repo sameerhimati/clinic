@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toTitleCase } from "@/lib/format";
 
 type Designation = { id: number; name: string };
 
@@ -87,7 +88,7 @@ export function DoctorForm({
             >
               <option value="">Select...</option>
               {designations.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+                <option key={d.id} value={d.id}>{toTitleCase(d.name)}</option>
               ))}
             </select>
           </div>

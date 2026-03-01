@@ -8,6 +8,7 @@ import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import { toggleDoctorActive } from "./actions";
 import { roleName } from "@/lib/types";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function DoctorsPage() {
                     {doctor.code != null && (
                       <span className="font-mono text-sm text-muted-foreground">#{doctor.code}</span>
                     )}
-                    {doctor.name}
+                    {toTitleCase(doctor.name)}
                     {!doctor.isActive && <Badge variant="outline" className="text-xs">Inactive</Badge>}
                   </div>
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-2">

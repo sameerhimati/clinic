@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { todayString } from "@/lib/validations";
+import { toTitleCase } from "@/lib/format";
 
 type PendingVisit = {
   id: number;
@@ -141,7 +142,7 @@ export function ReceiptForm({
                     <Badge variant="outline" className="font-mono text-xs">
                       #{selectedVisit.patient.code}
                     </Badge>
-                    <span>{selectedVisit.patient.name}</span>
+                    <span>{toTitleCase(selectedVisit.patient.name)}</span>
                     <span className="text-muted-foreground">
                       Case #{selectedVisit.caseNo || selectedVisit.id}
                     </span>
@@ -209,7 +210,7 @@ export function ReceiptForm({
                                 #{v.patient.code}
                               </span>
                               <span className="font-medium">
-                                {v.patient.name}
+                                {toTitleCase(v.patient.name)}
                               </span>
                               <span className="text-muted-foreground">
                                 · {v.operation?.name || "Visit"}

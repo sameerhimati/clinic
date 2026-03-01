@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { ExaminationForm } from "./examination-form";
 import { requireAuth } from "@/lib/auth";
 import { isReportLocked, hoursUntilAutoLock, isAdmin, canExamine } from "@/lib/permissions";
+import { toTitleCase, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -91,8 +92,8 @@ export default async function ExaminePage({
           visitId: v.id,
           caseNo: v.caseNo,
           stepLabel: v.stepLabel,
-          doctorName: r.doctor.name,
-          reportDate: format(new Date(r.reportDate), "dd-MM-yyyy"),
+          doctorName: toTitleCase(r.doctor.name),
+          reportDate: formatDate(r.reportDate),
           complaint: r.complaint,
           examination: r.examination,
           diagnosis: r.diagnosis,
@@ -100,8 +101,8 @@ export default async function ExaminePage({
           medication: r.medication,
           addendums: r.addendums.map((a) => ({
             content: a.content,
-            doctorName: a.doctor.name,
-            createdAt: format(new Date(a.createdAt), "dd-MM-yyyy"),
+            doctorName: toTitleCase(a.doctor.name),
+            createdAt: formatDate(a.createdAt),
           })),
         };
       });
@@ -207,7 +208,7 @@ export default async function ExaminePage({
     <div className={previousReports.length > 0 ? "space-y-6" : "max-w-3xl space-y-6"}>
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
-        { label: visit.patient.name, href: `/patients/${visit.patient.id}` },
+        { label: toTitleCase(visit.patient.name), href: `/patients/${visit.patient.id}` },
         { label: `Case #${visit.caseNo || visit.id}`, href: `/visits/${visitId}` },
         { label: "Examination" },
       ]} />
@@ -218,12 +219,12 @@ export default async function ExaminePage({
         <p className="text-muted-foreground">
           <span className="font-mono">#{visit.patient.code}</span>{" "}
           {visit.patient.salutation && `${visit.patient.salutation}. `}
-          {visit.patient.name}
+          {toTitleCase(visit.patient.name)}
           {visit.patient.gender && ` \u00b7 ${visit.patient.gender === "M" ? "Male" : "Female"}`}
           {visit.patient.ageAtRegistration && ` \u00b7 ${visit.patient.ageAtRegistration} yrs`}
         </p>
         <p className="text-sm text-muted-foreground">
-          {operationName} {"\u00b7"} {visit.doctor ? `Dr. ${visit.doctor.name}` : "No doctor"} {"\u00b7"} {format(new Date(visit.visitDate), "dd-MM-yyyy")}
+          {operationName} {"\u00b7"} {visit.doctor ? `Dr. ${toTitleCase(visit.doctor.name)}` : "No doctor"} {"\u00b7"} {formatDate(visit.visitDate)}
         </p>
       </div>
 
@@ -231,11 +232,11 @@ export default async function ExaminePage({
         visitId={visitId}
         patientId={visit.patientId}
         defaultDoctorId={visit.doctorId}
-        defaultDoctorName={visit.doctor?.name || null}
+        defaultDoctorName={visit.doctor?.name ? toTitleCase(visit.doctor.name) : null}
         existingReport={existingReport ? {
           id: existingReport.id,
           doctorId: existingReport.doctorId,
-          doctorName: existingReport.doctor.name,
+          doctorName: toTitleCase(existingReport.doctor.name),
           reportDate: format(new Date(existingReport.reportDate), "yyyy-MM-dd"),
           complaint: existingReport.complaint,
           examination: existingReport.examination,
@@ -252,7 +253,7 @@ export default async function ExaminePage({
           id: a.id,
           content: a.content,
           createdAt: a.createdAt.toISOString(),
-          doctorName: a.doctor.name,
+          doctorName: toTitleCase(a.doctor.name),
         })) ?? []}
         lockedByName={existingReport?.lockedBy?.name ?? null}
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}

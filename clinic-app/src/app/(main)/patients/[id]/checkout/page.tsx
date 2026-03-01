@@ -5,6 +5,7 @@ import { CheckoutForm } from "./checkout-form";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export default async function CheckoutPage({
         caseNo: visit.caseNo,
         visitDate: visit.visitDate.toISOString(),
         operationName: visit.operation?.name || "Visit",
-        doctorName: visit.doctor?.name || "N/A",
+        doctorName: toTitleCase(visit.doctor?.name || "N/A"),
         billed,
         paid,
         balance,
@@ -127,7 +128,7 @@ export default async function CheckoutPage({
       <div>
         <Breadcrumbs items={[
           { label: "Patients", href: "/patients" },
-          { label: patient.name, href: `/patients/${patient.id}` },
+          { label: toTitleCase(patient.name), href: `/patients/${patient.id}` },
           { label: "Checkout" },
         ]} />
         <div className="flex items-center gap-4">
@@ -140,7 +141,7 @@ export default async function CheckoutPage({
           <div>
             <h2 className="text-2xl font-bold">
               {patient.salutation && `${patient.salutation}. `}
-              {patient.name}
+              {toTitleCase(patient.name)}
             </h2>
             <p className="text-muted-foreground">
               Outstanding: {"\u20B9"}
@@ -166,7 +167,7 @@ export default async function CheckoutPage({
       <CheckoutForm
         patientId={patient.id}
         patientCode={patient.code}
-        patientName={patient.name}
+        patientName={toTitleCase(patient.name)}
         outstandingVisits={outstandingVisits}
         recentReceipts={recentReceipts}
       />

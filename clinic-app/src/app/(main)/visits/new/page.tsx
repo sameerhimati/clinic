@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { canSeeInternalCosts } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 
 export default async function NewVisitPage({
@@ -91,7 +91,7 @@ export default async function NewVisitPage({
           operationId: rootVisit.operationId,
           operationName: rootVisit.operation?.name || null,
           doctorId: rootVisit.doctorId,
-          doctorName: rootVisit.doctor?.name || null,
+          doctorName: rootVisit.doctor?.name ? toTitleCase(rootVisit.doctor.name) : null,
         };
         mode = "followup";
         // Fetch patient for follow-up if not already loaded
@@ -126,7 +126,7 @@ export default async function NewVisitPage({
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-green-100">Appointment</Badge>
             <span className="text-sm font-medium">
-              {appointment.reason || "Appointment"} on {format(new Date(appointment.date), "dd-MM-yyyy")}
+              {appointment.reason || "Appointment"} on {formatDate(appointment.date)}
             </span>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { canCollectPayments, canSeeInternalCosts, canEditPatients, isAdmin as ch
 import { calcBilled, calcPaid } from "@/lib/billing";
 import { PatientPageClient, type PatientPageData } from "./patient-page-client";
 import type { VisitWithRelations } from "@/components/treatment-timeline";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -213,7 +214,7 @@ export default async function PatientDetailPage({
           status: appt.status,
           visitId: appt.visit?.id || null,
           timeSlot: appt.timeSlot,
-          doctorName: appt.doctor?.name || null,
+          doctorName: appt.doctor?.name ? toTitleCase(appt.doctor.name) : null,
           reason: appt.reason,
         };
       })()
@@ -236,7 +237,7 @@ export default async function PatientDetailPage({
     patient: {
       id: patient.id,
       code: patient.code,
-      name: patient.name,
+      name: toTitleCase(patient.name),
       salutation: patient.salutation,
       gender: patient.gender,
       dateOfBirth: patient.dateOfBirth,
@@ -272,7 +273,7 @@ export default async function PatientDetailPage({
       id: a.id,
       date: a.date,
       timeSlot: a.timeSlot,
-      doctorName: a.doctor?.name || null,
+      doctorName: a.doctor?.name ? toTitleCase(a.doctor.name) : null,
       reason: a.reason,
       status: a.status,
     })),
@@ -280,14 +281,14 @@ export default async function PatientDetailPage({
       id: a.id,
       date: a.date,
       timeSlot: a.timeSlot,
-      doctorName: a.doctor?.name || null,
+      doctorName: a.doctor?.name ? toTitleCase(a.doctor.name) : null,
       status: a.status,
     })),
     pastAppointments: pastAppointments.map(a => ({
       id: a.id,
       date: a.date,
       timeSlot: a.timeSlot,
-      doctorName: a.doctor?.name || null,
+      doctorName: a.doctor?.name ? toTitleCase(a.doctor.name) : null,
       reason: a.reason,
       status: a.status,
     })),

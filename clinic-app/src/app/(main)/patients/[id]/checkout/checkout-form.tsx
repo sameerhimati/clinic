@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { recordCheckoutPayment } from "./actions";
 import { format } from "date-fns";
 import { todayString } from "@/lib/validations";
+import { toTitleCase } from "@/lib/format";
 
 type OutstandingVisit = {
   id: number;

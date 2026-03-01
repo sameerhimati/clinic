@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -111,11 +111,11 @@ export default async function ReceiptsPage({
                     <span className="font-mono text-sm text-muted-foreground">
                       #{receipt.visit.patient.code}
                     </span>
-                    {receipt.visit.patient.name}
+                    {toTitleCase(receipt.visit.patient.name)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {receipt.visit.operation?.name || "Visit"} ·{" "}
-                    {format(new Date(receipt.receiptDate), "dd-MM-yyyy")}
+                    {formatDate(receipt.receiptDate)}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

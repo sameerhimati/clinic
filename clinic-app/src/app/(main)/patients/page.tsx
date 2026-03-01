@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Search } from "lucide-react";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,7 @@ export default async function PatientsPage({
                     <div>
                       <div className="font-medium">
                         {patient.salutation && `${patient.salutation}. `}
-                        {patient.name}
+                        {toTitleCase(patient.name)}
                       </div>
                       <div className="text-sm text-muted-foreground flex flex-wrap gap-2">
                         {patient.mobile && <span>{patient.mobile}</span>}

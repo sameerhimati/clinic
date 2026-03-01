@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { AppointmentDayView } from "@/components/appointment-day-view";
 import { ToastOnParam } from "@/components/toast-on-param";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -112,10 +113,10 @@ export default async function AppointmentsPage({
     id: a.id,
     patientId: a.patient.id,
     patientCode: a.patient.code,
-    patientName: a.patient.name,
+    patientName: toTitleCase(a.patient.name),
     patientSalutation: a.patient.salutation,
     doctorId: a.doctor?.id || null,
-    doctorName: a.doctor?.name || null,
+    doctorName: a.doctor?.name ? toTitleCase(a.doctor.name) : null,
     visitId: a.visit?.id || null,
     roomId: a.room?.id || null,
     roomName: a.room?.name || null,

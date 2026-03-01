@@ -16,6 +16,7 @@ import {
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deletePatient } from "../actions";
+import { toTitleCase } from "@/lib/format";
 
 export function DeletePatientButton({
   patientId,

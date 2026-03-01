@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/status-badge";
+import { toTitleCase } from "@/lib/format";
 import { User, MapPin, Clock, Stethoscope, ExternalLink } from "lucide-react";
 
 type PanelAppointment = {
@@ -59,7 +60,7 @@ export function AppointmentDetailPanel({
           <SheetTitle className="text-left">
             <div className="text-xs font-mono text-muted-foreground">#{appt.patientCode}</div>
             <div className="text-lg font-semibold flex items-center gap-2 flex-wrap">
-              <span>{appt.patientSalutation && `${appt.patientSalutation}. `}{appt.patientName}</span>
+              <span>{appt.patientSalutation && `${appt.patientSalutation}. `}{toTitleCase(appt.patientName)}</span>
               {appt.diseases.map((d) => {
                 const abbr = d === "Diabetes" ? "DM" : d === "High Blood Pressure" ? "BP" : d === "Allergies" ? "Allergy" : d;
                 return (
@@ -98,7 +99,7 @@ export function AppointmentDetailPanel({
             {appt.doctorName && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Doctor</div>
-                <div className="text-sm font-medium mt-0.5">Dr. {appt.doctorName}</div>
+                <div className="text-sm font-medium mt-0.5">Dr. {toTitleCase(appt.doctorName)}</div>
               </div>
             )}
             {!appt.operationName && appt.reason && (

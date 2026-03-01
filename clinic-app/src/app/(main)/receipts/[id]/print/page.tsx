@@ -8,6 +8,7 @@ import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
+import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +96,7 @@ export default async function ReceiptPrintPage({
             <span className="font-bold">#{receipt.visit.patient.code}</span>{" "}
             <span className="font-medium">
               {receipt.visit.patient.salutation && `${receipt.visit.patient.salutation}. `}
-              {receipt.visit.patient.name}
+              {toTitleCase(receipt.visit.patient.name)}
             </span>
           </div>
           <div>
@@ -105,7 +106,7 @@ export default async function ReceiptPrintPage({
           {receipt.visit.doctor && (
             <div>
               <span className="text-muted-foreground">Doctor:</span>{" "}
-              <span className="font-medium">Dr. {receipt.visit.doctor.name}</span>
+              <span className="font-medium">Dr. {toTitleCase(receipt.visit.doctor.name)}</span>
             </div>
           )}
         </div>

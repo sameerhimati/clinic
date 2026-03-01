@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 
 type FileItem = {
   id: number;
@@ -111,7 +111,7 @@ export function FileGallery({
             )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                {format(new Date(file.createdAt), "dd-MM-yyyy")}
+                {formatDate(file.createdAt)}
                 {file.uploadedBy && ` · Dr. ${file.uploadedBy.name}`}
               </p>
               {canDelete && (

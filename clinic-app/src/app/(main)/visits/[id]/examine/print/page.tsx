@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { PrintReportButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export default async function ClinicalReportPrintPage({
     <div className="max-w-2xl mx-auto space-y-4">
       <div className="print:hidden">
         <Breadcrumbs items={[
-          { label: patient.name, href: `/patients/${patient.id}` },
+          { label: toTitleCase(patient.name), href: `/patients/${patient.id}` },
           { label: `Case #${report.visit.caseNo || visitId}`, href: `/visits/${visitId}` },
           { label: "Examination", href: `/visits/${visitId}/examine` },
           { label: "Print" },
@@ -69,12 +69,12 @@ export default async function ClinicalReportPrintPage({
             <span className="font-bold">#{patient.code}</span>{" "}
             <span className="font-medium">
               {patient.salutation && `${patient.salutation}. `}
-              {patient.name}
+              {toTitleCase(patient.name)}
             </span>
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Date:</span>{" "}
-            <span className="font-medium">{format(new Date(report.reportDate), "dd/MM/yyyy")}</span>
+            <span className="font-medium">{formatDate(report.reportDate)}</span>
           </div>
           <div>
             <span className="text-muted-foreground">Age/Gender:</span>{" "}
@@ -93,7 +93,7 @@ export default async function ClinicalReportPrintPage({
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Doctor:</span>{" "}
-            <span className="font-medium">Dr. {report.doctor.name}</span>
+            <span className="font-medium">Dr. {toTitleCase(report.doctor.name)}</span>
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export default async function ClinicalReportPrintPage({
             <div className="text-muted-foreground">Patient / Guardian Signature</div>
           </div>
           <div className="text-center">
-            <div className="font-medium mb-1">Dr. {report.doctor.name}</div>
+            <div className="font-medium mb-1">Dr. {toTitleCase(report.doctor.name)}</div>
             <div className="border-t border-foreground w-48 mb-1"></div>
             <div className="text-muted-foreground">Doctor&apos;s Signature</div>
           </div>

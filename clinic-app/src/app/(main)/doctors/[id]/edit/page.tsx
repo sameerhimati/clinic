@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { canManageSystem } from "@/lib/permissions";
 import { DoctorForm } from "@/components/doctor-form";
 import { updateDoctor } from "../../actions";
+import { toTitleCase } from "@/lib/format";
 
 export default async function EditDoctorPage({
   params,
@@ -27,9 +28,9 @@ export default async function EditDoctorPage({
     <div className="space-y-4">
       <Breadcrumbs items={[
         { label: "Doctors", href: "/doctors" },
-        { label: doctor.name },
+        { label: toTitleCase(doctor.name) },
       ]} />
-      <h2 className="text-2xl font-bold">Edit Doctor: {doctor.name}</h2>
+      <h2 className="text-2xl font-bold">Edit Doctor: {toTitleCase(doctor.name)}</h2>
       <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
     </div>
   );

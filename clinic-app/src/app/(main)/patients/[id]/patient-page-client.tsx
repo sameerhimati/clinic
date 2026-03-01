@@ -38,6 +38,7 @@ import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { toTitleCase, formatDate } from "@/lib/format";
 import { ToastOnParam } from "@/components/toast-on-param";
 import { ClipboardList } from "lucide-react";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
@@ -293,7 +294,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       <ToastOnParam param="paid" message="Payment collected — receipt created" />
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
-        { label: patient.name },
+        { label: toTitleCase(patient.name) },
       ]} />
 
       {/* Patient Header — Sticky */}
@@ -306,7 +307,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             <div className="min-w-0">
               <h2 className="text-xl font-bold truncate">
                 {patient.salutation && `${patient.salutation}. `}
-                {patient.name}
+                {toTitleCase(patient.name)}
               </h2>
               <p className="text-muted-foreground text-sm">
                 {data.ageDisplay && <span>{data.ageDisplay}</span>}
@@ -324,13 +325,13 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
-                {data.firstVisit && <span> · First: {format(new Date(data.firstVisit), "MMM yyyy")}</span>}
-                {data.lastVisit && <span> · Last: {format(new Date(data.lastVisit), "dd-MM-yyyy")}</span>}
+                {data.firstVisit && <span> · First: {formatDate(data.firstVisit)}</span>}
+                {data.lastVisit && <span> · Last: {formatDate(data.lastVisit)}</span>}
                 {data.canCollect && data.totalBalance > 0 && (
                   <span className="text-destructive font-medium"> · ₹{data.totalBalance.toLocaleString("en-IN")} due</span>
                 )}
                 {nextFutureAppt && (
-                  <span> · Next appt: {format(new Date(nextFutureAppt.date), "dd MMM")}</span>
+                  <span> · Next appt: {formatDate(nextFutureAppt.date)}</span>
                 )}
               </p>
             </div>
@@ -440,7 +441,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
                     <div>
                       <div className="font-medium text-sm">
-                        {format(new Date(appt.date), "EEE, dd MMM")}
+                        {formatDate(appt.date)}
                         {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -459,7 +460,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   <div key={`p-${appt.id}`} className="flex items-center justify-between px-4 py-2.5 opacity-60">
                     <div>
                       <div className="text-sm">
-                        {format(new Date(appt.date), "dd MMM yyyy")}
+                        {formatDate(appt.date)}
                         {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -536,7 +537,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
               <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
-              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? format(new Date(patient.dateOfBirth), "dd-MM-yyyy") : null} />
+              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? formatDate(patient.dateOfBirth) : null} />
               <InfoRow label="Occupation" value={patient.occupation} />
               <InfoRow label="Mobile" value={patient.mobile} />
               <InfoRow label="Phone" value={patient.phone} />
@@ -566,7 +567,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </Card>
         {data.isAdmin && (
           <div className="mt-4 flex justify-end">
-            <DeletePatientButton patientId={patient.id} patientName={patient.name} />
+            <DeletePatientButton patientId={patient.id} patientName={toTitleCase(patient.name)} />
           </div>
         )}
       </section>
@@ -588,7 +589,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                         ₹{receipt.amount.toLocaleString("en-IN")}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {format(new Date(receipt.receiptDate), "dd-MM-yyyy")}
+                        {formatDate(receipt.receiptDate)}
                         {receipt.visitCaseNo && ` · Case #${receipt.visitCaseNo}`}
                         {receipt.visitOperationName && ` · ${receipt.visitOperationName}`}
                         {` · ${receipt.paymentMode}`}
@@ -613,7 +614,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         patientId={patient.id}
-        patientName={patient.name}
+        patientName={toTitleCase(patient.name)}
         patientCode={patient.code}
         operations={data.operations}
         doctors={data.doctors}

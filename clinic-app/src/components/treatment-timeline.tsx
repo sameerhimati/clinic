@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
+import { toTitleCase, formatDate, formatDateTime } from "@/lib/format";
 import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
@@ -197,7 +197,7 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
             <div><span className="text-muted-foreground font-medium">Estimate: </span><span className="whitespace-pre-wrap">{report.estimate}</span></div>
           )}
           <div className="text-xs text-muted-foreground text-right pt-1">
-            Dr. {report.doctor.name} · {format(new Date(report.reportDate), "dd-MM-yyyy")}
+            Dr. {toTitleCase(report.doctor.name)} · {formatDate(report.reportDate)}
             {isEdited && " (edited)"}
           </div>
         </div>
@@ -310,8 +310,8 @@ function StandaloneVisitEntry({
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-1 ml-6">
-            {format(new Date(visit.visitDate), "dd-MM-yyyy")}
-            <span> · Dr. {visit.doctor?.name || "N/A"}</span>
+            {formatDate(visit.visitDate)}
+            <span> · Dr. {toTitleCase(visit.doctor?.name || "N/A")}</span>
           </div>
         </div>
         {/* Notes section */}
@@ -375,8 +375,8 @@ function ChainTimeline({
   const totalDue = totalBilled - totalPaid;
 
   // Date range for collapsed view
-  const firstDate = format(new Date(allVisits[0].visitDate), "dd MMM");
-  const lastDate = format(new Date(allVisits[allVisits.length - 1].visitDate), "dd-MM-yyyy");
+  const firstDate = formatDate(allVisits[0].visitDate);
+  const lastDate = formatDate(allVisits[allVisits.length - 1].visitDate);
 
   return (
     <div className="py-4">
@@ -407,7 +407,7 @@ function ChainTimeline({
             {uniqueDoctors.map((d) => (
               <span key={d.name} className="flex items-center gap-1">
                 <span className={`inline-block w-1.5 h-1.5 rounded-full ${DOCTOR_DOT_COLORS[doctorColorMap.get(d.name) || 0]}`} />
-                Dr. {d.name}
+                Dr. {toTitleCase(d.name)}
               </span>
             ))}
           </div>
@@ -439,7 +439,7 @@ function ChainTimeline({
                     >
                       <div className="flex items-center justify-between flex-wrap gap-1">
                         <div className="flex items-center gap-2 text-sm flex-wrap">
-                          <span className="font-medium">{format(new Date(visit.visitDate), "dd MMM")}</span>
+                          <span className="font-medium">{formatDate(visit.visitDate)}</span>
                           <span className="text-muted-foreground">—</span>
                           <span className="font-medium">
                             {visit.stepLabel || visit.operation?.name || "Visit"}
@@ -448,7 +448,7 @@ function ChainTimeline({
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        Dr. {visit.doctor?.name || "N/A"}
+                        Dr. {toTitleCase(visit.doctor?.name || "N/A")}
                         {showInternalCosts && visit.lab && <span> · Lab: {visit.lab.name} {"\u20B9"}{visit.labRateAmount.toLocaleString("en-IN")}</span>}
                       </div>
 

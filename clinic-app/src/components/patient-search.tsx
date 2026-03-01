@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toTitleCase } from "@/lib/format";
 
 type SearchResult = {
   id: number;
@@ -218,7 +219,7 @@ export function PatientSearch({
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-muted-foreground">#{r.code}</span>
                     <span className="font-medium">
-                      {r.salutation && `${r.salutation}. `}{r.name}
+                      {r.salutation && `${r.salutation}. `}{toTitleCase(r.name)}
                     </span>
                   </div>
                   {r.mobile && (

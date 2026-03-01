@@ -31,6 +31,7 @@ import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { AppointmentDetailPanel } from "@/components/appointment-detail-panel";
 import { VALID_TRANSITIONS } from "@/lib/appointment-status";
+import { toTitleCase, formatFullDate } from "@/lib/format";
 
 type Appointment = {
   id: number;
@@ -203,7 +204,7 @@ function SecondaryActions({
                     }}
                     disabled={d.id === appt.doctorId}
                   >
-                    Dr. {d.name}
+                    Dr. {toTitleCase(d.name)}
                     {d.id === appt.doctorId && " (current)"}
                   </DropdownMenuItem>
                 ))}
@@ -279,7 +280,7 @@ function AppointmentCard({
             #{appt.patientCode}
           </span>{" "}
           <span className={`font-medium ${isCancelled ? "line-through" : ""}`}>
-            {compact ? abbreviatedName : appt.patientName}
+            {compact ? toTitleCase(abbreviatedName) : toTitleCase(appt.patientName)}
           </span>
         </div>
         <SecondaryActions appt={appt} onStatusChange={onStatusChange} isDoctor={isDoctor} doctors={doctors} onReassignDoctor={onReassignDoctor} />
@@ -296,7 +297,7 @@ function AppointmentCard({
         <div className="text-muted-foreground">{appt.timeSlot}</div>
       )}
       {showDoctorName && appt.doctorName && (
-        <div className="text-muted-foreground">Dr. {appt.doctorName}</div>
+        <div className="text-muted-foreground">Dr. {toTitleCase(appt.doctorName)}</div>
       )}
       {/* Reason fallback (only if no operation name) */}
       {!appt.operationName && appt.reason && (
@@ -391,12 +392,7 @@ export function AppointmentDayView({
   const isToday = dateStr === todayStr;
 
   const [dy, dm, dd] = dateStr.split("-").map(Number);
-  const displayDate = new Date(dy, dm - 1, dd).toLocaleDateString("en-IN", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const displayDate = formatFullDate(new Date(dy, dm - 1, dd));
 
   // Doctor filtering (Phase 6)
   const filteredAppointments =
@@ -427,7 +423,7 @@ export function AppointmentDayView({
   const columns = allColumns.filter((col) => appointmentGroupKeys.has(col.id));
 
   const columnLabel = (col: { id: number; name: string }) =>
-    viewMode === "doctor" ? `Dr. ${col.name}` : col.name;
+    viewMode === "doctor" ? `Dr. ${toTitleCase(col.name)}` : col.name;
 
   const groupKey = (appt: Appointment): number | null =>
     viewMode === "doctor" ? appt.doctorId : appt.roomId;
@@ -531,7 +527,7 @@ export function AppointmentDayView({
       try {
         await reassignDoctor(appointmentId, doctorId);
         const doc = doctorId ? columnDoctors.find(d => d.id === doctorId) : null;
-        toast.success(doc ? `Reassigned to Dr. ${doc.name}` : "Doctor unassigned");
+        toast.success(doc ? `Reassigned to Dr. ${toTitleCase(doc.name)}` : "Doctor unassigned");
         router.refresh();
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to reassign doctor");
@@ -792,7 +788,7 @@ export function AppointmentDayView({
                           )}
                           {appt.doctorName && (
                             <span className="text-muted-foreground">
-                              Dr. {appt.doctorName}
+                              Dr. {toTitleCase(appt.doctorName)}
                             </span>
                           )}
                         </div>
@@ -805,7 +801,7 @@ export function AppointmentDayView({
                         <span className="font-mono text-muted-foreground mr-1">
                           #{appt.patientCode}
                         </span>
-                        <span className="font-medium">{appt.patientName}</span>
+                        <span className="font-medium">{toTitleCase(appt.patientName)}</span>
                       </div>
                       {/* Enriched info on mobile */}
                       {appt.operationName && (

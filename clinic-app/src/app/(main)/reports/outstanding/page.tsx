@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { format } from "date-fns";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { Search } from "lucide-react";
 import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
@@ -104,7 +104,7 @@ export default async function OutstandingReportPage({
           <option value="">All Doctors</option>
           {doctors.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {toTitleCase(d.name)}
             </option>
           ))}
         </select>
@@ -144,19 +144,19 @@ export default async function OutstandingReportPage({
               <TableBody>
                 {outstanding.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell>{format(new Date(row.visitDate), "dd-MM-yyyy")}</TableCell>
+                    <TableCell>{formatDate(row.visitDate)}</TableCell>
                     <TableCell>{row.caseNo || row.id}</TableCell>
                     <TableCell>
                       <Link
                         href={`/patients/${row.patient.id}`}
                         className="hover:underline font-medium"
                       >
-                        #{row.patient.code} {row.patient.name}
+                        #{row.patient.code} {toTitleCase(row.patient.name)}
                       </Link>
                     </TableCell>
                     <TableCell>{row.patient.mobile || "-"}</TableCell>
                     <TableCell>{row.operation?.name || "-"}</TableCell>
-                    <TableCell>{row.doctor?.name || "-"}</TableCell>
+                    <TableCell>{row.doctor?.name ? toTitleCase(row.doctor.name) : "-"}</TableCell>
                     <TableCell className="text-right">{"\u20B9"}{row.billed.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right">{"\u20B9"}{row.paid.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right font-medium text-destructive">
