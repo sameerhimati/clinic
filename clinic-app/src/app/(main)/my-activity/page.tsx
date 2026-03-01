@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CheckCircle2, Clock, Users, Stethoscope, ClipboardList, GitBranch } from "lucide-react";
+import { Search, CheckCircle2, Clock, Users, Stethoscope, ClipboardList, GitBranch, IndianRupee } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toTitleCase, formatDate } from "@/lib/format";
 
@@ -68,6 +76,73 @@ export default async function MyActivityPage({
       _count: { select: { followUps: true } },
     },
   });
+
+  // Consultant earnings data (only if isConsultant)
+  type EarningsRow = {
+    rootVisitId: number;
+    patientName: string;
+    patientCode: number | null;
+    operationName: string;
+    doctorFee: number;
+    totalPaid: number;
+    visitCount: number;
+    isComplete: boolean;
+  };
+
+  let earningsRows: EarningsRow[] = [];
+  let earningsTotals = { totalFees: 0, totalCollected: 0, totalPending: 0 };
+
+  if (currentUser.isConsultant) {
+    const earnChains = await prisma.visit.findMany({
+      where: {
+        doctorId: id,
+        parentVisitId: null,
+        operation: { doctorFee: { gt: 0 } },
+        visitDate: { gte: from, lte: to },
+      },
+      include: {
+        patient: { select: { name: true, code: true } },
+        operation: { select: { name: true, doctorFee: true } },
+        receipts: { select: { amount: true } },
+        clinicalReports: { take: 1, select: { id: true } },
+        followUps: {
+          include: {
+            receipts: { select: { amount: true } },
+            clinicalReports: { take: 1, select: { id: true } },
+          },
+        },
+      },
+      orderBy: { visitDate: "desc" },
+    });
+
+    earningsRows = earnChains.map((root) => {
+      const allVisits = [root, ...root.followUps];
+      const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
+      const stepsWithExam = allVisits.filter((v) => v.clinicalReports.length > 0).length;
+      const isComplete = allVisits.length > 1 && stepsWithExam === allVisits.length;
+      const doctorFee = root.operation?.doctorFee || 0;
+
+      return {
+        rootVisitId: root.id,
+        patientName: toTitleCase(root.patient.name),
+        patientCode: root.patient.code,
+        operationName: root.operation?.name || "N/A",
+        doctorFee,
+        totalPaid,
+        visitCount: allVisits.length,
+        isComplete,
+      };
+    });
+
+    earningsTotals = earningsRows.reduce(
+      (acc, row) => ({
+        totalFees: acc.totalFees + row.doctorFee,
+        totalCollected: acc.totalCollected + Math.min(row.totalPaid, row.doctorFee),
+        totalPending: acc.totalPending + Math.max(0, row.doctorFee - row.totalPaid),
+      }),
+      { totalFees: 0, totalCollected: 0, totalPending: 0 }
+    );
+  }
 
   const fromStr = format(from, "yyyy-MM-dd");
   const toStr = format(to, "yyyy-MM-dd");
@@ -142,6 +217,88 @@ export default async function MyActivityPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Consultant Earnings */}
+      {currentUser.isConsultant && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <IndianRupee className="h-4 w-4" />
+                  Total Fees
+                </div>
+                <div className="text-2xl font-bold mt-1">₹{earningsTotals.totalFees.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 text-green-600 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Collected
+                </div>
+                <div className="text-2xl font-bold mt-1 text-green-700">₹{earningsTotals.totalCollected.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 text-amber-600 text-sm">
+                  <Clock className="h-4 w-4" />
+                  Pending
+                </div>
+                <div className="text-2xl font-bold mt-1 text-amber-700">₹{earningsTotals.totalPending.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {earningsRows.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <IndianRupee className="h-4 w-4" />
+                  My Earnings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Treatment</TableHead>
+                      <TableHead className="text-right">Fee</TableHead>
+                      <TableHead className="text-right">Collected</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {earningsRows.map((row) => (
+                      <TableRow key={row.rootVisitId}>
+                        <TableCell>
+                          <span className="font-mono text-sm text-muted-foreground">#{row.patientCode}</span>{" "}
+                          {row.patientName}
+                        </TableCell>
+                        <TableCell>
+                          {row.operationName}
+                          <span className="text-xs text-muted-foreground ml-1">({row.visitCount} visit{row.visitCount !== 1 ? "s" : ""})</span>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">₹{row.doctorFee.toLocaleString("en-IN")}</TableCell>
+                        <TableCell className={`text-right ${row.totalPaid >= row.doctorFee ? "text-green-700" : "text-amber-700"}`}>
+                          ₹{row.totalPaid.toLocaleString("en-IN")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={row.isComplete ? "default" : "secondary"} className="text-xs">
+                            {row.isComplete ? "Completed" : "In Progress"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
 
       {/* Recent Activity */}
       <Card>
