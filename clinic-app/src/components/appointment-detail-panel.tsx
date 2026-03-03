@@ -22,6 +22,7 @@ type PanelAppointment = {
   doctorId: number | null;
   doctorName: string | null;
   visitId: number | null;
+  planItemId: number | null;
   roomName: string | null;
   timeSlot: string | null;
   status: string;
@@ -46,7 +47,7 @@ export function AppointmentDetailPanel({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (id: number, status: string) => void;
-  onExamine?: (patientId: number, appointmentId: number) => void;
+  onExamine?: (patientId: number, appointmentId: number, planItemId?: number | null) => void;
   isDoctor?: boolean;
   canCollect?: boolean;
 }) {
@@ -77,6 +78,15 @@ export function AppointmentDetailPanel({
           {/* Status row */}
           <div className="flex items-center gap-2 mb-4">
             <StatusBadge status={appt.status} />
+            {appt.planItemId ? (
+              <Badge variant="outline" className="border-primary/30 text-primary text-xs">
+                Treatment Step
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                Consultation
+              </Badge>
+            )}
             {appt.visitCount > 1 && (
               <span className="text-muted-foreground text-xs">{appt.visitCount} total visits</span>
             )}
@@ -148,7 +158,7 @@ export function AppointmentDetailPanel({
               <Button
                 className="w-full"
                 onClick={() => {
-                  onExamine(appt.patientId, appt.id);
+                  onExamine(appt.patientId, appt.id, appt.planItemId);
                   onOpenChange(false);
                 }}
               >

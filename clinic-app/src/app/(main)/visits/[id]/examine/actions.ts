@@ -204,6 +204,140 @@ export async function saveQuickNote(visitId: number, content: string) {
   revalidateVisitPaths(visitId);
 }
 
+export async function assignTreatmentToVisit(
+  visitId: number,
+  operationId: number
+) {
+  const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can assign treatments");
+  }
+
+  const operation = await prisma.operation.findUnique({
+    where: { id: operationId },
+    select: { id: true, name: true, defaultMinFee: true, doctorFee: true },
+  });
+  if (!operation) throw new Error("Operation not found");
+
+  await prisma.visit.update({
+    where: { id: visitId },
+    data: {
+      operationId: operation.id,
+      operationRate: operation.defaultMinFee || 0,
+      discount: 0,
+    },
+  });
+
+  revalidateVisitPaths(visitId);
+  return { operationName: operation.name, operationRate: operation.defaultMinFee || 0 };
+}
+
+type ConsultationSchedule = {
+  operationId: number;
+  doctorId: number;
+  date: string;
+  timeSlot: string;
+};
+
+export async function createPlansFromConsultation(
+  patientId: number,
+  visitId: number,
+  doctorId: number,
+  operationIds: number[],
+  schedules?: ConsultationSchedule[]
+) {
+  const currentUser = await requireAuth();
+  if (!canExamine(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can create treatment plans");
+  }
+
+  if (operationIds.length === 0) return { count: 0, scheduledCount: 0 };
+
+  // Idempotency guard: if plans already linked to this visit, skip
+  const existingPlanItem = await prisma.treatmentPlanItem.findFirst({
+    where: { visitId },
+  });
+  if (existingPlanItem) {
+    return { count: 0, scheduledCount: 0, alreadyExisted: true };
+  }
+
+  const operations = await prisma.operation.findMany({
+    where: { id: { in: operationIds } },
+    select: { id: true, name: true },
+  });
+
+  let count = 0;
+  let scheduledCount = 0;
+  for (const op of operations) {
+    const templateSteps = await prisma.treatmentStep.findMany({
+      where: { operationId: op.id },
+      orderBy: { stepNumber: "asc" },
+      select: { name: true, defaultDayGap: true, description: true },
+    });
+
+    const items = templateSteps.length > 0
+      ? templateSteps.map((step, index) => ({
+          sortOrder: index + 1,
+          label: step.name,
+          operationId: op.id,
+          assignedDoctorId: doctorId,
+          estimatedDayGap: step.defaultDayGap,
+          notes: step.description,
+          // First step is linked to this visit as completed
+          ...(index === 0
+            ? { visitId, completedAt: new Date() }
+            : {}),
+        }))
+      : [{
+          sortOrder: 1,
+          label: op.name,
+          operationId: op.id,
+          assignedDoctorId: doctorId,
+          estimatedDayGap: 7,
+          notes: null as string | null,
+          visitId,
+          completedAt: new Date(),
+        }];
+
+    const plan = await prisma.treatmentPlan.create({
+      data: {
+        patientId,
+        title: op.name,
+        createdById: currentUser.id,
+        items: { create: items },
+      },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+    count++;
+
+    // Create appointment for next step if schedule provided
+    const schedule = schedules?.find((s) => s.operationId === op.id);
+    if (schedule) {
+      // Find the first incomplete item (step 2 for multi-step, none for single-step)
+      const nextItem = plan.items.find((i) => !i.completedAt);
+      if (nextItem) {
+        await prisma.appointment.create({
+          data: {
+            patientId,
+            doctorId: schedule.doctorId,
+            date: new Date(schedule.date),
+            timeSlot: schedule.timeSlot,
+            reason: `${op.name} — ${nextItem.label}`,
+            planItemId: nextItem.id,
+            status: "SCHEDULED",
+            createdById: currentUser.id,
+          },
+        });
+        scheduledCount++;
+      }
+    }
+  }
+
+  revalidatePath(`/patients/${patientId}`);
+  revalidatePath("/appointments");
+  return { count, scheduledCount };
+}
+
 export async function saveAndRedirect(visitId: number, target: "detail" | "print") {
   if (target === "print") {
     redirect(`/visits/${visitId}/examine/print`);

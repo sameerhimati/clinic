@@ -118,6 +118,7 @@ export default async function AppointmentsPage({
     doctorId: a.doctor?.id || null,
     doctorName: a.doctor?.name ? toTitleCase(a.doctor.name) : null,
     visitId: a.visit?.id || null,
+    planItemId: a.planItemId || null,
     roomId: a.room?.id || null,
     roomName: a.room?.name || null,
     timeSlot: a.timeSlot,

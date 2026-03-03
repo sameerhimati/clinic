@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
-import { saveExamination, finalizeReport, unlockReport, addAddendum } from "./actions";
+import { saveExamination, finalizeReport, unlockReport, addAddendum, createPlansFromConsultation } from "./actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import {
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus } from "lucide-react";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
@@ -326,6 +326,7 @@ export function ExaminationForm({
   patientId,
   defaultDoctorId,
   defaultDoctorName,
+  hasOperation,
   existingReport,
   isLocked,
   canUnlock,
@@ -349,6 +350,7 @@ export function ExaminationForm({
   patientId?: number;
   defaultDoctorId: number | null;
   defaultDoctorName: string | null;
+  hasOperation?: boolean;
   existingReport: ExistingReport | null;
   isLocked: boolean;
   canUnlock: boolean;
@@ -364,7 +366,7 @@ export function ExaminationForm({
   isFollowUp?: boolean;
   treatmentSteps?: { name: string; defaultDayGap: number; description: string | null }[];
   allDoctors?: { id: number; name: string }[];
-  allOperations?: { id: number; name: string; category: string | null }[];
+  allOperations?: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }[];
   matchingPlanItem?: {
     itemId: number;
     itemLabel: string;
@@ -431,6 +433,88 @@ export function ExaminationForm({
   const [planTitle, setPlanTitle] = useState(operationName || "");
   const [planItems, setPlanItems] = useState<PlanItemDraft[]>([]);
 
+  // Multi-treatment selection state (consultation flow — no operation yet)
+  const [treatmentSearch, setTreatmentSearch] = useState("");
+  const [selectedTreatments, setSelectedTreatments] = useState<
+    { id: number; name: string; category: string | null; stepCount: number }[]
+  >([]);
+
+  // Auto-suggest state
+  const [pendingSuggestion, setPendingSuggestion] = useState<{
+    sourceOpName: string;
+    suggestedOp: { id: number; name: string; category: string | null; stepCount: number };
+  } | null>(null);
+
+  // Inline scheduling state — keyed by operationId
+  const [treatmentSchedules, setTreatmentSchedules] = useState<
+    Record<number, { doctorId: number; date: string; timeSlot: string; stepName: string }>
+  >({});
+
+  const selectedIds = new Set(selectedTreatments.map((t) => t.id));
+  const filteredOperations = allOperations?.filter((op) => {
+    if (selectedIds.has(op.id)) return false;
+    if (!treatmentSearch) return true;
+    const q = treatmentSearch.toLowerCase();
+    return op.name.toLowerCase().includes(q) || (op.category?.toLowerCase().includes(q) ?? false);
+  }) ?? [];
+
+  // Helper to add a treatment and set up scheduling + suggestions
+  function addTreatment(op: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }) {
+    const stepCount = op.stepCount ?? 0;
+    setSelectedTreatments((prev) => [
+      ...prev,
+      { id: op.id, name: op.name, category: op.category, stepCount },
+    ]);
+    setTreatmentSearch("");
+
+    // Auto-initialize schedule for multi-step treatments
+    if (stepCount > 1) {
+      getOperationSteps(op.id).then((steps) => {
+        if (steps.length >= 2) {
+          const step2 = steps[1]; // Second step
+          const schedDate = new Date();
+          schedDate.setDate(schedDate.getDate() + step2.defaultDayGap);
+          setTreatmentSchedules((prev) => ({
+            ...prev,
+            [op.id]: {
+              doctorId: doctorId,
+              date: format(schedDate, "yyyy-MM-dd"),
+              timeSlot: "10:00 AM",
+              stepName: step2.name,
+            },
+          }));
+        }
+      });
+    }
+
+    // Check for auto-suggest
+    if (op.suggestsOperationId) {
+      const suggested = allOperations?.find((o) => o.id === op.suggestsOperationId);
+      if (suggested && !selectedIds.has(suggested.id) && suggested.id !== op.id) {
+        setPendingSuggestion({
+          sourceOpName: op.name,
+          suggestedOp: { id: suggested.id, name: suggested.name, category: suggested.category, stepCount: suggested.stepCount ?? 0 },
+        });
+      }
+    }
+  }
+
+  function removeTreatment(opId: number) {
+    setSelectedTreatments((prev) => prev.filter((s) => s.id !== opId));
+    setTreatmentSchedules((prev) => {
+      const next = { ...prev };
+      delete next[opId];
+      return next;
+    });
+  }
+
+  // Time slot options for scheduling
+  const TIME_SLOTS = [
+    "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+    "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
+    "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM",
+  ];
+
   // Initialize plan items from template steps when opening the editor
   function initPlanFromTemplate() {
     if (!treatmentSteps || treatmentSteps.length === 0) return;
@@ -458,6 +542,7 @@ export function ExaminationForm({
   }
 
   async function handleSave(redirectTarget: "detail" | "print" | "queue") {
+    const initialSelectedCount = selectedTreatments.length;
     startTransition(async () => {
       try {
         const result = await saveExamination(visitId, {
@@ -504,6 +589,39 @@ export function ExaminationForm({
             }
           }
         }
+        // Create treatment plans from multi-select consultation flow
+        else if (selectedTreatments.length > 0 && patientId) {
+          try {
+            // Build schedules from inline scheduling state
+            const schedulesToSend = Object.entries(treatmentSchedules).map(
+              ([opId, sched]) => ({
+                operationId: Number(opId),
+                doctorId: sched.doctorId,
+                date: sched.date,
+                timeSlot: sched.timeSlot,
+              })
+            );
+            const planResult = await createPlansFromConsultation(
+              patientId,
+              visitId,
+              doctorId,
+              selectedTreatments.map((t) => t.id),
+              schedulesToSend.length > 0 ? schedulesToSend : undefined
+            );
+            if (planResult.alreadyExisted) {
+              // Plans already created for this visit — skip toast
+            } else {
+              const parts: string[] = [];
+              if (planResult.count > 0) parts.push(`${planResult.count} plan${planResult.count !== 1 ? "s" : ""} created`);
+              if (planResult.scheduledCount > 0) parts.push(`${planResult.scheduledCount} appointment${planResult.scheduledCount !== 1 ? "s" : ""} scheduled`);
+              if (parts.length > 0) toast.success(parts.join(", "));
+            }
+            setSelectedTreatments([]);
+            setTreatmentSchedules({});
+          } catch {
+            toast.error("Exam saved but plan creation failed");
+          }
+        }
 
         if (result?.appointmentAutoCompleted && result.completedAppointmentId) {
           const apptId = result.completedAppointmentId;
@@ -518,7 +636,7 @@ export function ExaminationForm({
             },
             duration: 8000,
           });
-        } else if (!showPlanEditor && !matchingPlanItem) {
+        } else if (!showPlanEditor && !matchingPlanItem && initialSelectedCount === 0) {
           toast.success("Examination saved");
         }
         if (redirectTarget === "print") {
@@ -914,6 +1032,167 @@ export function ExaminationForm({
           </CardContent>
         </Card>
       )}
+      {/* Case D: Consultation — no operation assigned yet → multi-treatment picker */}
+      {isDoctor && !existingReport && !(hasOperation ?? false) && !matchingPlanItem && allOperations && allOperations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Treatment Plans
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Selected treatments as removable chips + inline scheduling */}
+            {selectedTreatments.length > 0 ? (
+              <div className="space-y-2">
+                {selectedTreatments.map((t) => (
+                  <div key={t.id} className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {t.name}
+                      {t.stepCount > 1 && (
+                        <span className="text-[10px] opacity-70">{t.stepCount} steps</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeTreatment(t.id)}
+                        className="ml-0.5 hover:text-destructive transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                    {/* Inline scheduling row for multi-step treatments */}
+                    {treatmentSchedules[t.id] && (
+                      <div className="ml-2 pl-3 border-l-2 border-primary/20 space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CalendarPlus className="h-3 w-3" />
+                          <span>Next: <span className="font-medium text-foreground">{treatmentSchedules[t.id].stepName}</span></span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <select
+                            value={treatmentSchedules[t.id].doctorId}
+                            onChange={(e) => setTreatmentSchedules((prev) => ({
+                              ...prev,
+                              [t.id]: { ...prev[t.id], doctorId: Number(e.target.value) },
+                            }))}
+                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            {allDoctors?.map((d) => (
+                              <option key={d.id} value={d.id}>Dr. {toTitleCase(d.name)}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="date"
+                            value={treatmentSchedules[t.id].date}
+                            min={format(new Date(), "yyyy-MM-dd")}
+                            onChange={(e) => setTreatmentSchedules((prev) => ({
+                              ...prev,
+                              [t.id]: { ...prev[t.id], date: e.target.value },
+                            }))}
+                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          />
+                          <select
+                            value={treatmentSchedules[t.id].timeSlot}
+                            onChange={(e) => setTreatmentSchedules((prev) => ({
+                              ...prev,
+                              [t.id]: { ...prev[t.id], timeSlot: e.target.value },
+                            }))}
+                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            {TIME_SLOTS.map((slot) => (
+                              <option key={slot} value={slot}>{slot}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setTreatmentSchedules((prev) => {
+                              const next = { ...prev };
+                              delete next[t.id];
+                              return next;
+                            })}
+                            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Select treatments the patient needs
+              </p>
+            )}
+
+            {/* Auto-suggest banner */}
+            {pendingSuggestion && !selectedIds.has(pendingSuggestion.suggestedOp.id) && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm">
+                <Lightbulb className="h-4 w-4 text-blue-600 shrink-0" />
+                <span className="text-blue-800 flex-1">
+                  <span className="font-medium">{pendingSuggestion.suggestedOp.name}</span> is typically needed after {pendingSuggestion.sourceOpName}
+                </span>
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setPendingSuggestion(null)}
+                    className="px-2 py-0.5 text-xs rounded border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const op = allOperations?.find((o) => o.id === pendingSuggestion.suggestedOp.id);
+                      if (op) addTreatment(op);
+                      setPendingSuggestion(null);
+                    }}
+                    className="px-2 py-0.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
+                    Add {pendingSuggestion.suggestedOp.name}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={treatmentSearch}
+                onChange={(e) => setTreatmentSearch(e.target.value)}
+                placeholder="Search treatments..."
+                className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto rounded-md border divide-y">
+              {filteredOperations.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  {treatmentSearch ? "No treatments found" : "All treatments selected"}
+                </div>
+              ) : (
+                filteredOperations.slice(0, 20).map((op) => (
+                  <button
+                    key={op.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    onClick={() => addTreatment(op)}
+                  >
+                    <span className="font-medium">{op.name}</span>
+                    {op.category && (
+                      <span className="ml-2 text-xs text-muted-foreground">{op.category}</span>
+                    )}
+                    {(op.stepCount ?? 0) > 1 && (
+                      <span className="ml-2 text-xs text-muted-foreground">{op.stepCount} steps</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Case C: No templates, or follow-up without plan → section hidden entirely */}
 
       {/* Existing addendums */}

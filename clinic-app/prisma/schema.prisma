@@ -22,20 +22,23 @@ model Disease {
 }
 
 model Operation {
-  id              Int              @id @default(autoincrement())
-  code            Int?             @unique
-  name            String
-  category        String?
-  defaultMinFee   Float?
-  defaultMaxFee   Float?
-  doctorFee       Float?           // fixed doctor fee per procedure (e.g. RCT = ₹1,800)
-  labCostEstimate Float?           // typical lab cost, used for minimum collection warnings
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  visits          Visit[]
-  treatmentSteps  TreatmentStep[]
-  planItems       TreatmentPlanItem[]
+  id                  Int              @id @default(autoincrement())
+  code                Int?             @unique
+  name                String
+  category            String?
+  defaultMinFee       Float?
+  defaultMaxFee       Float?
+  doctorFee           Float?           // fixed doctor fee per procedure (e.g. RCT = ₹1,800)
+  labCostEstimate     Float?           // typical lab cost, used for minimum collection warnings
+  suggestsOperationId Int?             // auto-suggest linked treatment (e.g. RCT → Crown)
+  suggestsOperation   Operation?       @relation("OperationSuggestion", fields: [suggestsOperationId], references: [id])
+  suggestedBy         Operation[]      @relation("OperationSuggestion")
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  visits              Visit[]
+  treatmentSteps      TreatmentStep[]
+  planItems           TreatmentPlanItem[]
 
   @@map("operations")
 }
@@ -326,6 +329,8 @@ model Appointment {
   doctor       Doctor?  @relation("AppointmentDoctor", fields: [doctorId], references: [id])
   visitId      Int?
   visit        Visit?   @relation(fields: [visitId], references: [id])
+  planItemId   Int?
+  planItem     TreatmentPlanItem? @relation(fields: [planItemId], references: [id])
   roomId       Int?
   room         Room?    @relation(fields: [roomId], references: [id])
   date         DateTime
@@ -403,6 +408,7 @@ model TreatmentPlanItem {
   notes            String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  appointments     Appointment[]
 
   @@index([planId])
   @@map("treatment_plan_items")

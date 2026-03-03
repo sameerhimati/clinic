@@ -198,11 +198,18 @@ export default async function ExaminePage({
   }
 
   // Operations for the plan editor
-  const allOperations = await prisma.operation.findMany({
+  const allOperationsRaw = await prisma.operation.findMany({
     where: { isActive: true },
     orderBy: [{ category: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, category: true },
+    select: { id: true, name: true, category: true, suggestsOperationId: true, _count: { select: { treatmentSteps: true } } },
   });
+  const allOperations = allOperationsRaw.map((op) => ({
+    id: op.id,
+    name: op.name,
+    category: op.category,
+    stepCount: op._count.treatmentSteps,
+    suggestsOperationId: op.suggestsOperationId,
+  }));
 
   return (
     <div className={previousReports.length > 0 ? "space-y-6" : "max-w-3xl space-y-6"}>
@@ -233,6 +240,7 @@ export default async function ExaminePage({
         patientId={visit.patientId}
         defaultDoctorId={visit.doctorId}
         defaultDoctorName={visit.doctor?.name ? toTitleCase(visit.doctor.name) : null}
+        hasOperation={!!visit.operationId}
         existingReport={existingReport ? {
           id: existingReport.id,
           doctorId: existingReport.doctorId,

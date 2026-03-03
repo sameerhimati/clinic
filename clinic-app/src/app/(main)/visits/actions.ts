@@ -219,7 +219,8 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
 
 export async function createVisitAndExamine(
   patientId: number,
-  appointmentId: number
+  appointmentId: number,
+  planItemId?: number | null
 ): Promise<{ visitId: number }> {
   const currentUser = await requireAuth();
   if (currentUser.permissionLevel !== 3) {
@@ -234,14 +235,61 @@ export async function createVisitAndExamine(
     select: { commissionPercent: true },
   });
 
+  // Plan-aware: if planItemId provided, fetch plan item for treatment context
+  let operationId: number | null = null;
+  let operationRate = 0;
+  let visitType: "NEW" | "FOLLOWUP" = "NEW";
+  let parentVisitId: number | null = null;
+  let stepLabel: string | null = null;
+
+  if (planItemId) {
+    const planItem = await prisma.treatmentPlanItem.findUnique({
+      where: { id: planItemId },
+      include: {
+        operation: { select: { id: true, defaultMinFee: true } },
+        plan: {
+          select: {
+            items: {
+              where: { visitId: { not: null } },
+              orderBy: { completedAt: "desc" },
+              take: 1,
+              select: { visitId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (planItem) {
+      operationId = planItem.operationId;
+      operationRate = planItem.operation?.defaultMinFee || 0;
+      stepLabel = planItem.label;
+
+      // Chain to the most recently completed visit in this plan
+      const lastCompletedVisitId = planItem.plan.items[0]?.visitId;
+      if (lastCompletedVisitId) {
+        // Resolve to root parent for flat chain
+        const lastVisit = await prisma.visit.findUnique({
+          where: { id: lastCompletedVisitId },
+          select: { id: true, parentVisitId: true },
+        });
+        parentVisitId = lastVisit?.parentVisitId || lastVisit?.id || null;
+        visitType = "FOLLOWUP";
+      }
+    }
+  }
+
   try {
     const visit = await prisma.visit.create({
       data: {
         caseNo: nextCaseNo,
         patientId,
         visitDate: new Date(),
-        visitType: "NEW",
-        operationRate: 0,
+        visitType,
+        parentVisitId,
+        stepLabel,
+        operationId,
+        operationRate,
         discount: 0,
         doctorId: currentUser.id,
         doctorCommissionPercent: doctorRecord?.commissionPercent ?? null,
@@ -252,6 +300,14 @@ export async function createVisitAndExamine(
       where: { id: appointmentId },
       data: { visitId: visit.id, status: "IN_PROGRESS" },
     });
+
+    // Mark plan item as completed
+    if (planItemId) {
+      await prisma.treatmentPlanItem.update({
+        where: { id: planItemId },
+        data: { visitId: visit.id, completedAt: new Date() },
+      });
+    }
 
     revalidatePath("/visits");
     revalidatePath("/dashboard");

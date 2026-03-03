@@ -42,6 +42,7 @@ import { toTitleCase, formatDate } from "@/lib/format";
 import { ToastOnParam } from "@/components/toast-on-param";
 import { ClipboardList } from "lucide-react";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
+import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
 import type { Operation, Doctor, Lab } from "@/components/visit-form";
@@ -221,12 +222,21 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </>
       );
     } else if (todayAppt.status === "ARRIVED") {
-      // ARRIVED: Doctor starts treatment. Reception just sees status — no CTA needed.
+      // ARRIVED: Doctor goes straight to exam form. Reception just sees status — no CTA needed.
       if (isDoctor) {
         primaryCta = (
-          <Button size="sm" onClick={openNewVisit}>
+          <Button size="sm" disabled={isPending} onClick={() => {
+            startTransition(async () => {
+              try {
+                const { visitId } = await createVisitAndExamine(patient.id, todayAppt.id);
+                router.push(`/visits/${visitId}/examine`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to start examination");
+              }
+            });
+          }}>
             <Stethoscope className="mr-1 h-3.5 w-3.5" />
-            Start Treatment
+            {isPending ? "Starting..." : "Start Treatment"}
           </Button>
         );
       }

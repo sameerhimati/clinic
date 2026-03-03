@@ -42,6 +42,7 @@ type Appointment = {
   doctorId: number | null;
   doctorName: string | null;
   visitId: number | null;
+  planItemId: number | null;
   roomId: number | null;
   roomName: string | null;
   timeSlot: string | null;
@@ -71,7 +72,7 @@ function PrimaryAction({
 }: {
   appt: Appointment;
   onStatusChange: (id: number, status: string) => void;
-  onExamine?: (patientId: number, appointmentId: number) => void;
+  onExamine?: (patientId: number, appointmentId: number, planItemId?: number | null) => void;
   isDoctor?: boolean;
 }) {
   if (appt.status === "SCHEDULED") {
@@ -99,7 +100,7 @@ function PrimaryAction({
           className="h-7 text-xs"
           onClick={(e) => {
             e.stopPropagation();
-            onExamine(appt.patientId, appt.id);
+            onExamine(appt.patientId, appt.id, appt.planItemId);
           }}
         >
           Examine
@@ -250,7 +251,7 @@ function AppointmentCard({
   showDoctorName?: boolean;
   onStatusChange: (id: number, status: string, reason?: string) => void;
   onClaim?: (id: number) => void;
-  onExamine?: (patientId: number, appointmentId: number) => void;
+  onExamine?: (patientId: number, appointmentId: number, planItemId?: number | null) => void;
   onCardClick?: (id: number) => void;
   isDoctor?: boolean;
   doctors?: DoctorOption[];
@@ -511,10 +512,10 @@ export function AppointmentDayView({
     });
   }
 
-  function handleExamine(patientId: number, appointmentId: number) {
+  function handleExamine(patientId: number, appointmentId: number, planItemId?: number | null) {
     startTransition(async () => {
       try {
-        const result = await createVisitAndExamine(patientId, appointmentId);
+        const result = await createVisitAndExamine(patientId, appointmentId, planItemId);
         router.push(`/visits/${result.visitId}/examine`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Failed to create visit");

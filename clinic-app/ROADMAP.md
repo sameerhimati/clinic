@@ -1,11 +1,9 @@
 # Clinic App — Roadmap
 
 ## Current State
-All core clinical workflows implemented. 35 routes. SQLite local dev.
+All core clinical workflows implemented. 37 routes. SQLite local dev.
 
-**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads, Print infrastructure.
-
-**Awaiting manual end-to-end testing of 9-step daily patient flow before adding new features.**
+**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Consultation flow (auto-suggest linked treatments, inline scheduling, treatment plan creation), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads with categories + lightbox + bulk upload, Print infrastructure.
 
 ---
 
@@ -21,11 +19,23 @@ All core clinical workflows implemented. 35 routes. SQLite local dev.
 - [x] Multi-visit FIFO allocation, atomic multi-receipt creation
 
 ### CF-4: Legacy Data Import
-When ready to go live with real data:
-- [ ] Import script for legacy CLINIC.SQL → SQLite/Postgres
+When ready to go live with real data. **See `session-handoff.md` for detailed clinic visit guide and field mapping.**
+
+**Data sources:**
+- `CLINIC.SQL` (Oct 2020 dump) — baseline, ~3 years of data missing
+- `CLINIC03.DBS` (Sep 2023 live DB) — most current binary, needs fresh SQL dump from clinic machine
+- Clinic machine may have data beyond Sep 2023 — needs physical visit to extract
+
+**Import tasks:**
+- [ ] Get fresh SQL dump from clinic Windows machine (SQLTalk `UNLOAD DATABASE`)
+- [ ] Import script for legacy SQL → SQLite/Postgres
 - [ ] Map legacy patient codes (P_CODE 1–40427), case numbers (H_CASE_NO 1–80316), receipt numbers (R_NO 1–20178)
+- [ ] Import DR_REPORT → ClinicalReport (with COMPLAINT table join for complaint text)
+- [ ] Import PATIENT_FILES → PatientFile (remap paths to `uploads/patients/{code}/`)
+- [ ] Copy patient photos (`D:\ctd21\PATIENT\`) + scanned reports (`D:\ctd21\Patients Scanned Reports\`)
 - [ ] Ensure auto-generated sequences start AFTER legacy max values
 - [ ] Validate data integrity (foreign keys, orphaned records, date issues)
+- [ ] Handle edge cases: P_CODE=1/P_NAME="X" test records, NULL receipt numbers, DOUBLE PRECISION R_NO
 
 ---
 
@@ -79,6 +89,42 @@ When ready to go live with real data:
 - [x] Minimum collection warnings at checkout (doctorFee + labCost vs collected)
 - [x] Step tracker: "Step X of Y", per-step costs, chain cost summary
 - [x] Seed data: realistic patient stories with coherent treatment chains
+
+---
+
+## Consultation Flow Enhancements (Session 27) [DONE]
+
+- [x] **Fix duplicate plans bug** — Idempotency guard in `createPlansFromConsultation()`: checks `TreatmentPlanItem.findFirst({ where: { visitId } })`, returns early if plans already linked. Client clears state after save.
+- [x] **Fix RCT template** — Reduced from 5 steps to 3 (Initial Assessment, Access Opening, BMP / Obturation). Crown Prep/Fitting removed — those belong to Crown PFM's own template.
+- [x] **Auto-suggest linked treatments** — `suggestsOperationId` self-relation on Operation. RCT → Crown PFM seeded. Blue banner: "Crown PFM is typically needed after RCT" with Dismiss/Add buttons.
+- [x] **Inline scheduling** — Multi-step treatments auto-initialize scheduling row (doctor, date, time). Single-step treatments show no scheduling. `createPlansFromConsultation` extended with `schedules` param to create appointments linked to plan items.
+
+---
+
+## Consultant Availability & Smart Scheduling (Next Up)
+
+### CA-1: Consultant Availability Model
+- [ ] New `DoctorAvailability` table: `doctorId`, `dayOfWeek` (0=Sun–6=Sat), `startTime`, `endTime`
+- [ ] Seed availability: e.g., Ramana Reddy: Wed (10–2), Sat (10–1); Anitha: Tue (10–2), Thu (10–2)
+- [ ] Admin management UI: `/doctors/[id]/edit` or `/settings/availability`
+
+### CA-2: Smart Date Picker in Exam Form
+- [ ] When BDS doctor selects a consultant in scheduling row, restrict date to consultant's available days
+- [ ] Time dropdown shows only that consultant's available hours
+- [ ] Helper text: "Dr. Ramana Reddy available Wed, Sat"
+
+### CA-3: Appointment Calendar Awareness
+- [ ] Appointment creation form checks consultant availability
+- [ ] Warning when scheduling outside consultant's available days/hours
+
+---
+
+## File Infrastructure (Session 26) [DONE]
+
+- [x] File categories (XRAY/SCAN/PHOTO/DOCUMENT/OTHER), auto-detect from filename
+- [x] In-app lightbox: zoom/pan images, iframe PDFs, keyboard nav, download
+- [x] Bulk upload: `/settings/bulk-upload` admin page, patient search + multi-file queue
+- [x] Gallery: category badges, filter pills, click opens lightbox
 
 ---
 
