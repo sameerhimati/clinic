@@ -19,23 +19,26 @@ All core clinical workflows implemented. 37 routes. SQLite local dev.
 - [x] Multi-visit FIFO allocation, atomic multi-receipt creation
 
 ### CF-4: Legacy Data Import
-When ready to go live with real data. **See `session-handoff.md` for detailed clinic visit guide and field mapping.**
+When ready to go live with real data. **Full analysis in `clinic-legacy/data-report.md`.**
 
-**Data sources:**
-- `CLINIC.SQL` (Oct 2020 dump) — baseline, ~3 years of data missing
-- `CLINIC03.DBS` (Sep 2023 live DB) — most current binary, needs fresh SQL dump from clinic machine
-- Clinic machine may have data beyond Sep 2023 — needs physical visit to extract
+**Data explored (Session 29):**
+- Oct 2020 dump fully parsed: 30,443 patients, 79,769 visits, 85,156 receipts, 5,261 clinical reports
+- Data quality HIGH: 99% collection rate (₹11.05cr billed / ₹10.94cr collected), clean relational integrity
+- Schema maps directly — every legacy table has a new app counterpart
+- ~54 junk records, ~15 bad dates — trivial to filter
+
+**To get fresh 2026 data:** Run on clinic Windows PC: `CONNECT CLINIC03; UNLOAD DATABASE clinic_2026.sql;`
 
 **Import tasks:**
 - [ ] Get fresh SQL dump from clinic Windows machine (SQLTalk `UNLOAD DATABASE`)
-- [ ] Import script for legacy SQL → SQLite/Postgres
-- [ ] Map legacy patient codes (P_CODE 1–40427), case numbers (H_CASE_NO 1–80316), receipt numbers (R_NO 1–20178)
-- [ ] Import DR_REPORT → ClinicalReport (with COMPLAINT table join for complaint text)
-- [ ] Import PATIENT_FILES → PatientFile (remap paths to `uploads/patients/{code}/`)
-- [ ] Copy patient photos (`D:\ctd21\PATIENT\`) + scanned reports (`D:\ctd21\Patients Scanned Reports\`)
-- [ ] Ensure auto-generated sequences start AFTER legacy max values
-- [ ] Validate data integrity (foreign keys, orphaned records, date issues)
-- [ ] Handle edge cases: P_CODE=1/P_NAME="X" test records, NULL receipt numbers, DOUBLE PRECISION R_NO
+- [ ] Build parser for SQLBase UNLOAD format (CSV with `$DATATYPES` + `$long`/`~`/`//` multiline)
+- [ ] Import script: Doctors → Operations → Labs → Patients → Visits → Receipts → Reports
+- [ ] Handle `~ANAK~` line separator in DR_REPORT text fields
+- [ ] Handle `$long`/`~`/`//` multiline format for PATIENT.P_REMARKS
+- [ ] Normalize duplicates: FILLING vs FILLINGS, CONS vs CONS.
+- [ ] Set auto-increment seeds: Patient >371,202, CaseNo >80,316, Receipt >152,641
+- [ ] Copy patient photos from clinic machine (`D:\ctd21\PATIENT\`) + remap paths
+- [ ] Validate: foreign keys, orphaned records, date range sanity
 
 ---
 
