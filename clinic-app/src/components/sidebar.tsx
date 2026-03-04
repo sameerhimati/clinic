@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Menu,
   Activity,
+  Clock,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ import { useAuth } from "@/lib/auth-context";
 import { logout } from "@/app/login/logout-action";
 
 type NavItem = {
-  href: string;
+  href: string | ((doctorId: number) => string);
   label: string;
   icon: typeof LayoutDashboard;
   minPermission?: number;
@@ -71,6 +72,7 @@ const navSections: NavSection[] = [
     visible: (level) => level === 3,
     items: [
       { href: "/my-activity", label: "My Activity", icon: Activity, exactPermission: 3 },
+      { href: (id: number) => `/doctors/${id}/edit`, label: "My Schedule", icon: Clock, exactPermission: 3 },
     ],
   },
 ];
@@ -85,10 +87,12 @@ function NavContent({
   collapsed,
   onNavigate,
   permissionLevel,
+  doctorId,
 }: {
   collapsed: boolean;
   onNavigate?: () => void;
   permissionLevel: number;
+  doctorId: number;
 }) {
   const pathname = usePathname();
 
@@ -119,12 +123,13 @@ function NavContent({
             {collapsed && <div className="my-1 mx-2 border-t border-border/50 first:hidden" />}
             <div className="flex flex-col gap-0.5">
               {visibleItems.map((item) => {
+                const resolvedHref = typeof item.href === "function" ? item.href(doctorId) : item.href;
                 const isActive =
-                  pathname === item.href || pathname.startsWith(item.href + "/");
+                  pathname === resolvedHref || pathname.startsWith(resolvedHref + "/");
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={resolvedHref}
+                    href={resolvedHref}
                     onClick={onNavigate}
                     title={collapsed ? item.label : undefined}
                     className={cn(
@@ -220,6 +225,7 @@ export function Sidebar() {
               collapsed={false}
               onNavigate={() => setMobileOpen(false)}
               permissionLevel={doctor.permissionLevel}
+              doctorId={doctor.id}
             />
           </div>
           <UserCard collapsed={false} doctor={doctor} />
@@ -268,7 +274,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <div className="flex-1 overflow-y-auto">
-          <NavContent collapsed={collapsed} permissionLevel={doctor.permissionLevel} />
+          <NavContent collapsed={collapsed} permissionLevel={doctor.permissionLevel} doctorId={doctor.id} />
         </div>
 
         {/* User card */}

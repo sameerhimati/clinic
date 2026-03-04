@@ -14,9 +14,13 @@ export default async function EditDoctorPage({
   params: Promise<{ id: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
-
   const { id } = await params;
+  const doctorId = parseInt(id);
+  const isOwnProfile = currentUser.id === doctorId;
+
+  // Admin/reception can edit any doctor; doctors can only access their own page
+  if (!canManageSystem(currentUser.permissionLevel) && !isOwnProfile) redirect("/dashboard");
+
   const doctor = await prisma.doctor.findUnique({
     where: { id: parseInt(id) },
     include: {
@@ -30,15 +34,21 @@ export default async function EditDoctorPage({
 
   // Only show availability for L3 (doctor) accounts
   const showAvailability = doctor.permissionLevel === 3;
+  const canEditProfile = canManageSystem(currentUser.permissionLevel);
 
   return (
     <div className="space-y-4">
       <Breadcrumbs items={[
-        { label: "Doctors", href: "/doctors" },
+        ...(canEditProfile ? [{ label: "Doctors", href: "/doctors" }] : []),
         { label: toTitleCase(doctor.name) },
+        ...(isOwnProfile && !canEditProfile ? [{ label: "My Schedule" }] : []),
       ]} />
-      <h2 className="text-2xl font-bold">Edit Doctor: {toTitleCase(doctor.name)}</h2>
-      <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
+      <h2 className="text-2xl font-bold">
+        {isOwnProfile && !canEditProfile ? "My Schedule" : `Edit Doctor: ${toTitleCase(doctor.name)}`}
+      </h2>
+      {canEditProfile && (
+        <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
+      )}
       {showAvailability && (
         <AvailabilityEditor
           doctorId={doctor.id}

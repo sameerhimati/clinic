@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireAuth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { doctorSchema, parseFormData } from "@/lib/validations";
@@ -66,7 +66,12 @@ export async function saveAvailability(
   doctorId: number,
   slots: { dayOfWeek: number; startTime: string; endTime: string }[]
 ) {
-  await requireAdmin();
+  // Admin/reception can edit any doctor's schedule; doctors can edit their own
+  const currentUser = await requireAuth();
+  const isOwnSchedule = currentUser.id === doctorId;
+  if (currentUser.permissionLevel > 2 && !isOwnSchedule) {
+    throw new Error("Not authorized");
+  }
 
   // Delete all existing, then recreate (same pattern as saveTreatmentSteps)
   await prisma.doctorAvailability.deleteMany({ where: { doctorId } });
