@@ -1,23 +1,47 @@
 # Session Handoff
-> Last updated: 2026-03-03 (Session 27 — Consultation Flow)
+> Last updated: 2026-03-04 (Session 28 — Commit + Handoff)
 
 ## Completed This Session
-- [x] **Fix duplicate plans bug** — Idempotency guard in `createPlansFromConsultation()`: checks `TreatmentPlanItem.findFirst({ where: { visitId } })`, returns early if plans already linked. Client clears `selectedTreatments` after save.
-- [x] **Fix RCT template** — Reduced from 5 steps to 3 (Initial Assessment, Access Opening, BMP / Obturation). Crown Prep/Fitting removed — those belong to Crown PFM's own template. Patient 3 seed plan split into separate RCT + Crown plans.
-- [x] **Auto-suggest linked treatments** — `suggestsOperationId` self-relation on Operation. RCT → Crown PFM seeded. Blue banner: "Ceramic Crown - PFM is typically needed after Root Canal Treatment" with Dismiss/Add buttons.
-- [x] **Inline scheduling** — Multi-step treatments auto-initialize scheduling row (doctor, date = today + step2.defaultDayGap, time = 10:00 AM). Single-step treatments show no scheduling. `createPlansFromConsultation` extended with `schedules` param to create appointments linked to plan items. Toast: "3 plans created, 2 appointments scheduled".
-- [x] **All verified with Playwright** — Full flow tested: select RCT → suggestion → accept Crown → add Extraction → save → patient page shows 3 plans + 2 appointments. Second save → no duplicates.
+- [x] **Committed & pushed** all Session 27 work (consultation flow: auto-suggest, inline scheduling, duplicate fix, RCT template fix)
+- [x] **Updated ROADMAP.md** — added Consultation Flow [DONE], File Infrastructure [DONE], Consultant Availability plan, expanded CF-4 data migration details
 
 ## Current State
-- **Branch:** main
+- **Branch:** main (all pushed, clean)
 - **Build:** Passing (37 routes)
-- **Uncommitted changes:** schema.prisma, seed.ts, examine actions/page/form (all working, tested)
 - **DB:** Fresh re-seed with fixed RCT (3 steps), Crown PFM (3 steps), RCT→Crown suggestion link
 - **Blockers:** None
 
 ## Next Session Should
 
-### Priority 1: Consultant Availability & Smart Scheduling
+### Priority 1: Explore Legacy Data for Migration
+User visited clinic machine (Mar 3) and retrieved data onto USB (`/Volumes/NO NAME/`).
+
+**What's on the USB (NEW — from the live clinic machine):**
+- `CLINIC03.DBS` (Mar 3, 2026, **314MB**) — **CURRENT live database**, up from 260MB in Sep 2023
+- `CLINIC03 (2).DBS` — identical copy of above
+- `PATIENT/` — 32 patient photo folders (same set as archive: 10001–10030 + 32147.jpg + 8071)
+- `Patients Scanned Reports/` — 30 folders (same set as archive: 10001–10030)
+- No fresh SQL text dump — only binary `.DBS` files
+
+**What we already have in `clinic-legacy/Archive/`:**
+- `CLINIC.SQL` (Oct 2020, 14MB, 326K lines) — **best readable source**, but 5+ years old
+- `CLINIC03.DBS` (Sep 2023, 260MB) — older binary copy
+- Day-of-week backups in `Archive/Clinic/BACKUP/clinic03/` (WED=Aug 2023 258MB, etc.)
+- Config: `sql.ini` shows path changed `D:\SB850` → `E:\SB850`, server on localhost
+
+**The picture:**
+- The clinic is still running! DB grew 260MB → 314MB (Sep 2023 → Mar 2026 = 2.5 more years of data)
+- Patient photos/scans haven't grown (still 32 folders) — they may have stopped scanning
+- We have the CURRENT live `.DBS` but it's binary SQLBase format — need SQLBase to read it
+- Our only readable SQL dump is from Oct 2020 — 5+ years behind the live DB
+
+**First steps next session:**
+1. Copy `CLINIC03.DBS` from USB into `clinic-legacy/` for safekeeping
+2. Parse `CLINIC.SQL` (Oct 2020) — extract record counts, understand full structure, write import script
+3. Research SQLBase `.DBS` → SQL conversion (run SQLBase 8.5 in Docker/Wine, use the `sqltalk.exe` + `dbnt5sv.exe` we have in archive, or find a converter)
+4. Decide: import Oct 2020 data now (gets us 20+ years of history), then delta from binary later?
+
+### Priority 2: Consultant Availability & Smart Scheduling
 The inline scheduling currently allows any doctor on any day. Need:
 
 1. **Consultant availability model** — New `DoctorAvailability` table:
@@ -30,79 +54,35 @@ The inline scheduling currently allows any doctor on any day. Need:
    - Time dropdown shows only that consultant's hours
    - Helper text: "Dr. Ramana Reddy available Wed, Sat"
 
-3. **Only schedule next step** — Current implementation already does this (only step 2), but the plan shows "Schedule: Access Opening" button on the patient page for manual scheduling of later steps. This is correct.
-
-### Priority 2: Legacy Data Migration (CF-4)
-User is visiting the clinic machine — see "Data Migration Guide" section below.
-
 ### Priority 3: Phase 4 Reports
 Operations, Lab, Discount, Receipts, Doctor-Patient, Patient Directory reports.
 
 ---
 
-## Data Migration Guide — What to Get from the Clinic Machine
+## Legacy Data Inventory
 
-### The Gap Problem
-- **CLINIC.SQL** (in archive): Oct 2020 dump — ~3 years of data missing
-- **CLINIC03.DBS** (in archive): Sep 2023 live DB — most current but binary SQLBase format
-- **The clinic may have kept running** after Sep 2023 — need to check what's on the actual machine now
+### SQL Dumps (readable text)
+| File | Date | Size | Notes |
+|------|------|------|-------|
+| `CLINIC04.SQL` | Feb 2014 | 7.2MB | Oldest |
+| `c.sql` | Aug 2014 | 8.6MB | |
+| `CLINIC03.SQL` | Sep 2014 | 8.6MB | |
+| `C1.SQL` | Feb 2016 | 10MB | |
+| **`CLINIC.SQL`** | **Oct 2020** | **14MB** | **Best readable source — 326K lines** |
 
-### What to Get
+### Binary DB Files (need SQLBase to read)
+| File | Date | Size | Notes |
+|------|------|------|-------|
+| `CLINIC03.BKP` (root) | Sep 2020 | 160MB | Backup |
+| `CLINIC03.BKP` (SAT) | Oct 2020 | 161MB | Near SQL dump date |
+| `CLINIC03.BKP` (MON) | May 2022 | 199MB | |
+| `CLINIC03.BKP` (08062022) | Jun 2022 | 202MB | |
+| `CLINIC03.BKP` (TUE) | Feb 2023 | 247MB | |
+| `CLINIC03.BKP` (WED) | Aug 2023 | 258MB | |
+| `CLINIC03.DBS` (archive) | Sep 2023 | 260MB | Previous most-current |
+| **`CLINIC03.DBS` (USB)** | **Mar 2026** | **314MB** | **CURRENT live DB from clinic machine** |
 
-#### 1. Fresh SQL Dump (CRITICAL)
-The most important thing. The old CLINIC.SQL is from Oct 2020. You need a fresh one from the live machine.
-
-**On the clinic Windows machine:**
-- Find `SQLTalk` (SQLBase query tool) — should be in Start Menu or `D:\SB850\`
-- Connect to database `CLINIC03` as user `SYSADM`
-- Run: `UNLOAD DATABASE CLINIC03 TO 'D:\CLINIC_EXPORT_2026.SQL'`
-- Or use the backup: `BACKUP DATABASE CLINIC03 TO 'D:\CLINIC03_BACKUP.BKP'`
-- **Copy the .SQL file to a USB drive**
-
-If SQLTalk isn't easy to find, just **copy these files**:
-- `D:\SB850\CLINIC03\CLINIC03.DBS` (the live database file, ~260MB+)
-- `D:\SB850\CLINIC03\*.LOG` (transaction logs)
-
-#### 2. Check if the System is Still Running
-- Is `dbnt5sv.exe` (SQLBase server) running in Task Manager / Services?
-- Is `CLINIC.exe` still being used daily? When was the last patient entry?
-- Check the most recent files in `D:\ctd21\` — any `.SQL` dumps newer than Oct 2020?
-
-#### 3. Record Counts (if you can get SQLTalk open)
-```sql
-SELECT COUNT(*) FROM PATIENT;        -- expected ~40,000+
-SELECT COUNT(*) FROM HISTORY;        -- expected ~80,000+
-SELECT COUNT(*) FROM RECEIPT;        -- expected ~20,000+
-SELECT COUNT(*) FROM DR_REPORT;      -- clinical reports
-SELECT COUNT(*) FROM PATIENT_FILES;  -- file records
-SELECT MAX(P_CODE) FROM PATIENT;     -- highest patient code
-SELECT MAX(H_CASE_NO) FROM HISTORY;  -- highest case number
-SELECT MAX(R_NO) FROM RECEIPT;       -- highest receipt number
-```
-
-#### 4. Patient Photos & Scanned Reports
-- `D:\ctd21\PATIENT\` — patient photo folders (by patient code)
-- `D:\ctd21\Patients Scanned Reports\` — scanned documents
-- Check if there are more folders/files than what's in the archive (32 patient folders in PATIENT, 30 in Scanned Reports)
-- **Copy any new patient photo/scan folders** that aren't in the archive
-
-#### 5. Check for Schema Changes
-The clinic may have added fields or tables since 2020. Quick check:
-```sql
-SELECT * FROM SYSTABLES WHERE CREATOR = 'SYSADM';
-```
-Compare against the 25 tables we know about.
-
-#### 6. Configuration
-- `D:\ctd21\sql.ini` — check if server IP changed from `192.168.0.99:2155`
-- `D:\ctd21\CONFIG.INI` — any new settings?
-- `D:\SB850\sql.ini` — server configuration
-
-### What We Already Have (No Need to Re-Copy)
-- Application binary (`CLINIC.exe`, `Clinic1.apt`) — won't change
-- Runtime DLLs, installers, SQLBase engine — not needed
-- SQLBase documentation — already reviewed
-- The Oct 2020 SQL dump — useful as baseline comparison
+**The gap**: Readable SQL is Oct 2020, but DB grew 161MB→314MB through Mar 2026 (~5.5 years of binary-only data).
 
 ### Legacy → New App Field Mapping (Already Designed)
 
