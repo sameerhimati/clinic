@@ -18,7 +18,7 @@ export default async function NewAppointmentPage({
   const currentUser = await requireAuth();
   const params = await searchParams;
 
-  const [doctors, rooms] = await Promise.all([
+  const [doctors, rooms, availability] = await Promise.all([
     prisma.doctor.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -28,6 +28,9 @@ export default async function NewAppointmentPage({
       where: { isActive: true },
       orderBy: { sortOrder: "asc" },
       select: { id: true, name: true },
+    }),
+    prisma.doctorAvailability.findMany({
+      select: { doctorId: true, dayOfWeek: true, startTime: true, endTime: true },
     }),
   ]);
 
@@ -66,6 +69,7 @@ export default async function NewAppointmentPage({
         defaultReason={defaultReason}
         permissionLevel={currentUser.permissionLevel}
         currentDoctorName={currentUser.name}
+        doctorAvailability={availability}
       />
     </div>
   );

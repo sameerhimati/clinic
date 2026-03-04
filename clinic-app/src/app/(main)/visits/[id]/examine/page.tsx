@@ -127,8 +127,8 @@ export default async function ExaminePage({
 
   const operationName = visit.operation?.name || "Visit";
 
-  // Fetch data for treatment plan creation (doctors + template steps + existing plans)
-  const [treatmentSteps, activeDoctors, existingPlans] = await Promise.all([
+  // Fetch data for treatment plan creation (doctors + template steps + existing plans + availability)
+  const [treatmentSteps, activeDoctors, existingPlans, doctorAvailability] = await Promise.all([
     visit.operationId
       ? prisma.treatmentStep.findMany({
           where: { operationId: visit.operationId },
@@ -154,6 +154,9 @@ export default async function ExaminePage({
           select: { id: true, label: true, sortOrder: true, visitId: true, completedAt: true, operationId: true },
         },
       },
+    }),
+    prisma.doctorAvailability.findMany({
+      select: { doctorId: true, dayOfWeek: true, startTime: true, endTime: true },
     }),
   ]);
 
@@ -279,6 +282,7 @@ export default async function ExaminePage({
           title: p.title,
           nextItemLabel: p.items.find((i) => i.visitId === null)?.label || null,
         }))}
+        doctorAvailability={doctorAvailability}
       />
     </div>
   );

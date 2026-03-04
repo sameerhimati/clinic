@@ -109,6 +109,19 @@ model Room {
   @@map("rooms")
 }
 
+model DoctorAvailability {
+  id        Int    @id @default(autoincrement())
+  doctorId  Int
+  dayOfWeek Int    // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime String // "10:00" (24h format)
+  endTime   String // "14:00"
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, dayOfWeek])
+  @@index([doctorId])
+  @@map("doctor_availability")
+}
+
 // ============================================
 // CORE TABLES
 // ============================================
@@ -165,6 +178,7 @@ model Doctor {
   appointmentsCreated  Appointment[]      @relation("AppointmentCreatedBy")
   createdPlans         TreatmentPlan[]    @relation("CreatedPlans")
   assignedPlanItems    TreatmentPlanItem[] @relation("AssignedPlanItems")
+  availability         DoctorAvailability[]
 
   @@map("doctors")
 }

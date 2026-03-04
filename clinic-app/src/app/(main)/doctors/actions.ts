@@ -62,6 +62,29 @@ export async function updateDoctor(formData: FormData) {
   redirect(`/doctors`);
 }
 
+export async function saveAvailability(
+  doctorId: number,
+  slots: { dayOfWeek: number; startTime: string; endTime: string }[]
+) {
+  await requireAdmin();
+
+  // Delete all existing, then recreate (same pattern as saveTreatmentSteps)
+  await prisma.doctorAvailability.deleteMany({ where: { doctorId } });
+
+  if (slots.length > 0) {
+    await prisma.doctorAvailability.createMany({
+      data: slots.map((s) => ({
+        doctorId,
+        dayOfWeek: s.dayOfWeek,
+        startTime: s.startTime,
+        endTime: s.endTime,
+      })),
+    });
+  }
+
+  revalidatePath(`/doctors/${doctorId}/edit`);
+}
+
 export async function toggleDoctorActive(formData: FormData) {
   await requireAdmin();
 

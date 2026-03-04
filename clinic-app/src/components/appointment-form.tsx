@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { PatientSearch } from "@/components/patient-search";
 import { createAppointment, updateAppointment } from "@/app/(main)/appointments/actions";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { toTitleCase } from "@/lib/format";
 import { toast } from "sonner";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { todayString } from "@/lib/validations";
 
-const TIME_SLOTS = [
+const ALL_TIME_SLOTS = [
   "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
   "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
   "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM",
@@ -24,9 +24,50 @@ const TIME_SLOTS = [
   "8:00 PM", "8:30 PM", "9:00 PM",
 ];
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 type Doctor = { id: number; name: string };
 type RoomOption = { id: number; name: string };
 type DefaultPatient = { id: number; code: number | null; name: string; salutation: string | null };
+type AvailabilitySlot = { doctorId: number; dayOfWeek: number; startTime: string; endTime: string };
+
+/** Convert "10:00" to minutes from midnight (600) */
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Convert "10:00 AM" to 24h minutes */
+function slotToMinutes(slot: string): number {
+  const match = slot.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return 0;
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && h !== 12) h += 12;
+  if (period === "AM" && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+/** Format availability slots into human-readable text */
+function formatAvailability(slots: AvailabilitySlot[]): string {
+  if (slots.length === 0) return "";
+  return slots
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    .map((s) => {
+      const start = formatTime24to12(s.startTime);
+      const end = formatTime24to12(s.endTime);
+      return `${DAY_NAMES[s.dayOfWeek]} ${start}–${end}`;
+    })
+    .join(", ");
+}
+
+function formatTime24to12(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return m === 0 ? `${displayH}${period}` : `${displayH}:${m.toString().padStart(2, "0")}${period}`;
+}
 
 export function AppointmentForm({
   doctors,
@@ -42,6 +83,7 @@ export function AppointmentForm({
   currentDoctorName,
   appointmentId,
   mode = "create",
+  doctorAvailability,
 }: {
   doctors: Doctor[];
   rooms?: RoomOption[];
@@ -56,6 +98,7 @@ export function AppointmentForm({
   currentDoctorName?: string;
   appointmentId?: number;
   mode?: "create" | "reschedule";
+  doctorAvailability?: AvailabilitySlot[];
 }) {
   const isDoctor = permissionLevel === 3;
   const isReschedule = mode === "reschedule";
@@ -63,15 +106,47 @@ export function AppointmentForm({
     defaultPatient || null
   );
   const [isPending, startTransition] = useTransition();
-  const isDefaultCustomTime = defaultTimeSlot ? !TIME_SLOTS.includes(defaultTimeSlot) : false;
+  const isDefaultCustomTime = defaultTimeSlot ? !ALL_TIME_SLOTS.includes(defaultTimeSlot) : false;
   const [timeSlotMode, setTimeSlotMode] = useState<"preset" | "custom">(isDefaultCustomTime ? "custom" : "preset");
   const [customTimeSlot, setCustomTimeSlot] = useState(isDefaultCustomTime ? (defaultTimeSlot || "") : "");
   const [isWalkIn, setIsWalkIn] = useState(false);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<number | undefined>(defaultDoctorId);
+  const [selectedDate, setSelectedDate] = useState(defaultDate || todayString());
 
-  // Nearest 30-min time slot from now (e.g. 10:00 AM, 10:30 AM)
+  // Get availability for the selected doctor
+  const selectedDoctorSlots = useMemo(() => {
+    if (!doctorAvailability || !selectedDoctorId) return [];
+    return doctorAvailability.filter((a) => a.doctorId === selectedDoctorId);
+  }, [doctorAvailability, selectedDoctorId]);
+
+  // Check if selected date falls on an available day
+  const selectedDayOfWeek = useMemo(() => {
+    if (!selectedDate) return -1;
+    return new Date(selectedDate + "T12:00:00").getDay();
+  }, [selectedDate]);
+
+  const availabilityForDay = useMemo(() => {
+    return selectedDoctorSlots.find((s) => s.dayOfWeek === selectedDayOfWeek);
+  }, [selectedDoctorSlots, selectedDayOfWeek]);
+
+  const hasAvailabilityData = selectedDoctorSlots.length > 0;
+  const isUnavailableDay = hasAvailabilityData && !availabilityForDay;
+
+  // Filter time slots to doctor's hours for the selected day
+  const filteredTimeSlots = useMemo(() => {
+    if (!availabilityForDay) return ALL_TIME_SLOTS;
+    const startMin = timeToMinutes(availabilityForDay.startTime);
+    const endMin = timeToMinutes(availabilityForDay.endTime);
+    return ALL_TIME_SLOTS.filter((slot) => {
+      const slotMin = slotToMinutes(slot);
+      return slotMin >= startMin && slotMin < endMin;
+    });
+  }, [availabilityForDay]);
+
+  // Nearest 30-min time slot from now
   function getNearestTimeSlot(): string {
     const now = new Date();
-    let hours = now.getHours();
+    const hours = now.getHours();
     const minutes = now.getMinutes();
     const roundedMinutes = minutes < 30 ? 0 : 30;
     const period = hours >= 12 ? "PM" : "AM";
@@ -152,6 +227,44 @@ export function AppointmentForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* Doctor */}
+            {isDoctor ? (
+              <div className="space-y-2">
+                <Label>Doctor</Label>
+                <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
+                <Badge variant="secondary" className="text-sm py-1 px-3">
+                  Dr. {toTitleCase(currentDoctorName || "")}
+                </Badge>
+                {hasAvailabilityData && (
+                  <p className="text-xs text-muted-foreground">
+                    Available: {formatAvailability(selectedDoctorSlots)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="doctorId">Doctor</Label>
+                <select
+                  name="doctorId"
+                  value={selectedDoctorId || ""}
+                  onChange={(e) => setSelectedDoctorId(e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value="">Unassigned</option>
+                  {doctors.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {toTitleCase(d.name)}
+                    </option>
+                  ))}
+                </select>
+                {hasAvailabilityData && (
+                  <p className="text-xs text-muted-foreground">
+                    Available: {formatAvailability(selectedDoctorSlots)}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Date */}
             <div className="space-y-2">
               <Label htmlFor="date">
@@ -162,8 +275,15 @@ export function AppointmentForm({
                 type="date"
                 required
                 min={todayStr}
-                defaultValue={defaultDate || todayStr}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
               />
+              {isUnavailableDay && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Doctor not scheduled on {DAY_NAMES[selectedDayOfWeek]}s
+                </div>
+              )}
             </div>
 
             {/* Time */}
@@ -182,7 +302,7 @@ export function AppointmentForm({
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                 >
                   <option value="">Select time...</option>
-                  {TIME_SLOTS.map((slot) => (
+                  {filteredTimeSlots.map((slot) => (
                     <option key={slot} value={slot}>{slot}</option>
                   ))}
                   <option value="__other__">Other...</option>
@@ -211,34 +331,12 @@ export function AppointmentForm({
                   )}
                 </div>
               )}
+              {availabilityForDay && (
+                <p className="text-xs text-muted-foreground">
+                  Hours: {formatTime24to12(availabilityForDay.startTime)}–{formatTime24to12(availabilityForDay.endTime)}
+                </p>
+              )}
             </div>
-
-            {/* Doctor */}
-            {isDoctor ? (
-              <div className="space-y-2">
-                <Label>Doctor</Label>
-                <input type="hidden" name="doctorId" value={defaultDoctorId || ""} />
-                <Badge variant="secondary" className="text-sm py-1 px-3">
-                  Dr. {toTitleCase(currentDoctorName || "")}
-                </Badge>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="doctorId">Doctor</Label>
-                <select
-                  name="doctorId"
-                  defaultValue={defaultDoctorId || ""}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                >
-                  <option value="">Unassigned</option>
-                  {doctors.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {toTitleCase(d.name)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {/* Room */}
             {!isDoctor && rooms && rooms.length > 0 && (

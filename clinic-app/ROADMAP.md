@@ -1,7 +1,7 @@
 # Clinic App — Roadmap
 
 ## Current State
-All core clinical workflows implemented. 37 routes. SQLite local dev.
+All core clinical workflows implemented. 43 routes. SQLite local dev.
 
 **Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Consultation flow (auto-suggest linked treatments, inline scheduling, treatment plan creation), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads with categories + lightbox + bulk upload, Print infrastructure.
 
@@ -104,21 +104,21 @@ When ready to go live with real data. **Full analysis in `clinic-legacy/data-rep
 
 ---
 
-## Consultant Availability & Smart Scheduling (Next Up)
+## Consultant Availability & Smart Scheduling [DONE]
 
-### CA-1: Consultant Availability Model
-- [ ] New `DoctorAvailability` table: `doctorId`, `dayOfWeek` (0=Sun–6=Sat), `startTime`, `endTime`
-- [ ] Seed availability: e.g., Ramana Reddy: Wed (10–2), Sat (10–1); Anitha: Tue (10–2), Thu (10–2)
-- [ ] Admin management UI: `/doctors/[id]/edit` or `/settings/availability`
+### CA-1: Consultant Availability Model [DONE]
+- [x] New `DoctorAvailability` table: `doctorId`, `dayOfWeek` (0=Sun–6=Sat), `startTime`, `endTime`
+- [x] Seed availability: Ramana Reddy (Wed/Sat), Anitha (Tue/Thu), Surender (Mon–Sat)
+- [x] Admin management UI: `/doctors/[id]/edit` — AvailabilityEditor component
 
-### CA-2: Smart Date Picker in Exam Form
-- [ ] When BDS doctor selects a consultant in scheduling row, restrict date to consultant's available days
-- [ ] Time dropdown shows only that consultant's available hours
-- [ ] Helper text: "Dr. Ramana Reddy available Wed, Sat"
+### CA-2: Smart Date Picker in Exam Form [DONE]
+- [x] When BDS doctor selects a consultant in scheduling row, auto-suggests next available date
+- [x] Time dropdown shows only that consultant's available hours
+- [x] Helper text: "Available: Wed 10AM–2PM, Sat 10AM–1PM"
 
-### CA-3: Appointment Calendar Awareness
-- [ ] Appointment creation form checks consultant availability
-- [ ] Warning when scheduling outside consultant's available days/hours
+### CA-3: Appointment Calendar Awareness [DONE]
+- [x] Appointment creation form checks consultant availability
+- [x] Amber warning when scheduling outside consultant's available days/hours (soft — can override)
 
 ---
 
@@ -131,15 +131,15 @@ When ready to go live with real data. **Full analysis in `clinic-legacy/data-rep
 
 ---
 
-## Phase 4: Remaining Reports
+## Phase 4: Reports [DONE — Core]
 
-### P4-1: Core Reports
-- [ ] Operations Report (all procedures by date range, doctor, operation type)
-- [ ] Lab Details Report (lab work usage and costs)
-- [ ] Discount Report (cases with discounts by date range)
-- [ ] Receipts Report (all payments by date range, with totals by payment mode)
-- [ ] Doctor-Patient Report (patients seen by specific doctor)
-- [ ] Patient Directory/List Report
+### P4-1: Core Reports [DONE]
+- [x] Operations Report (procedures by date range, doctor + operation type filters, summary by operation)
+- [x] Lab Details Report (lab work by date range, lab filter, summary by lab)
+- [x] Discount Report (discounted cases by date range, summary cards)
+- [x] Receipts Report (payments by date range, payment mode filter, summary by mode)
+- [x] Doctor-Patient Report (patients seen by specific doctor, required doctor filter)
+- [x] Patient Directory (searchable by name/code/mobile, outstanding balances, CSV export)
 
 ### P4-2: Report Enhancements
 - [ ] Excel export for all reports (not just CSV)

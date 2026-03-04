@@ -42,6 +42,27 @@ type PreviousReport = {
   addendums: { content: string; doctorName: string; createdAt: string }[];
 };
 
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatTime24to12Short(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return m === 0 ? `${displayH}:00 ${period}` : `${displayH}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
+function formatDoctorAvailability(slots: { dayOfWeek: number; startTime: string; endTime: string }[]): string {
+  if (slots.length === 0) return "";
+  return slots
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    .map((s) => {
+      const start = formatTime24to12Short(s.startTime).replace(/:00 /," ");
+      const end = formatTime24to12Short(s.endTime).replace(/:00 /," ");
+      return `${DAY_NAMES_SHORT[s.dayOfWeek]} ${start}–${end}`;
+    })
+    .join(", ");
+}
+
 const TOP_COMPLAINTS = [
   "PAIN",
   "SWELLING",
@@ -345,6 +366,7 @@ export function ExaminationForm({
   allOperations,
   matchingPlanItem,
   existingActivePlans,
+  doctorAvailability,
 }: {
   visitId: number;
   patientId?: number;
@@ -367,6 +389,7 @@ export function ExaminationForm({
   treatmentSteps?: { name: string; defaultDayGap: number; description: string | null }[];
   allDoctors?: { id: number; name: string }[];
   allOperations?: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }[];
+  doctorAvailability?: { doctorId: number; dayOfWeek: number; startTime: string; endTime: string }[];
   matchingPlanItem?: {
     itemId: number;
     itemLabel: string;
@@ -472,14 +495,29 @@ export function ExaminationForm({
       getOperationSteps(op.id).then((steps) => {
         if (steps.length >= 2) {
           const step2 = steps[1]; // Second step
-          const schedDate = new Date();
+          // Find next available date based on doctor availability + defaultDayGap
+          let schedDate = new Date();
           schedDate.setDate(schedDate.getDate() + step2.defaultDayGap);
+          const docSlots = doctorAvailability?.filter((a) => a.doctorId === doctorId) || [];
+          if (docSlots.length > 0) {
+            // Shift to next available day if needed
+            for (let i = 0; i < 7; i++) {
+              const testDay = new Date(schedDate);
+              testDay.setDate(testDay.getDate() + i);
+              if (docSlots.some((s) => s.dayOfWeek === testDay.getDay())) {
+                schedDate = testDay;
+                break;
+              }
+            }
+          }
           setTreatmentSchedules((prev) => ({
             ...prev,
             [op.id]: {
               doctorId: doctorId,
               date: format(schedDate, "yyyy-MM-dd"),
-              timeSlot: "10:00 AM",
+              timeSlot: docSlots.find((s) => s.dayOfWeek === schedDate.getDay())?.startTime
+                ? formatTime24to12Short(docSlots.find((s) => s.dayOfWeek === schedDate.getDay())!.startTime)
+                : "10:00 AM",
               stepName: step2.name,
             },
           }));
@@ -1114,6 +1152,23 @@ export function ExaminationForm({
                             Remove
                           </button>
                         </div>
+                        {/* Availability helper text */}
+                        {(() => {
+                          const docSlots = doctorAvailability?.filter((a) => a.doctorId === treatmentSchedules[t.id].doctorId) || [];
+                          if (docSlots.length === 0) return null;
+                          const schedDate = treatmentSchedules[t.id].date ? new Date(treatmentSchedules[t.id].date + "T12:00:00") : null;
+                          const isUnavailable = schedDate && !docSlots.some((s) => s.dayOfWeek === schedDate.getDay());
+                          return (
+                            <div className="text-[11px] text-muted-foreground">
+                              Available: {formatDoctorAvailability(docSlots)}
+                              {isUnavailable && (
+                                <span className="ml-1.5 text-amber-600 font-medium">
+                                  ⚠ {DAY_NAMES_SHORT[schedDate!.getDay()]} not scheduled
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

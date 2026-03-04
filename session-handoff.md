@@ -1,73 +1,42 @@
 # Session Handoff
-> Last updated: 2026-03-04 (Session 29 — Legacy Data Exploration)
+> Last updated: 2026-03-04 (Session 30 — Consultant Availability + Phase 4 Reports)
 
 ## Completed This Session
-- [x] **Parsed Oct 2020 SQL dump** — full data exploration: record counts, date ranges, data quality, schema mapping
-- [x] **Generated data report** at `clinic-legacy/data-report.md` — comprehensive analysis with confidence assessment
-- [x] **Attempted fresh DBS extraction via Wine** — installed wine-crossover, copied SQLBase tools, configured server. Server runs but DBS needs transaction log files that only exist on the clinic machine.
-- [x] **Documented extraction procedure** — exact SQLTalk commands to run on the clinic Windows PC
-- [x] **Cleaned up repo** — removed ~60 Playwright screenshot PNGs, .playwright-mcp dir, Wine working files
+- [x] **DoctorAvailability model** — New schema model with `@@unique([doctorId, dayOfWeek])`, seeded for Ramana Reddy (Wed/Sat), Anitha (Tue/Thu), Surender (Mon-Sat)
+- [x] **Availability Editor UI** — 7-day grid component on `/doctors/[id]/edit` page (L3 doctors only), `saveAvailability` server action with delete-all + recreate pattern
+- [x] **Smart scheduling in appointment form** — Shows "Available: Wed 10AM-2PM, Sat 10AM-1PM" helper text, filters time slots to doctor's hours, amber warning on unavailable days (soft — reception can override)
+- [x] **Smart scheduling in exam form** — Auto-suggests next available date based on doctor availability + defaultDayGap, shows availability helper text with warnings
+- [x] **Reports hub expanded** — From 2 to 8 report cards with icons
+- [x] **6 new report pages**: Operations, Receipts, Lab, Discount, Doctor-Patient, Patient Directory — all with date filters, CSV export, print, breadcrumbs
+- [x] **Shared CSV export component** — `csv-export-button.tsx` replaces commission-specific export
+- [x] **Build passes** — 43 routes (was 37), all clean
 
 ## Current State
-- **Branch:** main (all pushed, clean)
-- **Build:** Passing (37 routes)
-- **DB:** Seed data only (50 patients, 49 visits — all fake, working fine for dev/testing)
-- **Legacy data report:** `clinic-legacy/data-report.md`
-- **Wine installed:** `wine-crossover` via Homebrew (works on macOS)
+- **Branch:** main
+- **Last commit:** a91080a (Session 29 — all Session 30 work is uncommitted)
+- **Build:** Passing (43 routes)
+- **Uncommitted changes:** Yes — 10 modified files + 8 new files/dirs (see below)
+- **Blockers:** None
 
----
+### Uncommitted Files
+Modified: `schema.prisma`, `seed.ts`, `appointments/new/page.tsx`, `appointments/[id]/reschedule/page.tsx`, `doctors/[id]/edit/page.tsx`, `doctors/actions.ts`, `reports/page.tsx`, `examination-form.tsx`, `examine/page.tsx`, `appointment-form.tsx`
 
-## Fresh Data Extraction (When at clinic machine)
-
-Run in SQLTalk on the clinic Windows PC:
-```
-CONNECT CLINIC03;
-UNLOAD DATABASE clinic_2026.sql;
-```
-Copy `clinic_2026.sql` to USB. Then prompt: "I have the fresh SQL dump, parse and compare with Oct 2020."
-
-**Why remote failed:** DBS file needs its transaction log files (.LOG) for recovery. These only exist on the clinic machine. The USB only had the DBS.
-
----
+New: `availability-editor.tsx`, `csv-export-button.tsx`, 6 report page dirs (`reports/operations|receipts|lab|discount|doctor-patients|patients`)
 
 ## Next Session Should
+1. **Commit Session 30 work** — all changes are uncommitted
+2. **Update ROADMAP.md** — mark CA-1/CA-2/CA-3 and P4-1 reports as done
+3. **Test appointment form availability** — Turbopack kept timing out on `/appointments/new` during Playwright verification (page compiles but very slow in dev). Verify the availability helper text and warnings display correctly when selecting Dr. Ramana Reddy
+4. **Hardening Sprint 4: Performance** — database indexes, query optimization, N+1 fixes (preparing for 40K patients)
+5. **Legacy data import** (CF-4) — when fresh SQL dump is available from clinic machine
 
-### Priority 1: Consultant Availability & Smart Scheduling
-The inline scheduling currently allows any doctor on any day. Need:
-
-1. **Consultant availability model** — New `DoctorAvailability` table:
-   - `doctorId`, `dayOfWeek` (0=Sun–6=Sat), `startTime`, `endTime`
-   - E.g., Ramana Reddy: Wed (10–2), Sat (10–1); Anitha: Tue (10–2), Thu (10–2)
-   - Admin manages via `/doctors/[id]/edit` or `/settings/availability`
-
-2. **Smart date picker in exam form** — When BDS doctor selects a consultant:
-   - Date input restricts to that consultant's available days
-   - Time dropdown shows only that consultant's hours
-   - Helper text: "Dr. Ramana Reddy available Wed, Sat"
-
-### Priority 2: Phase 4 Reports
-Operations, Lab, Discount, Receipts, Doctor-Patient, Patient Directory reports.
-
-### Priority 3: Hardening Sprint 4 — Performance
-Database indexes, query optimization, N+1 fixes. Prepare for production scale.
-
----
-
-## Legacy Data Summary (Oct 2020 dump)
-
-| Data | Count | Quality |
-|------|-------|---------|
-| Patients | 30,443 | 60% have mobile numbers, ~54 junk records |
-| Visits | 79,769 | Complete: patient, operation, doctor, amount, date |
-| Receipts | 85,156 | ₹10.94 crore collected, 99% collection rate |
-| Clinical Reports | 5,261 | Rich notes from 2014+, sparse earlier |
-| Patient File refs | 63,001 | JPG references (files on clinic disk) |
-| Doctors | 122 | Full roster with commission rates |
-| Operations | 111 | Complete procedure catalog |
-
-**Confidence:** HIGH — data is clean, relational integrity solid, schema maps directly to new app. Import is straightforward when ready. See `clinic-legacy/data-report.md` for full analysis.
-
----
+## Context to Remember
+- **Turbopack compilation issue**: The `/appointments/new` page consistently times out (>2 min) in Turbopack dev mode during Playwright navigation. Production build passes fine. This is a Turbopack issue, not a code bug. The page has heavy dependencies (patient search, doctor availability, rooms).
+- **Availability is soft-gated**: The appointment form shows warnings but doesn't hard-block scheduling outside availability. This is intentional — reception needs to override for emergencies.
+- **Delete-all + recreate pattern**: `saveAvailability` uses the same pattern as `saveTreatmentSteps` — delete all existing rows for the doctor, then bulk create new ones. Simple and atomic.
+- **Lab Cost column gated**: Operations report uses `canSeeInternalCosts()` to conditionally show lab cost column (hidden from L3 doctors).
+- **Patient directory is not date-filtered**: Unlike other reports, it's a searchable directory with computed outstanding balances. Limited to 500 results per query.
+- **Screenshots taken**: reports-hub.png, operations-report.png, doctor-availability.png (in repo root — should be cleaned up)
 
 ## Start Command
 ```bash

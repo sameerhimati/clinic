@@ -1176,6 +1176,27 @@ async function main() {
   console.log("   - 2 treatment plans (Patient 3 RCT+Crown, Patient 28 Implant)");
 
   // ==========================================
+  // DOCTOR AVAILABILITY — consultant schedules
+  // ==========================================
+  const availabilityData = [
+    // Ramana Reddy (consultant): Wed 10–14, Sat 10–13
+    { doctorId: ramana!.id, dayOfWeek: 3, startTime: "10:00", endTime: "14:00" },
+    { doctorId: ramana!.id, dayOfWeek: 6, startTime: "10:00", endTime: "13:00" },
+    // Anitha (consultant): Tue 10–14, Thu 10–14
+    { doctorId: anitha!.id, dayOfWeek: 2, startTime: "10:00", endTime: "14:00" },
+    { doctorId: anitha!.id, dayOfWeek: 4, startTime: "10:00", endTime: "14:00" },
+    // Surender (in-house BDS): Mon–Sat 09–18
+    { doctorId: surender!.id, dayOfWeek: 1, startTime: "09:00", endTime: "18:00" },
+    { doctorId: surender!.id, dayOfWeek: 2, startTime: "09:00", endTime: "18:00" },
+    { doctorId: surender!.id, dayOfWeek: 3, startTime: "09:00", endTime: "18:00" },
+    { doctorId: surender!.id, dayOfWeek: 4, startTime: "09:00", endTime: "18:00" },
+    { doctorId: surender!.id, dayOfWeek: 5, startTime: "09:00", endTime: "18:00" },
+    { doctorId: surender!.id, dayOfWeek: 6, startTime: "09:00", endTime: "18:00" },
+  ];
+  await prisma.doctorAvailability.createMany({ data: availabilityData });
+  console.log(`   - ${availabilityData.length} doctor availability slots`);
+
+  // ==========================================
   // LINK PLAN ITEMS TO APPOINTMENTS (demo: plan-aware examine flow)
   // ==========================================
   // Patient 28's appointment is plan-linked (Implant Placement step)

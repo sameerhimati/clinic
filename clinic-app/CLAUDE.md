@@ -36,6 +36,7 @@ Do NOT proceed with new roadmap items until the user confirms. Workflow-first de
 ## UI Design Standards
 - **Target quality**: Apple, Notion, Linear, Vercel — smart, elegant, intentional
 - **Use Playwright MCP** to screenshot and visually verify every UI change
+- **Playwright cleanup**: After each Playwright session, delete all screenshot PNGs from the repo root and remove `.playwright-mcp/` dir. Never commit screenshots.
 - **Form pattern**: `Card` + `grid gap-4 sm:grid-cols-N` + `space-y-2` per field
 - See `session-handoff.md` for detailed design research (spacing, typography, grid rules)
 

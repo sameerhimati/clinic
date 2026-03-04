@@ -1,9 +1,60 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { BarChart3, AlertCircle } from "lucide-react";
+import { BarChart3, AlertCircle, FileText, Receipt, FlaskConical, Percent, UserCheck, Users } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canSeeReports } from "@/lib/permissions";
+
+const reports = [
+  {
+    href: "/reports/commission",
+    icon: BarChart3,
+    title: "Doctor Commission",
+    description: "Payments, lab costs, TDS & net payable by doctor",
+  },
+  {
+    href: "/reports/outstanding",
+    icon: AlertCircle,
+    title: "Outstanding Dues",
+    description: "Unpaid balances by patient, visit & doctor",
+  },
+  {
+    href: "/reports/operations",
+    icon: FileText,
+    title: "Operations Report",
+    description: "Procedures by date range, doctor & operation type",
+  },
+  {
+    href: "/reports/receipts",
+    icon: Receipt,
+    title: "Receipts Report",
+    description: "Payments by date range & payment mode",
+  },
+  {
+    href: "/reports/lab",
+    icon: FlaskConical,
+    title: "Lab Report",
+    description: "Lab work by date range & lab",
+  },
+  {
+    href: "/reports/discount",
+    icon: Percent,
+    title: "Discount Report",
+    description: "Cases with discounts by date range",
+  },
+  {
+    href: "/reports/doctor-patients",
+    icon: UserCheck,
+    title: "Doctor-Patient Report",
+    description: "Patients seen by a specific doctor",
+  },
+  {
+    href: "/reports/patients",
+    icon: Users,
+    title: "Patient Directory",
+    description: "Full patient listing with contact & visit info",
+  },
+];
 
 export default async function ReportsPage() {
   const currentUser = await requireAuth();
@@ -15,29 +66,19 @@ export default async function ReportsPage() {
       <h2 className="text-2xl font-bold">Reports</h2>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Link href="/reports/commission">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <BarChart3 className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <div className="font-medium">Doctor Commission</div>
-                <div className="text-sm text-muted-foreground">Payments, lab costs, TDS & net payable by doctor</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/reports/outstanding">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <div className="font-medium">Outstanding Dues</div>
-                <div className="text-sm text-muted-foreground">Unpaid balances by patient, visit & doctor</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+        {reports.map((r) => (
+          <Link key={r.href} href={r.href}>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+              <CardContent className="flex items-center gap-3 pt-6">
+                <r.icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div>
+                  <div className="font-medium">{r.title}</div>
+                  <div className="text-sm text-muted-foreground">{r.description}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
     </div>
   );
