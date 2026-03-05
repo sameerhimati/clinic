@@ -14,12 +14,19 @@ import { toggleOperationActive } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function OperationsPage() {
+export default async function OperationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showAll?: string }>;
+}) {
   const currentUser = await requireAuth();
   if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
+  const { showAll } = await searchParams;
+  const showingAll = showAll === "1";
 
   const [operations, l3Doctors] = await Promise.all([
     prisma.operation.findMany({
+      where: showingAll ? {} : { isActive: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
       include: {
         treatmentSteps: { orderBy: { stepNumber: "asc" } },
@@ -47,7 +54,15 @@ export default async function OperationsPage() {
         { label: "Treatments" },
       ]} />
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Treatments & Tariff</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Treatments & Tariff</h2>
+          <span className="text-sm text-muted-foreground">{operations.length} {showingAll ? "total" : "active"}</span>
+        </div>
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={showingAll ? "/settings/operations" : "/settings/operations?showAll=1"}>
+            {showingAll ? "Active Only" : "Show All"}
+          </Link>
+        </Button>
       </div>
 
       {/* Add new operation */}

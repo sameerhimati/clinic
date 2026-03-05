@@ -42,22 +42,28 @@ function formatINR(amount: number): string {
   return amount.toLocaleString("en-IN");
 }
 
+// Special sentinel for "Custom Treatment" option
+const CUSTOM_TREATMENT_ID = -1;
+
 // --- Operation Combobox ---
 export function OperationCombobox({
   operations,
   defaultOperationId,
   onSelect,
+  allowCustom = false,
 }: {
   operations: Operation[];
   defaultOperationId?: number;
-  onSelect: (op: Operation | null) => void;
+  onSelect: (op: Operation | null, isCustom?: boolean) => void;
+  allowCustom?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | undefined>(defaultOperationId);
+  const [isCustom, setIsCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const selected = operations.find((o) => o.id === selectedId);
+  const selected = isCustom ? null : operations.find((o) => o.id === selectedId);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -79,16 +85,18 @@ export function OperationCombobox({
 
   return (
     <div ref={ref} className="relative">
-      <input type="hidden" name="operationId" value={selectedId || ""} />
+      <input type="hidden" name="operationId" value={isCustom ? "" : (selectedId || "")} />
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-accent transition-colors"
       >
-        <span className={selected ? "" : "text-muted-foreground"}>
-          {selected
-            ? `${selected.name}${selected.defaultMinFee ? ` — ₹${formatINR(selected.defaultMinFee)}` : ""}`
-            : "Search treatments..."}
+        <span className={selected || isCustom ? "" : "text-muted-foreground"}>
+          {isCustom
+            ? "Custom Treatment"
+            : selected
+              ? `${selected.name}${selected.defaultMinFee ? ` — ₹${formatINR(selected.defaultMinFee)}` : ""}`
+              : "Search treatments..."}
         </span>
         <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
       </button>
@@ -106,7 +114,7 @@ export function OperationCombobox({
             />
           </div>
           <div className="max-h-64 overflow-y-auto p-1">
-            {filtered.length === 0 && (
+            {filtered.length === 0 && !allowCustom && (
               <div className="py-4 text-center text-sm text-muted-foreground">No treatments found</div>
             )}
             {Array.from(categories.entries()).map(([cat, ops]) => (
@@ -117,16 +125,17 @@ export function OperationCombobox({
                     key={op.id}
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer ${
-                      selectedId === op.id ? "bg-accent" : ""
+                      !isCustom && selectedId === op.id ? "bg-accent" : ""
                     }`}
                     onClick={() => {
                       setSelectedId(op.id);
-                      onSelect(op);
+                      setIsCustom(false);
+                      onSelect(op, false);
                       setOpen(false);
                       setSearch("");
                     }}
                   >
-                    <Check className={`h-3.5 w-3.5 shrink-0 ${selectedId === op.id ? "opacity-100" : "opacity-0"}`} />
+                    <Check className={`h-3.5 w-3.5 shrink-0 ${!isCustom && selectedId === op.id ? "opacity-100" : "opacity-0"}`} />
                     <span className="truncate">{op.name}</span>
                     {op.defaultMinFee != null && op.defaultMinFee > 0 ? (
                       <span className="ml-auto text-xs text-muted-foreground tabular-nums shrink-0">₹{formatINR(op.defaultMinFee)}</span>
@@ -135,6 +144,28 @@ export function OperationCombobox({
                 ))}
               </div>
             ))}
+            {/* Custom Treatment option */}
+            {allowCustom && (
+              <div>
+                <div className="border-t my-1" />
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent cursor-pointer ${
+                    isCustom ? "bg-accent" : ""
+                  }`}
+                  onClick={() => {
+                    setSelectedId(undefined);
+                    setIsCustom(true);
+                    onSelect(null, true);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check className={`h-3.5 w-3.5 shrink-0 ${isCustom ? "opacity-100" : "opacity-0"}`} />
+                  <span className="text-primary font-medium">Custom Treatment...</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -290,6 +321,9 @@ export function VisitForm({
   const [discount, setDiscount] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
+  const [isCustomTreatment, setIsCustomTreatment] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
+  const [followUpReason, setFollowUpReason] = useState<string>("");
 
   // Set initial tariff for follow-up default operation
   useEffect(() => {
@@ -327,16 +361,46 @@ export function VisitForm({
       {!isFollowUp && <input type="hidden" name="visitType" value="NEW" />}
       {defaultDoctorId && <input type="hidden" name="doctorId" value={defaultDoctorId} />}
       <input type="hidden" name="operationRate" value={operationRate || "0"} />
+      {isCustomTreatment && <input type="hidden" name="customLabel" value={customLabel} />}
+      {followUpReason && <input type="hidden" name="followUpReason" value={followUpReason} />}
 
       {/* Follow-up banner */}
       {isFollowUp && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-blue-100 text-xs">Follow-up</Badge>
             <span className="text-sm font-medium">
               Case #{parentVisit.caseNo} — {parentVisit.operationName || "Visit"}
               {parentVisit.doctorName && ` · Dr. ${toTitleCase(parentVisit.doctorName)}`}
             </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-xs text-muted-foreground self-center mr-1">Reason:</span>
+            {[
+              { value: "", label: "Normal Follow-up" },
+              { value: "REDO", label: "Warranty Redo" },
+              { value: "COMPLICATION", label: "Complication" },
+              { value: "ADJUSTMENT", label: "Adjustment" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setFollowUpReason(opt.value);
+                  // Auto-set rate to 0 for REDO/COMPLICATION
+                  if (opt.value === "REDO" || opt.value === "COMPLICATION") {
+                    setOperationRate("0");
+                  }
+                }}
+                className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                  followUpReason === opt.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-white border-blue-200 hover:bg-blue-100"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -369,15 +433,48 @@ export function VisitForm({
               <OperationCombobox
                 operations={operations}
                 defaultOperationId={defaultOperationId || undefined}
-                onSelect={(op) => {
-                  const fee = op?.defaultMinFee || null;
-                  setTariffRate(fee);
-                  if (!isFollowUp && fee) {
-                    setOperationRate(fee.toString());
+                allowCustom
+                onSelect={(op, custom) => {
+                  if (custom) {
+                    setIsCustomTreatment(true);
+                    setTariffRate(null);
+                    setOperationRate("");
+                    setDiscount(0);
+                  } else {
+                    setIsCustomTreatment(false);
+                    setCustomLabel("");
+                    const fee = op?.defaultMinFee || null;
+                    setTariffRate(fee);
+                    if (!isFollowUp && fee) {
+                      setOperationRate(fee.toString());
+                    }
+                    setDiscount(0);
                   }
-                  setDiscount(0);
                 }}
               />
+              {isCustomTreatment && (
+                <div className="grid gap-3 sm:grid-cols-2 mt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Treatment Name</Label>
+                    <Input
+                      value={customLabel}
+                      onChange={(e) => setCustomLabel(e.target.value)}
+                      placeholder="e.g., Warranty recement, Whitening"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Rate (₹)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={operationRate}
+                      onChange={(e) => setOperationRate(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Step Label (follow-up only) */}

@@ -17,6 +17,7 @@ export async function saveExamination(
     treatmentNotes: string | null;
     estimate: string | null;
     medication: string | null;
+    teethSelected?: string | null;
   }
 ) {
   const currentUser = await requireAuth();
@@ -46,6 +47,7 @@ export async function saveExamination(
         treatmentNotes: data.treatmentNotes || null,
         estimate: data.estimate || null,
         medication: data.medication || null,
+        teethSelected: data.teethSelected || null,
       },
     });
   } else {
@@ -60,6 +62,7 @@ export async function saveExamination(
         treatmentNotes: data.treatmentNotes || null,
         estimate: data.estimate || null,
         medication: data.medication || null,
+        teethSelected: data.teethSelected || null,
       },
     });
   }

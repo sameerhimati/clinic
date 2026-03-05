@@ -261,6 +261,8 @@ model Visit {
   parentVisit             Visit?           @relation("FollowUps", fields: [parentVisitId], references: [id])
   followUps               Visit[]          @relation("FollowUps")
   stepLabel               String?
+  customLabel             String?          // Overrides operation name in displays
+  followUpReason          String?          // "REDO" | "COMPLICATION" | "ADJUSTMENT" | null
   operationId             Int?
   operation               Operation?       @relation(fields: [operationId], references: [id])
   operationRate           Float?
@@ -320,6 +322,7 @@ model ClinicalReport {
   treatmentNotes String?
   estimate       String?
   medication     String?
+  teethSelected  String?            // JSON array of FDI tooth numbers, e.g. "[36, 37]"
   lockedAt       DateTime?
   lockedById     Int?
   lockedBy       Doctor?            @relation("LockedReports", fields: [lockedById], references: [id])

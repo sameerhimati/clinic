@@ -255,6 +255,7 @@ export default async function ExaminePage({
           treatmentNotes: existingReport.treatmentNotes,
           estimate: currentUser.permissionLevel <= 2 ? existingReport.estimate : null,
           medication: existingReport.medication,
+          teethSelected: existingReport.teethSelected,
         } : null}
         isLocked={locked}
         canUnlock={canUnlock}

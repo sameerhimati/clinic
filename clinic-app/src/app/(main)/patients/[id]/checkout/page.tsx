@@ -5,7 +5,7 @@ import { CheckoutForm } from "./checkout-form";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
-import { toTitleCase } from "@/lib/format";
+import { toTitleCase, getVisitLabel } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,7 @@ export default async function CheckoutPage({
         id: visit.id,
         caseNo: visit.caseNo,
         visitDate: visit.visitDate.toISOString(),
-        operationName: visit.operation?.name || "Visit",
+        operationName: getVisitLabel(visit),
         doctorName: toTitleCase(visit.doctor?.name || "N/A"),
         billed,
         paid,
@@ -91,7 +91,7 @@ export default async function CheckoutPage({
 
     if (shortfall > 0) {
       chainWarnings.push({
-        operationName: visit.operation?.name || "Treatment",
+        operationName: getVisitLabel(visit),
         doctorFee,
         labCost: totalLabCost,
         collected: totalCollected,

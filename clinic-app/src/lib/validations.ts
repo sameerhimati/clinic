@@ -102,6 +102,8 @@ export const visitSchema = z.object({
   visitType: z.enum(["NEW", "FOLLOWUP", "REVIEW"]).default("NEW"),
   parentVisitId: optionalInt,
   stepLabel: optionalString,
+  customLabel: optionalString,
+  followUpReason: optionalString,
   appointmentId: optionalInt,
   planItemId: optionalInt,
   operationRate: numericOrZero,

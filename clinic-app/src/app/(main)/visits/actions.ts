@@ -19,10 +19,13 @@ export async function createVisit(formData: FormData) {
   // Doctor auto-assignment
   const doctorId = currentUser.id;
 
-  // Rate: always use tariff for doctors
-  const rawRate = parsed.operationId
-    ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
-    : 0;
+  // Rate: use tariff for standard ops, or form value for custom
+  const isCustom = !parsed.operationId && !!parsed.customLabel;
+  const rawRate = isCustom
+    ? (parsed.operationRate || 0)
+    : parsed.operationId
+      ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
+      : 0;
 
   // Discount validation — doctors can give up to 10%
   let validatedDiscount = parsed.discount;
@@ -68,6 +71,8 @@ export async function createVisit(formData: FormData) {
         visitType: parsed.visitType,
         parentVisitId: resolvedParentId,
         stepLabel: parsed.stepLabel,
+        customLabel: parsed.customLabel || null,
+        followUpReason: parsed.followUpReason || null,
         operationId: parsed.operationId,
         operationRate: rawRate,
         discount: validatedDiscount,

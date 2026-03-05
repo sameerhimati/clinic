@@ -44,8 +44,19 @@ Do NOT proceed with new roadmap items until the user confirms. Workflow-first de
 ```bash
 bun run dev                    # start dev server
 bun run build                  # production build (run after each change)
-rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts  # fresh re-seed
+rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts  # fresh re-seed (demo data)
 ```
+
+## Legacy Data (Real Clinic Data)
+- **Use seed data during development** — real data is for deployment only
+- Parsed JSON: `../clinic-legacy/parsed/` (12 JSON files, 324k rows)
+- Import script: `prisma/import-legacy.bun.ts` (excluded from tsconfig)
+- Parser: `../clinic-legacy/parse-sqltalk-exports.ts`
+- Raw exports: `../clinic-legacy/exports-2026/` (from live CLINIC03 DB, March 2026)
+- To load real data: `rm prisma/dev.db && bunx prisma db push && bun prisma/import-legacy.bun.ts`
+- Stats: 36,662 patients, 102,457 visits, 109,484 receipts (₹18.84 Cr), 152 doctors, 68,948 patient files
+- Legacy permission levels are inverted: L3=doctor, L4=reception (opposite of our L2=reception, L3=doctor)
+- Scanned X-rays: 16.8GB in ClinicScanned/ at the clinic (2,009 patient folders) — not yet imported
 
 ## Project Documentation Map
 | File | Purpose |
@@ -55,5 +66,7 @@ rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts  # fresh re-seed
 | `../session-handoff.md` | Session-to-session handoff — immediate next tasks, design research, current state |
 | `../BLUEPRINT.md` | Original legacy system analysis + full requirements |
 | `../FILE_INVENTORY.md` | Legacy Centura CTD21 data file catalog (for data import) |
+| `../clinic-legacy/parsed/` | Parsed legacy JSON data (ready for import) |
+| `prisma/import-legacy.bun.ts` | Legacy data → Prisma/SQLite import script |
 | Claude memory `MEMORY.md` | Detailed project memory — auth, permissions, schema, all sessions |
 | Claude memory `workflows.md` | Clinical workflow definitions + testing checklist |

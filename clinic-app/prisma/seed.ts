@@ -136,6 +136,7 @@ async function main() {
   const doctors = [
     { code: 0, name: "NONE", commissionPercent: 0, designationId: 1, permissionLevel: 2 },
     { code: 1, name: "KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 1, password: "admin" },
+    { code: 150, name: "DR. KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General" },
     { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General" },
     { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1, permissionLevel: 3, password: "doctor", isConsultant: true, specialty: "Prosthodontist" },
     { code: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1, isConsultant: true, specialty: "Oral Surgeon" },

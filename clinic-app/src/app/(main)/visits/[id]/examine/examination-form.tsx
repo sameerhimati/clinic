@@ -21,7 +21,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight } from "lucide-react";
+import { ToothChart } from "@/components/tooth-chart";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
@@ -112,6 +113,7 @@ type ExistingReport = {
   treatmentNotes: string | null;
   estimate: string | null;
   medication: string | null;
+  teethSelected: string | null;
 };
 
 type Addendum = {
@@ -417,6 +419,15 @@ export function ExaminationForm({
   const [estimate, setEstimate] = useState(existingReport?.estimate || "");
   const [medication, setMedication] = useState(existingReport?.medication || "");
   const [addendumText, setAddendumText] = useState("");
+  const [teethSelected, setTeethSelected] = useState<number[]>(() => {
+    try {
+      return existingReport?.teethSelected ? JSON.parse(existingReport.teethSelected) : [];
+    } catch { return []; }
+  });
+
+  // Quick mode = default for new reports. Detailed = default when existing report has examination or diagnosis.
+  const hasDetailedFields = !!(existingReport?.examination || existingReport?.diagnosis);
+  const [isQuickMode, setIsQuickMode] = useState(!hasDetailedFields);
 
   // Track dirty state for beforeunload warning
   const savedRef = useRef({
@@ -426,14 +437,16 @@ export function ExaminationForm({
     treatmentNotes: existingReport?.treatmentNotes || "",
     estimate: existingReport?.estimate || "",
     medication: existingReport?.medication || "",
+    teethSelected: existingReport?.teethSelected || "[]",
   });
 
   const isDirty = useCallback(() => {
     const s = savedRef.current;
     return complaint !== s.complaint || examination !== s.examination ||
       diagnosis !== s.diagnosis || treatmentNotes !== s.treatmentNotes ||
-      estimate !== s.estimate || medication !== s.medication;
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication]);
+      estimate !== s.estimate || medication !== s.medication ||
+      JSON.stringify(teethSelected) !== s.teethSelected;
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected]);
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -592,6 +605,7 @@ export function ExaminationForm({
           treatmentNotes: treatmentNotes || null,
           estimate: estimate || null,
           medication: medication || null,
+          teethSelected: teethSelected.length > 0 ? JSON.stringify(teethSelected) : null,
         });
 
         // Auto-complete matching plan item for follow-up visits
@@ -890,72 +904,118 @@ export function ExaminationForm({
         </div>
       )}
 
-      {/* Card 1: Clinical Assessment */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Clinical Assessment</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              Dr. {doctorName} {"\u00b7"} {reportDate}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
+      {/* Mode toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          Dr. {doctorName} {"\u00b7"} {reportDate}
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsQuickMode(!isQuickMode)}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {isQuickMode ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+          {isQuickMode ? "Quick Mode" : "Detailed Mode"}
+        </button>
+      </div>
 
-          <div className="space-y-1.5">
-            <Label>Examination Findings</Label>
-            <Textarea
-              placeholder="Record examination findings..."
-              value={examination}
-              onChange={(e) => setExamination(e.target.value)}
-              rows={3}
-            />
-          </div>
+      {isQuickMode ? (
+        /* Quick Mode: Complaint pills → Tooth chart → Single notes → Medication */
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Clinical Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
 
-          <div className="space-y-1.5">
-            <Label>Diagnosis</Label>
-            <Textarea
-              placeholder="Enter diagnosis..."
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
-              rows={2}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card 2: Treatment & Prescription */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Treatment & Prescription</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Treatment Notes</Label>
-            <Textarea
-              placeholder="Treatment plan, recommendations, procedures performed..."
-              value={treatmentNotes}
-              onChange={(e) => setTreatmentNotes(e.target.value)}
-              rows={4}
-            />
-          </div>
-
-          {(!permissionLevel || permissionLevel <= 2) && (
             <div className="space-y-1.5">
-              <Label>Estimate</Label>
+              <Label>Teeth</Label>
+              <ToothChart selected={teethSelected} onChange={setTeethSelected} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
               <Textarea
-                placeholder="Cost estimate..."
-                value={estimate}
-                onChange={(e) => setEstimate(e.target.value)}
-                rows={2}
+                placeholder="Treatment notes, findings, procedures performed..."
+                value={treatmentNotes}
+                onChange={(e) => setTreatmentNotes(e.target.value)}
+                rows={6}
+                autoFocus
               />
             </div>
-          )}
 
-          <MedicationPills medication={medication} setMedication={setMedication} />
-        </CardContent>
-      </Card>
+            <MedicationPills medication={medication} setMedication={setMedication} />
+          </CardContent>
+        </Card>
+      ) : (
+        /* Detailed Mode: Original 2-card layout */
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Clinical Assessment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
+
+              <div className="space-y-1.5">
+                <Label>Teeth</Label>
+                <ToothChart selected={teethSelected} onChange={setTeethSelected} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Examination Findings</Label>
+                <Textarea
+                  placeholder="Record examination findings..."
+                  value={examination}
+                  onChange={(e) => setExamination(e.target.value)}
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Diagnosis</Label>
+                <Textarea
+                  placeholder="Enter diagnosis..."
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Treatment & Prescription</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Treatment Notes</Label>
+                <Textarea
+                  placeholder="Treatment plan, recommendations, procedures performed..."
+                  value={treatmentNotes}
+                  onChange={(e) => setTreatmentNotes(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              {(!permissionLevel || permissionLevel <= 2) && (
+                <div className="space-y-1.5">
+                  <Label>Estimate</Label>
+                  <Textarea
+                    placeholder="Cost estimate..."
+                    value={estimate}
+                    onChange={(e) => setEstimate(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              )}
+
+              <MedicationPills medication={medication} setMedication={setMedication} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Treatment Plan — context-aware section */}
       {/* Case A: Follow-up with matching plan item → show progress card */}

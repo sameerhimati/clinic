@@ -12,13 +12,21 @@ import { toTitleCase } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function DoctorsPage() {
+export default async function DoctorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showAll?: string }>;
+}) {
   const currentUser = await requireAuth();
   if (!canManageSystem(currentUser.permissionLevel)) {
     const { redirect } = await import("next/navigation");
     redirect("/dashboard");
   }
+  const { showAll } = await searchParams;
+  const showingAll = showAll === "1";
+
   const doctors = await prisma.doctor.findMany({
+    where: showingAll ? {} : { isActive: true },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     include: {
       designation: true,
@@ -26,15 +34,30 @@ export default async function DoctorsPage() {
     },
   });
 
+  const totalCount = showingAll
+    ? await prisma.doctor.count()
+    : undefined;
+  const activeCount = doctors.length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Doctors</h2>
-        {(
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Doctors</h2>
+          <span className="text-sm text-muted-foreground">
+            {showingAll ? `${activeCount} total` : `${activeCount} active`}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={showingAll ? "/doctors" : "/doctors?showAll=1"}>
+              {showingAll ? "Active Only" : "Show All"}
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/doctors/new"><Plus className="mr-2 h-4 w-4" />Add Doctor</Link>
           </Button>
-        )}
+        </div>
       </div>
 
       <Card>

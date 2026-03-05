@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { toTitleCase, formatDate, formatDateTime } from "@/lib/format";
+import { toTitleCase, formatDate, formatDateTime, getVisitLabel } from "@/lib/format";
 import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, ChevronRight, Check, ArrowRight, Circle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
@@ -254,13 +254,28 @@ export default async function VisitDetailPage({
           {visit.stepLabel && (
             <p className="text-sm mt-0.5 font-medium text-primary">{visit.stepLabel}</p>
           )}
+          {/* Follow-up reason badge */}
+          {visit.followUpReason && (
+            <Badge
+              variant="outline"
+              className={`mt-1 text-xs ${
+                visit.followUpReason === "REDO" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                visit.followUpReason === "COMPLICATION" ? "bg-red-100 text-red-700 border-red-200" :
+                visit.followUpReason === "ADJUSTMENT" ? "bg-blue-100 text-blue-700 border-blue-200" : ""
+              }`}
+            >
+              {visit.followUpReason === "REDO" ? "Warranty Redo" :
+               visit.followUpReason === "COMPLICATION" ? "Complication" :
+               visit.followUpReason === "ADJUSTMENT" ? "Adjustment" : visit.followUpReason}
+            </Badge>
+          )}
           {/* Parent visit link */}
           {visit.parentVisit && (
             <p className="text-sm mt-1">
               <GitBranch className="h-3.5 w-3.5 inline mr-1" />
               Follow-up of{" "}
               <Link href={`/visits/${visit.parentVisit.id}`} className="hover:underline text-primary">
-                Case #{visit.parentVisit.caseNo} — {visit.parentVisit.operation?.name || "Visit"}
+                Case #{visit.parentVisit.caseNo} — {visit.parentVisit.operation?.name || visit.customLabel || "Visit"}
               </Link>
             </p>
           )}
@@ -343,7 +358,7 @@ export default async function VisitDetailPage({
                     <span className="text-muted-foreground">{i === visit.followUps.length - 1 ? "\u2514\u2500\u2500" : "\u251C\u2500\u2500"}</span>
                     <span>{formatDate(fu.visitDate)}</span>
                     <span className="text-muted-foreground">—</span>
-                    <span className="font-medium">{fu.operation?.name || "Visit"}</span>
+                    <span className="font-medium">{fu.operation?.name || fu.customLabel || "Visit"}</span>
                     {fu.doctor && <span className="text-muted-foreground">\u00b7 Dr. {toTitleCase(fu.doctor.name)}</span>}
                   </div>
                   <Badge variant="outline" className="text-xs">View</Badge>

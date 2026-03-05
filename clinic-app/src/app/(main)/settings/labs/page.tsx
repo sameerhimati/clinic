@@ -12,11 +12,18 @@ import { toggleLabActive } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function LabsPage() {
+export default async function LabsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showAll?: string }>;
+}) {
   const currentUser = await requireAuth();
   if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
+  const { showAll } = await searchParams;
+  const showingAll = showAll === "1";
 
   const labs = await prisma.lab.findMany({
+    where: showingAll ? {} : { isActive: true },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
     include: { _count: { select: { rates: true } } },
   });
@@ -28,7 +35,15 @@ export default async function LabsPage() {
         { label: "Labs" },
       ]} />
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Labs & Lab Rates</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Labs & Lab Rates</h2>
+          <span className="text-sm text-muted-foreground">{labs.length} {showingAll ? "total" : "active"}</span>
+        </div>
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={showingAll ? "/settings/labs" : "/settings/labs?showAll=1"}>
+            {showingAll ? "Active Only" : "Show All"}
+          </Link>
+        </Button>
       </div>
 
       <LabCreateForm />

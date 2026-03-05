@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { toTitleCase, formatDate, formatDateTime } from "@/lib/format";
+import { toTitleCase, formatDate, formatDateTime, getVisitLabel } from "@/lib/format";
 import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
@@ -70,6 +70,8 @@ export type VisitWithRelations = {
   visitType: string;
   parentVisitId: number | null;
   stepLabel: string | null;
+  customLabel: string | null;
+  followUpReason: string | null;
   operationRate: number | null;
   discount: number;
   quantity?: number;
@@ -81,6 +83,12 @@ export type VisitWithRelations = {
   files: FileRecord[];
   followUps: VisitWithRelations[];
   receipts: { amount: number }[];
+};
+
+const FOLLOW_UP_REASON_BADGE: Record<string, { label: string; className: string }> = {
+  REDO: { label: "Warranty Redo", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  COMPLICATION: { label: "Complication", className: "bg-red-100 text-red-700 border-red-200" },
+  ADJUSTMENT: { label: "Adjustment", className: "bg-blue-100 text-blue-700 border-blue-200" },
 };
 
 export type FollowUpContext = {
@@ -296,7 +304,7 @@ function StandaloneVisitEntry({
             <div className="flex items-center gap-2 text-sm font-medium min-w-0">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="truncate">
-                {visit.stepLabel || visit.operation?.name || "Visit"}
+                {visit.stepLabel || getVisitLabel(visit)}
               </span>
               <span className="text-muted-foreground shrink-0">·</span>
               <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
@@ -390,7 +398,7 @@ function ChainTimeline({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-medium min-w-0">
               {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-              <span className="truncate">{rootVisit.operation?.name || "Treatment"}</span>
+              <span className="truncate">{getVisitLabel(rootVisit)}</span>
               <span className="text-muted-foreground shrink-0">·</span>
               <span className="text-muted-foreground shrink-0">{allVisits.length} visits</span>
             </div>
@@ -443,9 +451,14 @@ function ChainTimeline({
                           <span className="font-medium">{formatDate(visit.visitDate)}</span>
                           <span className="text-muted-foreground">—</span>
                           <span className="font-medium">
-                            {visit.stepLabel || visit.operation?.name || "Visit"}
+                            {visit.stepLabel || getVisitLabel(visit)}
                           </span>
                           <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+                          {visit.followUpReason && FOLLOW_UP_REASON_BADGE[visit.followUpReason] && (
+                            <Badge variant="outline" className={`text-[10px] py-0 ${FOLLOW_UP_REASON_BADGE[visit.followUpReason].className}`}>
+                              {FOLLOW_UP_REASON_BADGE[visit.followUpReason].label}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">

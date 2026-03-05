@@ -41,6 +41,11 @@ export function formatFullDate(date: string | Date): string {
   return format(toDate(date), "EEEE, d MMMM yyyy");
 }
 
+/** Get display label for a visit — custom label takes priority */
+export function getVisitLabel(visit: { customLabel?: string | null; operation?: { name: string } | null; stepLabel?: string | null }): string {
+  return visit.customLabel || visit.operation?.name || "Visit";
+}
+
 /** Safely coerce string or Date to Date */
 function toDate(date: string | Date): Date {
   if (date instanceof Date) return date;
