@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { DeletePatientButton } from "./delete-button";
 import { TreatmentTimeline, type VisitWithRelations, type FollowUpContext } from "@/components/treatment-timeline";
+import { VisitLogTable } from "@/components/visit-log-table";
 import { MedicalHistoryEditor } from "@/components/medical-history-editor";
 import { StatusBadge } from "@/components/status-badge";
 import { InfoRow } from "@/components/detail-row";
@@ -158,6 +159,9 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   const [isPending, startTransition] = useTransition();
   const { patient, currentUser } = data;
   const isDoctor = currentUser.permissionLevel === 3;
+
+  // Treatment history view mode
+  const [viewMode, setViewMode] = useState<"timeline" | "log">("timeline");
 
   // Quick Visit Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -520,14 +524,41 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
 
       {/* Treatment History */}
       <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Treatment History</h3>
-        <TreatmentTimeline
-          visits={data.topLevelVisits}
-          showInternalCosts={data.showInternalCosts}
-          patientId={patient.id}
-          activeVisitId={activeVisitId || undefined}
-          onAddFollowUp={openFollowUp}
-        />
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment History</h3>
+          <div className="inline-flex items-center rounded-md border bg-muted p-0.5 text-xs">
+            <button
+              onClick={() => setViewMode("timeline")}
+              className={`px-2.5 py-1 rounded-sm transition-colors ${
+                viewMode === "timeline" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => setViewMode("log")}
+              className={`px-2.5 py-1 rounded-sm transition-colors ${
+                viewMode === "log" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Visit Log
+            </button>
+          </div>
+        </div>
+        {viewMode === "timeline" ? (
+          <TreatmentTimeline
+            visits={data.topLevelVisits}
+            showInternalCosts={data.showInternalCosts}
+            patientId={patient.id}
+            activeVisitId={activeVisitId || undefined}
+            onAddFollowUp={openFollowUp}
+          />
+        ) : (
+          <VisitLogTable
+            visits={data.topLevelVisits}
+            showInternalCosts={data.showInternalCosts}
+          />
+        )}
       </section>
 
       {/* Files & Images */}

@@ -49,6 +49,7 @@ type ClinicalReport = {
   treatmentNotes: string | null;
   medication: string | null;
   estimate: string | null;
+  teethSelected: string | null;
   reportDate: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +97,22 @@ export type FollowUpContext = {
   operationName: string;
   doctorId: number | null;
 };
+
+function TeethBadge({ teethJson }: { teethJson: string | null }) {
+  if (!teethJson) return null;
+  try {
+    const teeth: number[] = JSON.parse(teethJson);
+    if (!teeth.length) return null;
+    return (
+      <Badge variant="outline" className="text-[10px] py-0 font-mono gap-0.5">
+        <span className="text-muted-foreground">🦷</span>
+        {teeth.join(", ")}
+      </Badge>
+    );
+  } catch {
+    return null;
+  }
+}
 
 function QuickNoteForm({ visitId }: { visitId: number }) {
   const [open, setOpen] = useState(false);
@@ -308,6 +325,7 @@ function StandaloneVisitEntry({
               </span>
               <span className="text-muted-foreground shrink-0">·</span>
               <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+              {report && <TeethBadge teethJson={report.teethSelected} />}
             </div>
             <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               {due > 0 ? (
@@ -454,6 +472,7 @@ function ChainTimeline({
                             {visit.stepLabel || getVisitLabel(visit)}
                           </span>
                           <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
+                          {report && <TeethBadge teethJson={report.teethSelected} />}
                           {visit.followUpReason && FOLLOW_UP_REASON_BADGE[visit.followUpReason] && (
                             <Badge variant="outline" className={`text-[10px] py-0 ${FOLLOW_UP_REASON_BADGE[visit.followUpReason].className}`}>
                               {FOLLOW_UP_REASON_BADGE[visit.followUpReason].label}

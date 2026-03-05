@@ -93,10 +93,10 @@ export function OperationCombobox({
       >
         <span className={selected || isCustom ? "" : "text-muted-foreground"}>
           {isCustom
-            ? "Custom Treatment"
+            ? "Custom Procedure"
             : selected
               ? `${selected.name}${selected.defaultMinFee ? ` — ₹${formatINR(selected.defaultMinFee)}` : ""}`
-              : "Search treatments..."}
+              : "Search procedures..."}
         </span>
         <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
       </button>
@@ -115,7 +115,7 @@ export function OperationCombobox({
           </div>
           <div className="max-h-64 overflow-y-auto p-1">
             {filtered.length === 0 && !allowCustom && (
-              <div className="py-4 text-center text-sm text-muted-foreground">No treatments found</div>
+              <div className="py-4 text-center text-sm text-muted-foreground">No procedures found</div>
             )}
             {Array.from(categories.entries()).map(([cat, ops]) => (
               <div key={cat}>
@@ -162,7 +162,7 @@ export function OperationCombobox({
                   }}
                 >
                   <Check className={`h-3.5 w-3.5 shrink-0 ${isCustom ? "opacity-100" : "opacity-0"}`} />
-                  <span className="text-primary font-medium">Custom Treatment...</span>
+                  <span className="text-primary font-medium">Custom Procedure...</span>
                 </button>
               </div>
             )}
@@ -408,7 +408,7 @@ export function VisitForm({
       {/* Patient & Treatment */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Patient & Treatment</CardTitle>
+          <CardTitle className="text-base">Patient & Procedure</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Patient */}
@@ -429,7 +429,7 @@ export function VisitForm({
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Treatment */}
             <div className="space-y-2 sm:col-span-2">
-              <Label>Treatment <span className="text-destructive">*</span></Label>
+              <Label>Procedure <span className="text-destructive">*</span></Label>
               <OperationCombobox
                 operations={operations}
                 defaultOperationId={defaultOperationId || undefined}
@@ -455,7 +455,7 @@ export function VisitForm({
               {isCustomTreatment && (
                 <div className="grid gap-3 sm:grid-cols-2 mt-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Treatment Name</Label>
+                    <Label className="text-xs">Procedure Name</Label>
                     <Input
                       value={customLabel}
                       onChange={(e) => setCustomLabel(e.target.value)}

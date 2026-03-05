@@ -54,7 +54,7 @@ const navSections: NavSection[] = [
     label: "Clinical",
     visible: (level) => level <= 2,
     items: [
-      { href: "/visits", label: "Treatments", icon: Stethoscope, minPermission: 2 },
+      { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 2 },
       { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
     ],
   },
@@ -116,7 +116,7 @@ function NavContent({
         return (
           <div key={section.label} className="mt-3 first:mt-0">
             {!collapsed && (
-              <span className="px-3 mb-1 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 select-none">
+              <span className="px-3 mb-1 block text-xs font-semibold uppercase tracking-widest text-muted-foreground/60 select-none">
                 {section.label}
               </span>
             )}
@@ -133,7 +133,7 @@ function NavContent({
                     onClick={onNavigate}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-primary/10 text-primary font-semibold border-l-[3px] border-l-primary pl-[9px]"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground border-l-[3px] border-l-transparent pl-[9px]",
@@ -181,8 +181,8 @@ function UserCard({ collapsed, doctor }: { collapsed: boolean; doctor: { name: s
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium truncate leading-tight">{toTitleCase(doctor.name)}</p>
-            <span className={cn("inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5 leading-none", role.className)}>
+            <p className="text-sm font-medium truncate leading-tight">{toTitleCase(doctor.name)}</p>
+            <span className={cn("inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full mt-0.5 leading-none", role.className)}>
               {role.label}
             </span>
           </div>

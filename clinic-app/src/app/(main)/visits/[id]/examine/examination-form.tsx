@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
-import { saveExamination, finalizeReport, unlockReport, addAddendum, createPlansFromConsultation } from "./actions";
+import { saveExamination, finalizeReport, unlockReport, addAddendum, createPlansFromConsultation, getNextArrivedAppointment } from "./actions";
+import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
 import {
@@ -21,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle } from "lucide-react";
 import { ToothChart } from "@/components/tooth-chart";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
@@ -369,6 +370,7 @@ export function ExaminationForm({
   matchingPlanItem,
   existingActivePlans,
   doctorAvailability,
+  patientDiseases,
 }: {
   visitId: number;
   patientId?: number;
@@ -400,6 +402,7 @@ export function ExaminationForm({
     allItems: { id: number; label: string; sortOrder: number; isCompleted: boolean }[];
   } | null;
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
+  patientDiseases?: string[];
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -457,6 +460,26 @@ export function ExaminationForm({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
+
+  // Keyboard shortcuts: Cmd+S = Save, Cmd+Enter = Save & Next Patient
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+
+  useEffect(() => {
+    if (readOnly || isLocked) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === "s") {
+        e.preventDefault();
+        handleSaveRef.current("detail");
+      } else if (mod && e.key === "Enter") {
+        e.preventDefault();
+        handleSaveRef.current("next");
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [readOnly, isLocked]);
 
   const isDoctor = permissionLevel === 3;
   const hasPreviousNotes = previousReports && previousReports.length > 0;
@@ -592,7 +615,7 @@ export function ExaminationForm({
     }));
   }
 
-  async function handleSave(redirectTarget: "detail" | "print" | "queue") {
+  async function handleSave(redirectTarget: "detail" | "print" | "next") {
     const initialSelectedCount = selectedTreatments.length;
     startTransition(async () => {
       try {
@@ -693,8 +716,24 @@ export function ExaminationForm({
         }
         if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
-        } else if (redirectTarget === "queue") {
-          router.push(`/dashboard`);
+        } else if (redirectTarget === "next") {
+          // Find next arrived patient and go directly to their exam
+          try {
+            const nextAppt = await getNextArrivedAppointment(doctorId);
+            if (nextAppt) {
+              const result = await createVisitAndExamine(nextAppt.patientId, nextAppt.id);
+              router.push(`/visits/${result.visitId}/examine`);
+              return;
+            } else {
+              toast.info("No more patients waiting");
+              router.push("/dashboard");
+              return;
+            }
+          } catch {
+            toast.error("Could not find next patient");
+            router.push("/dashboard");
+            return;
+          }
         } else if (isDoctor && patientId) {
           router.push(`/patients/${patientId}`);
         } else {
@@ -889,6 +928,23 @@ export function ExaminationForm({
   // Editable form — polished cards matching patient/visit form patterns
   const editableContent = (
     <div className="space-y-6 pb-24">
+      {/* Medical alerts — patient safety */}
+      {patientDiseases && patientDiseases.length > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <span className="text-sm font-semibold text-red-800">Medical Alert</span>
+            <div className="flex flex-wrap gap-1.5 ml-1">
+              {patientDiseases.map((d) => (
+                <span key={d} className="inline-flex items-center rounded-full bg-red-100 border border-red-200 px-2 py-0.5 text-xs font-medium text-red-800">
+                  {d}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Auto-lock warning */}
       {existingReport && hoursUntilLock > 0 && hoursUntilLock < 24 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
@@ -1383,11 +1439,11 @@ export function ExaminationForm({
             </Button>
             {isDoctor && (
               <Button
-                onClick={() => handleSave("queue")}
+                onClick={() => handleSave("next")}
                 disabled={isPending}
                 size="sm"
               >
-                {isPending ? "Saving..." : "Save & Queue"}
+                {isPending ? "Saving..." : "Save & Next Patient"}
               </Button>
             )}
           </div>

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { dateToString } from "@/lib/validations";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 
 type Disease = { id: number; name: string };
 type Patient = {
@@ -49,6 +49,10 @@ export function PatientForm({
 }) {
   const patientDiseaseIds = patient?.diseases?.map((d) => d.diseaseId) || [];
   const [isPending, startTransition] = useTransition();
+  const isEditing = !!patient;
+
+  // Start expanded if editing, collapsed if new
+  const [expanded, setExpanded] = useState(isEditing);
 
   const [age, setAge] = useState<string>(
     patient?.ageAtRegistration?.toString() || ""
@@ -125,7 +129,7 @@ export function PatientForm({
   return (
     <form action={handleSubmit} className="space-y-6">
 
-      {/* ── Personal Details ── */}
+      {/* ── Essential Fields (always visible) ── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Personal Details</CardTitle>
@@ -153,10 +157,6 @@ export function PatientForm({
 
           <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Father / Husband</Label>
-              <Input name="fatherHusbandName" defaultValue={patient?.fatherHusbandName || ""} />
-            </div>
-            <div className="space-y-1.5">
               <Label>Mobile <span className="text-destructive/70">*</span></Label>
               <Input
                 name="mobile" type="tel" required value={mobile}
@@ -182,135 +182,165 @@ export function PatientForm({
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Date of Birth</Label>
-              <Input
-                name="dateOfBirth" type="date"
-                defaultValue={patient?.dateOfBirth ? dateToString(new Date(patient.dateOfBirth)) : ""}
-                onChange={(e) => handleDobChange(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Age</Label>
-              <Input
-                name="ageAtRegistration" type="number" min={0} max={150}
-                value={age} onChange={(e) => setAge(e.target.value)} placeholder="—"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Gender</Label>
-              <select
-                name="gender"
-                defaultValue={patient?.gender || ""}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
-              >
-                <option value="">—</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Blood Group</Label>
-              <select
-                name="bloodGroup"
-                defaultValue={patient?.bloodGroup || ""}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
-              >
-                <option value="">—</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Occupation</Label>
-              <Input name="occupation" defaultValue={patient?.occupation || ""} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input name="phone" type="tel" defaultValue={patient?.phone || ""} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input name="email" type="email" defaultValue={patient?.email || ""} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Address ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Address</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Address Line 1</Label>
-            <Input name="addressLine1" defaultValue={patient?.addressLine1 || ""} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Address Line 2</Label>
-            <Input name="addressLine2" defaultValue={patient?.addressLine2 || ""} />
-          </div>
-          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label>Area / Landmark</Label>
-              <Input name="addressLine3" defaultValue={patient?.addressLine3 || ""} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>City</Label>
-              <Input name="city" defaultValue={patient?.city || ""} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Pincode</Label>
-              <Input name="pincode" defaultValue={patient?.pincode || ""} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Medical History ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Medical History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0">
-            {diseases.map((disease) => (
-              <label
-                key={disease.id}
-                htmlFor={`disease-${disease.id}`}
-                className="flex items-center gap-2 cursor-pointer select-none rounded px-1.5 py-1 text-sm hover:bg-muted/40 transition-colors"
-              >
-                <Checkbox
-                  id={`disease-${disease.id}`}
-                  name="diseases"
-                  value={disease.id.toString()}
-                  defaultChecked={patientDiseaseIds.includes(disease.id)}
-                  className="shrink-0"
+            <div className="grid gap-x-6 gap-y-4 grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Age</Label>
+                <Input
+                  name="ageAtRegistration" type="number" min={0} max={150}
+                  value={age} onChange={(e) => setAge(e.target.value)} placeholder="—"
                 />
-                <span>{disease.name}</span>
-              </label>
-            ))}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gender</Label>
+                <select
+                  name="gender"
+                  defaultValue={patient?.gender || ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+                >
+                  <option value="">—</option>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                </select>
+              </div>
+            </div>
           </div>
+
+          {/* Expand button — only for new patients */}
+          {!expanded && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-md border border-dashed border-muted-foreground/30 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors"
+            >
+              <ChevronDown className="h-4 w-4" />
+              More Details
+            </button>
+          )}
+
+          {/* ── Expanded Fields ── */}
+          {expanded && (
+            <div className="space-y-4">
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Father / Husband</Label>
+                  <Input name="fatherHusbandName" defaultValue={patient?.fatherHusbandName || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Date of Birth</Label>
+                  <Input
+                    name="dateOfBirth" type="date"
+                    defaultValue={patient?.dateOfBirth ? dateToString(new Date(patient.dateOfBirth)) : ""}
+                    onChange={(e) => handleDobChange(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Blood Group</Label>
+                  <select
+                    name="bloodGroup"
+                    defaultValue={patient?.bloodGroup || ""}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+                  >
+                    <option value="">—</option>
+                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Occupation</Label>
+                  <Input name="occupation" defaultValue={patient?.occupation || ""} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input name="email" type="email" defaultValue={patient?.email || ""} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input name="phone" type="tel" defaultValue={patient?.phone || ""} />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* ── Remarks ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Remarks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea name="remarks" rows={2} defaultValue={patient?.remarks || ""} placeholder="Any additional notes..." />
-        </CardContent>
-      </Card>
+      {/* ── Address (expanded only) ── */}
+      {expanded && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Address</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Address Line 1</Label>
+              <Input name="addressLine1" defaultValue={patient?.addressLine1 || ""} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Address Line 2</Label>
+              <Input name="addressLine2" defaultValue={patient?.addressLine2 || ""} />
+            </div>
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>Area / Landmark</Label>
+                <Input name="addressLine3" defaultValue={patient?.addressLine3 || ""} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>City</Label>
+                <Input name="city" defaultValue={patient?.city || ""} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Pincode</Label>
+                <Input name="pincode" defaultValue={patient?.pincode || ""} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Medical History (expanded only) ── */}
+      {expanded && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Medical History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0">
+              {diseases.map((disease) => (
+                <label
+                  key={disease.id}
+                  htmlFor={`disease-${disease.id}`}
+                  className="flex items-center gap-2 cursor-pointer select-none rounded px-1.5 py-1 text-sm hover:bg-muted/40 transition-colors"
+                >
+                  <Checkbox
+                    id={`disease-${disease.id}`}
+                    name="diseases"
+                    value={disease.id.toString()}
+                    defaultChecked={patientDiseaseIds.includes(disease.id)}
+                    className="shrink-0"
+                  />
+                  <span>{disease.name}</span>
+                </label>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Remarks (expanded only) ── */}
+      {expanded && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Remarks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea name="remarks" rows={2} defaultValue={patient?.remarks || ""} placeholder="Any additional notes..." />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" asChild>

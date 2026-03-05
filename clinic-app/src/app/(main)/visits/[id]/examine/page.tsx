@@ -21,7 +21,7 @@ export default async function ExaminePage({
   const visit = await prisma.visit.findUnique({
     where: { id: visitId },
     include: {
-      patient: { select: { id: true, code: true, name: true, salutation: true, gender: true, ageAtRegistration: true } },
+      patient: { select: { id: true, code: true, name: true, salutation: true, gender: true, ageAtRegistration: true, diseases: { include: { disease: true } } } },
       operation: { select: { name: true } },
       doctor: { select: { id: true, name: true } },
     },
@@ -271,6 +271,7 @@ export default async function ExaminePage({
         lockedAt={existingReport?.lockedAt?.toISOString() ?? null}
         permissionLevel={currentUser.permissionLevel}
         readOnly={!userCanExamine}
+        patientDiseases={visit.patient.diseases.map((pd) => pd.disease.name)}
         previousReports={previousReports}
         operationName={operationName}
         isFollowUp={!!visit.parentVisitId}

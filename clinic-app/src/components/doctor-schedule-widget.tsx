@@ -167,23 +167,14 @@ export function DoctorScheduleWidget({
                   </div>
                 </div>
                 <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                  {/* First arrived patient gets Examine CTA if no one is IN_PROGRESS */}
-                  {!nowSeeing && index === 0 ? (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => handleExamine(appt.patientId, appt.id)}
-                      disabled={isPending}
-                    >
-                      {isPending ? "Starting..." : "Examine"}
-                    </Button>
-                  ) : (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/patients/${appt.patientId}`}>
-                        View Patient
-                      </Link>
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant={!nowSeeing && index === 0 ? "default" : "outline"}
+                    onClick={() => handleExamine(appt.patientId, appt.id)}
+                    disabled={isPending}
+                  >
+                    {isPending ? "Starting..." : "Examine"}
+                  </Button>
                 </div>
               </div>
             ))}

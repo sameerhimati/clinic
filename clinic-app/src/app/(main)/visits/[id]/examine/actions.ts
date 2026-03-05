@@ -341,6 +341,27 @@ export async function createPlansFromConsultation(
   return { count, scheduledCount };
 }
 
+export async function getNextArrivedAppointment(doctorId: number) {
+  await requireAuth();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const next = await prisma.appointment.findFirst({
+    where: {
+      doctorId,
+      status: "ARRIVED",
+      date: { gte: today, lt: tomorrow },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, patientId: true },
+  });
+
+  return next;
+}
+
 export async function saveAndRedirect(visitId: number, target: "detail" | "print") {
   if (target === "print") {
     redirect(`/visits/${visitId}/examine/print`);
