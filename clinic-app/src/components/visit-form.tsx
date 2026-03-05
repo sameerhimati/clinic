@@ -288,6 +288,7 @@ export function VisitForm({
   const [operationRate, setOperationRate] = useState(isFollowUp ? "0" : "");
   const [tariffRate, setTariffRate] = useState<number | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
 
   // Set initial tariff for follow-up default operation
@@ -316,6 +317,7 @@ export function VisitForm({
       {/* Hidden fields */}
       {appointmentId && <input type="hidden" name="appointmentId" value={appointmentId} />}
       {planItemId && <input type="hidden" name="planItemId" value={planItemId} />}
+      <input type="hidden" name="quantity" value={quantity} />
       {isFollowUp && (
         <>
           <input type="hidden" name="visitType" value="FOLLOWUP" />
@@ -417,6 +419,25 @@ export function VisitForm({
                 )}
                 {isFollowUp && (
                   <span className="text-xs text-muted-foreground">(₹0 default for follow-ups)</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20"
+                />
+                {quantity > 1 && rateNum > 0 && (
+                  <span className="text-sm font-semibold tabular-nums">
+                    ₹{formatINR(rateNum - discount)} × {quantity} = ₹{formatINR((rateNum - discount) * quantity)}
+                  </span>
                 )}
               </div>
             </div>

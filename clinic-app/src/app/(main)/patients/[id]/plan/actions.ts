@@ -208,6 +208,42 @@ export async function cancelPlan(planId: number) {
   return { success: true };
 }
 
+export async function markStepDoneInSitting(planItemId: number, visitId: number) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 3) {
+    throw new Error("Unauthorized");
+  }
+
+  const item = await prisma.treatmentPlanItem.findUnique({
+    where: { id: planItemId },
+    include: { plan: { select: { patientId: true, id: true, items: true } } },
+  });
+  if (!item) throw new Error("Plan item not found");
+  if (item.visitId) throw new Error("Step already completed");
+
+  // Verify the visit exists
+  const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+  if (!visit) throw new Error("Visit not found");
+
+  await prisma.treatmentPlanItem.update({
+    where: { id: planItemId },
+    data: { visitId, completedAt: new Date() },
+  });
+
+  // Check if all items are now completed → auto-complete the plan
+  const plan = item.plan;
+  const completedBefore = plan.items.filter((i) => i.visitId !== null).length;
+  if (completedBefore + 1 >= plan.items.length) {
+    await prisma.treatmentPlan.update({
+      where: { id: plan.id },
+      data: { status: "COMPLETED" },
+    });
+  }
+
+  revalidatePath(`/patients/${plan.patientId}`);
+  return { success: true };
+}
+
 // Get treatment steps for an operation (used by plan editor)
 export async function getOperationSteps(operationId: number) {
   return prisma.treatmentStep.findMany({

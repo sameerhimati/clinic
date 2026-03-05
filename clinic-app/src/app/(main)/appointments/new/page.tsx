@@ -13,16 +13,17 @@ export default async function NewAppointmentPage({
     visitId?: string;
     reason?: string;
     stepLabel?: string;
+    planItemId?: string;
   }>;
 }) {
   const currentUser = await requireAuth();
   const params = await searchParams;
 
-  const [doctors, rooms, availability] = await Promise.all([
+  const [doctorsRaw, rooms, availability] = await Promise.all([
     prisma.doctor.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, defaultRoomId: true },
     }),
     prisma.room.findMany({
       where: { isActive: true },
@@ -40,6 +41,12 @@ export default async function NewAppointmentPage({
       where: { id: parseInt(params.patientId) },
       select: { id: true, code: true, name: true, salutation: true },
     });
+  }
+
+  const doctors = doctorsRaw.map(({ defaultRoomId, ...d }) => d);
+  const doctorDefaultRooms: Record<number, number> = {};
+  for (const d of doctorsRaw) {
+    if (d.defaultRoomId) doctorDefaultRooms[d.id] = d.defaultRoomId;
   }
 
   let defaultReason: string | undefined = params.reason;
@@ -70,6 +77,8 @@ export default async function NewAppointmentPage({
         permissionLevel={currentUser.permissionLevel}
         currentDoctorName={currentUser.name}
         doctorAvailability={availability}
+        doctorDefaultRooms={doctorDefaultRooms}
+        planItemId={params.planItemId ? parseInt(params.planItemId) : undefined}
       />
     </div>
   );

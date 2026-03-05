@@ -18,12 +18,19 @@ export default async function OperationsPage() {
   const currentUser = await requireAuth();
   if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
 
-  const operations = await prisma.operation.findMany({
-    orderBy: [{ category: "asc" }, { name: "asc" }],
-    include: {
-      treatmentSteps: { orderBy: { stepNumber: "asc" } },
-    },
-  });
+  const [operations, l3Doctors] = await Promise.all([
+    prisma.operation.findMany({
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+      include: {
+        treatmentSteps: { orderBy: { stepNumber: "asc" } },
+      },
+    }),
+    prisma.doctor.findMany({
+      where: { permissionLevel: 3, isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, specialty: true },
+    }),
+  ]);
 
   // Group by category
   const grouped = new Map<string, typeof operations>();
@@ -91,7 +98,9 @@ export default async function OperationsPage() {
                         name: s.name,
                         description: s.description || "",
                         defaultDayGap: s.defaultDayGap,
+                        defaultDoctorId: s.defaultDoctorId,
                       }))}
+                      doctors={l3Doctors}
                     />
                   </div>
                 ))}

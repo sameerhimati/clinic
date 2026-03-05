@@ -4,25 +4,30 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { toTitleCase } from "@/lib/format";
 import { saveTreatmentSteps } from "./actions";
 
 type Step = {
   name: string;
   description: string;
   defaultDayGap: number;
+  defaultDoctorId: number | null;
 };
+
+type DoctorOption = { id: number; name: string; specialty: string | null };
 
 export function TreatmentStepsEditor({
   operationId,
   operationName,
   initialSteps,
+  doctors,
 }: {
   operationId: number;
   operationName: string;
   initialSteps: Step[];
+  doctors?: DoctorOption[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const [steps, setSteps] = useState<Step[]>(initialSteps);
@@ -32,15 +37,25 @@ export function TreatmentStepsEditor({
   const isDirty =
     JSON.stringify(steps) !== JSON.stringify(initialSteps);
 
+  // Group doctors by specialty for optgroup
+  const doctorsBySpecialty = new Map<string, DoctorOption[]>();
+  if (doctors) {
+    for (const d of doctors) {
+      const spec = d.specialty || "Other";
+      if (!doctorsBySpecialty.has(spec)) doctorsBySpecialty.set(spec, []);
+      doctorsBySpecialty.get(spec)!.push(d);
+    }
+  }
+
   function addStep() {
-    setSteps([...steps, { name: "", description: "", defaultDayGap: 7 }]);
+    setSteps([...steps, { name: "", description: "", defaultDayGap: 7, defaultDoctorId: null }]);
   }
 
   function removeStep(index: number) {
     setSteps(steps.filter((_, i) => i !== index));
   }
 
-  function updateStep(index: number, field: keyof Step, value: string | number) {
+  function updateStep(index: number, field: keyof Step, value: string | number | null) {
     setSteps(
       steps.map((s, i) =>
         i === index ? { ...s, [field]: value } : s
@@ -129,6 +144,25 @@ export function TreatmentStepsEditor({
                 />
                 <span className="text-muted-foreground">days</span>
               </div>
+              {doctors && doctors.length > 0 && (
+                <select
+                  value={step.defaultDoctorId || ""}
+                  onChange={(e) =>
+                    updateStep(i, "defaultDoctorId", e.target.value ? parseInt(e.target.value) : null)
+                  }
+                  className="h-7 text-xs rounded-md border border-input bg-background px-1.5 w-28 shrink-0"
+                  title="Default doctor for this step"
+                >
+                  <option value="">Any doctor</option>
+                  {Array.from(doctorsBySpecialty.entries()).map(([spec, docs]) => (
+                    <optgroup key={spec} label={spec}>
+                      {docs.map((d) => (
+                        <option key={d.id} value={d.id}>{toTitleCase(d.name)}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 onClick={() => removeStep(i)}

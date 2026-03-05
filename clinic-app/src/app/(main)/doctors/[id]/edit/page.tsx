@@ -30,7 +30,10 @@ export default async function EditDoctorPage({
 
   if (!doctor) notFound();
 
-  const designations = await prisma.designation.findMany({ orderBy: { name: "asc" } });
+  const [designations, rooms] = await Promise.all([
+    prisma.designation.findMany({ orderBy: { name: "asc" } }),
+    prisma.room.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+  ]);
 
   // Only show availability for L3 (doctor) accounts
   const showAvailability = doctor.permissionLevel === 3;
@@ -47,7 +50,7 @@ export default async function EditDoctorPage({
         {isOwnProfile && !canEditProfile ? "My Schedule" : `Edit Doctor: ${toTitleCase(doctor.name)}`}
       </h2>
       {canEditProfile && (
-        <DoctorForm doctor={doctor} designations={designations} action={updateDoctor} />
+        <DoctorForm doctor={doctor} designations={designations} rooms={rooms} action={updateDoctor} />
       )}
       {showAvailability && (
         <AvailabilityEditor

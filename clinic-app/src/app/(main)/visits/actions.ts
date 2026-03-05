@@ -71,6 +71,7 @@ export async function createVisit(formData: FormData) {
         operationId: parsed.operationId,
         operationRate: rawRate,
         discount: validatedDiscount,
+        quantity: parsed.quantity,
         doctorId,
         doctorCommissionPercent: commPercent,
         notes: parsed.notes,
@@ -111,6 +112,7 @@ type QuickVisitInput = {
   operationId?: number;
   operationRate: number;
   discount: number;
+  quantity?: number;
   doctorId?: number;
   visitDate: string;
   visitType: "NEW" | "FOLLOWUP";
@@ -183,6 +185,7 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
         operationId: data.operationId || null,
         operationRate: rawRate,
         discount: validatedDiscount,
+        quantity: data.quantity || 1,
         doctorId,
         doctorCommissionPercent: commPercent,
         notes: data.notes || null,

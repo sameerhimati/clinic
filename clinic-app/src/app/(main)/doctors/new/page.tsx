@@ -10,7 +10,10 @@ export default async function NewDoctorPage() {
   const currentUser = await requireAuth();
   if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
 
-  const designations = await prisma.designation.findMany({ orderBy: { name: "asc" } });
+  const [designations, rooms] = await Promise.all([
+    prisma.designation.findMany({ orderBy: { name: "asc" } }),
+    prisma.room.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -19,7 +22,7 @@ export default async function NewDoctorPage() {
         { label: "Add Doctor" },
       ]} />
       <h2 className="text-2xl font-bold">Add Doctor</h2>
-      <DoctorForm designations={designations} action={createDoctor} />
+      <DoctorForm designations={designations} rooms={rooms} action={createDoctor} />
     </div>
   );
 }

@@ -11,6 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toTitleCase } from "@/lib/format";
 
 type Designation = { id: number; name: string };
+type RoomOption = { id: number; name: string };
+
+const SPECIALTIES = [
+  "General",
+  "Endodontist",
+  "Prosthodontist",
+  "Oral Surgeon",
+  "Orthodontist",
+  "Pedodontist",
+  "Periodontist",
+];
 
 type DoctorData = {
   id: number;
@@ -19,6 +30,8 @@ type DoctorData = {
   mobile: string | null;
   email: string | null;
   designationId: number | null;
+  specialty: string | null;
+  defaultRoomId: number | null;
   permissionLevel: number;
   commissionPercent: number;
   commissionRate: number | null;
@@ -30,10 +43,12 @@ type DoctorData = {
 export function DoctorForm({
   doctor,
   designations,
+  rooms,
   action,
 }: {
   doctor?: DoctorData;
   designations: Designation[];
+  rooms?: RoomOption[];
   action: (formData: FormData) => Promise<void>;
 }) {
   const isEdit = !!doctor;
@@ -108,6 +123,38 @@ export function DoctorForm({
               <option value="3">Doctor</option>
             </select>
           </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="specialty">Specialty</Label>
+            <select
+              id="specialty"
+              name="specialty"
+              defaultValue={doctor?.specialty || ""}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <option value="">Select...</option>
+              {SPECIALTIES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {rooms && rooms.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="defaultRoomId">Default Room</Label>
+              <select
+                id="defaultRoomId"
+                name="defaultRoomId"
+                defaultValue={doctor?.defaultRoomId || ""}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="">No default room</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="sm:col-span-2 flex items-center gap-2 pt-1">
             <input

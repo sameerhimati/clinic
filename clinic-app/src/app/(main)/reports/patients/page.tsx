@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { canSeeReports } from "@/lib/permissions";
+import { canSeePatientDirectory } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ export default async function PatientDirectoryPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canSeeReports(currentUser.permissionLevel)) redirect("/dashboard");
+  if (!canSeePatientDirectory(currentUser.permissionLevel)) redirect("/dashboard");
 
   const params = await searchParams;
   const query = params.q?.trim() || "";
@@ -46,6 +46,7 @@ export default async function PatientDirectoryPage({
           visitDate: true,
           operationRate: true,
           discount: true,
+          quantity: true,
           receipts: { select: { amount: true } },
         },
       },
@@ -59,7 +60,7 @@ export default async function PatientDirectoryPage({
     const lastVisit = p.visits.length > 0
       ? p.visits.reduce((latest, v) => (v.visitDate > latest.visitDate ? v : latest)).visitDate
       : null;
-    const totalBilled = p.visits.reduce((s, v) => s + ((v.operationRate || 0) - v.discount), 0);
+    const totalBilled = p.visits.reduce((s, v) => s + ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1), 0);
     const totalPaid = p.visits.reduce((s, v) => s + v.receipts.reduce((rs, r) => rs + r.amount, 0), 0);
     const outstanding = totalBilled - totalPaid;
 

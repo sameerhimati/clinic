@@ -62,7 +62,7 @@ export default async function OperationsReportPage({
     const key = v.operation?.name || "N/A";
     const existing = opSummary.get(key) || { count: 0, total: 0 };
     existing.count++;
-    existing.total += (v.operationRate || 0) - v.discount;
+    existing.total += ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1);
     opSummary.set(key, existing);
   }
 
@@ -73,7 +73,7 @@ export default async function OperationsReportPage({
     toTitleCase(v.patient.name),
     v.operation?.name || "N/A",
     v.doctor ? toTitleCase(v.doctor.name) : "N/A",
-    (v.operationRate || 0) - v.discount,
+    ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1),
     ...(showCosts ? [v.labRateAmount * v.labQuantity] : []),
     v.discount,
   ]);
@@ -181,7 +181,7 @@ export default async function OperationsReportPage({
                       <TableCell>{toTitleCase(v.patient.name)}</TableCell>
                       <TableCell>{v.operation?.name || "N/A"}</TableCell>
                       <TableCell>{v.doctor ? toTitleCase(v.doctor.name) : "N/A"}</TableCell>
-                      <TableCell className="text-right">₹{((v.operationRate || 0) - v.discount).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">₹{(((v.operationRate || 0) - v.discount) * (v.quantity ?? 1)).toLocaleString("en-IN")}</TableCell>
                       {showCosts && (
                         <TableCell className="text-right">
                           {v.labRateAmount * v.labQuantity > 0 ? `₹${(v.labRateAmount * v.labQuantity).toLocaleString("en-IN")}` : "-"}

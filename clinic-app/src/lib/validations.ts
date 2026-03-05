@@ -107,6 +107,15 @@ export const visitSchema = z.object({
   operationRate: numericOrZero,
   discount: numericOrZero,
   labRateAmount: numericOrZero,
+  quantity: z
+    .string()
+    .optional()
+    .default("1")
+    .transform((s) => {
+      if (!s) return 1;
+      const n = parseInt(s, 10);
+      return isNaN(n) || n < 1 ? 1 : n;
+    }),
   labQuantity: z
     .string()
     .optional()
@@ -149,6 +158,7 @@ export const appointmentSchema = z.object({
   patientId: z.coerce.number().int().positive("Patient is required"),
   doctorId: optionalInt,
   roomId: optionalInt,
+  planItemId: optionalInt,
   date: z.string().min(1, "Date is required"),
   timeSlot: optionalString,
   reason: optionalString,
@@ -165,6 +175,8 @@ export const doctorSchema = z.object({
   mobile: optionalString,
   email: optionalString,
   designationId: optionalInt,
+  specialty: optionalString,
+  defaultRoomId: optionalInt,
   permissionLevel: z.coerce.number().int().min(0).max(3).default(3),
   commissionPercent: z.coerce.number().min(0).max(100).default(0),
   commissionRate: z

@@ -401,91 +401,94 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       )}
 
       {/* Appointments */}
-      {(data.todayAppointments.length > 0 || data.futureAppointments.length > 0 || data.pastAppointments.length > 0) && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
-            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-              <Link href={`/appointments/new?patientId=${patient.id}`}>
-                <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                Schedule
-              </Link>
-            </Button>
-          </div>
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {data.todayAppointments.map((appt) => (
-                  <div key={`t-${appt.id}`} className={`flex items-center justify-between px-4 py-3 ${
-                    appt.status === "ARRIVED" ? "bg-green-50 border-l-4 border-l-green-500" :
-                    appt.status === "IN_PROGRESS" ? "bg-blue-50 border-l-4 border-l-blue-500" :
-                    "bg-amber-50 border-l-4 border-l-amber-400"
-                  }`}>
-                    <div>
-                      <div className="font-medium text-sm flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today</span>
-                        {appt.timeSlot && <span>{appt.timeSlot}</span>}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {appt.doctorName && `Dr. ${appt.doctorName}`}
-                        {appt.reason && ` · ${appt.reason}`}
-                      </div>
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
+          <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+            <Link href={`/appointments/new?patientId=${patient.id}`}>
+              <CalendarDays className="h-3.5 w-3.5 mr-1" />
+              Schedule
+            </Link>
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {data.todayAppointments.map((appt) => (
+                <div key={`t-${appt.id}`} className={`flex items-center justify-between px-4 py-3 ${
+                  appt.status === "ARRIVED" ? "bg-green-50 border-l-4 border-l-green-500" :
+                  appt.status === "IN_PROGRESS" ? "bg-blue-50 border-l-4 border-l-blue-500" :
+                  "bg-amber-50 border-l-4 border-l-amber-400"
+                }`}>
+                  <div>
+                    <div className="font-medium text-sm flex items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today</span>
+                      {appt.timeSlot && <span>{appt.timeSlot}</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {appt.status === "SCHEDULED" && (
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => handleStatusChange(appt.id, "ARRIVED")}
-                          disabled={isPending}
-                        >
-                          <UserCheck className="mr-1 h-3 w-3" />
-                          Check In
-                        </Button>
-                      )}
-                      <StatusBadge status={appt.status} />
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {appt.doctorName && `Dr. ${appt.doctorName}`}
+                      {appt.reason && ` · ${appt.reason}`}
                     </div>
                   </div>
-                ))}
-                {data.futureAppointments.map((appt) => (
-                  <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
-                    <div>
-                      <div className="font-medium text-sm">
-                        {formatDate(appt.date)}
-                        {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {appt.doctorName && `Dr. ${appt.doctorName}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={appt.status} />
-                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                        <Link href={`/appointments?date=${format(new Date(appt.date), "yyyy-MM-dd")}`}>View</Link>
+                  <div className="flex items-center gap-2">
+                    {appt.status === "SCHEDULED" && (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => handleStatusChange(appt.id, "ARRIVED")}
+                        disabled={isPending}
+                      >
+                        <UserCheck className="mr-1 h-3 w-3" />
+                        Check In
                       </Button>
-                    </div>
-                  </div>
-                ))}
-                {data.pastAppointments.map((appt) => (
-                  <div key={`p-${appt.id}`} className="flex items-center justify-between px-4 py-2.5 opacity-60">
-                    <div>
-                      <div className="text-sm">
-                        {formatDate(appt.date)}
-                        {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {appt.doctorName && `Dr. ${appt.doctorName}`}
-                        {appt.reason && ` · ${appt.reason}`}
-                      </div>
-                    </div>
+                    )}
                     <StatusBadge status={appt.status} />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      )}
+                </div>
+              ))}
+              {data.futureAppointments.map((appt) => (
+                <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
+                  <div>
+                    <div className="font-medium text-sm">
+                      {formatDate(appt.date)}
+                      {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {appt.doctorName && `Dr. ${appt.doctorName}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={appt.status} />
+                    <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                      <Link href={`/appointments?date=${format(new Date(appt.date), "yyyy-MM-dd")}`}>View</Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {data.pastAppointments.map((appt) => (
+                <div key={`p-${appt.id}`} className="flex items-center justify-between px-4 py-2.5 opacity-60">
+                  <div>
+                    <div className="text-sm">
+                      {formatDate(appt.date)}
+                      {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {appt.doctorName && `Dr. ${appt.doctorName}`}
+                      {appt.reason && ` · ${appt.reason}`}
+                    </div>
+                  </div>
+                  <StatusBadge status={appt.status} />
+                </div>
+              ))}
+              {data.todayAppointments.length === 0 && data.futureAppointments.length === 0 && data.pastAppointments.length === 0 && (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  No appointments scheduled
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Treatment Plans */}
       {(data.treatmentPlans.length > 0 || isDoctor) && (

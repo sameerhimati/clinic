@@ -73,7 +73,7 @@ export async function toggleOperationActive(formData: FormData) {
 
 export async function saveTreatmentSteps(
   operationId: number,
-  steps: { name: string; description?: string; defaultDayGap: number }[]
+  steps: { name: string; description?: string; defaultDayGap: number; defaultDoctorId?: number | null }[]
 ) {
   await requireAdmin();
 
@@ -88,6 +88,7 @@ export async function saveTreatmentSteps(
         name: s.name.trim(),
         description: s.description?.trim() || null,
         defaultDayGap: Math.max(0, Math.round(s.defaultDayGap)),
+        defaultDoctorId: s.defaultDoctorId || null,
       })),
     });
   }

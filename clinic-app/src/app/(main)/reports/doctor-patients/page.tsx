@@ -51,6 +51,7 @@ export default async function DoctorPatientsReportPage({
     visitDate: Date;
     operationRate: number | null;
     discount: number;
+    quantity: number;
     patient: { name: string; code: number | null };
     operation: { name: string } | null;
   }[] = [];
@@ -69,7 +70,7 @@ export default async function DoctorPatientsReportPage({
     });
   }
 
-  const totalAmount = visits.reduce((s, v) => s + ((v.operationRate || 0) - v.discount), 0);
+  const totalAmount = visits.reduce((s, v) => s + ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1), 0);
 
   const csvHeaders = ["Date", "Case #", "Patient", "Operation", "Amount"];
   const csvRows = visits.map((v) => [
@@ -77,7 +78,7 @@ export default async function DoctorPatientsReportPage({
     v.caseNo || "",
     toTitleCase(v.patient.name),
     v.operation?.name || "N/A",
-    (v.operationRate || 0) - v.discount,
+    ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1),
   ]);
 
   return (
@@ -157,7 +158,7 @@ export default async function DoctorPatientsReportPage({
                       </TableCell>
                       <TableCell>{toTitleCase(v.patient.name)}</TableCell>
                       <TableCell>{v.operation?.name || "N/A"}</TableCell>
-                      <TableCell className="text-right font-medium">₹{((v.operationRate || 0) - v.discount).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right font-medium">₹{(((v.operationRate || 0) - v.discount) * (v.quantity ?? 1)).toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

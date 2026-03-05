@@ -76,6 +76,7 @@ export default async function VisitDetailPage({
     ? await prisma.treatmentStep.findMany({
         where: { operationId: visit.operationId },
         orderBy: { stepNumber: "asc" },
+        include: { defaultDoctor: { select: { name: true } } },
       })
     : [];
 
@@ -107,12 +108,12 @@ export default async function VisitDetailPage({
     visitDate: v.visitDate,
     doctorName: v.doctor?.name ? toTitleCase(v.doctor.name) : null,
     hasReport: v.clinicalReports.length > 0,
-    billed: Math.max(0, (v.operationRate || 0) - (v.discount || 0)),
+    billed: Math.max(0, ((v.operationRate || 0) - (v.discount || 0)) * (v.quantity ?? 1)),
     paid: v.receipts.reduce((s, r) => s + r.amount, 0),
   }));
 
   // Chain-level cost summary
-  const chainTotalBilled = chainVisits.reduce((sum, v) => sum + Math.max(0, (v.operationRate || 0) - (v.discount || 0)), 0);
+  const chainTotalBilled = chainVisits.reduce((sum, v) => sum + Math.max(0, ((v.operationRate || 0) - (v.discount || 0)) * (v.quantity ?? 1)), 0);
   const chainTotalPaid = chainVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
   const chainTotalDue = chainTotalBilled - chainTotalPaid;
 
@@ -270,9 +271,9 @@ export default async function VisitDetailPage({
             <Button variant="outline" size="sm" asChild>
               <Link href={planNextItem
                 ? `/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${planNextItem.assignedDoctorId || currentUser.id}&stepLabel=${encodeURIComponent(planNextItem.label)}&planItemId=${planNextItem.id}`
-                : `/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${currentUser.id}`
+                : `/visits/new?patientId=${visit.patientId}&followUp=${visit.id}&doctorId=${nextStep?.defaultDoctorId || currentUser.id}${nextStep ? `&stepLabel=${encodeURIComponent(nextStep.name)}` : ""}`
               }>
-                {planNextItem ? planNextItem.label : "Next Step"}
+                {planNextItem ? planNextItem.label : nextStep ? nextStep.name : "Next Step"}
                 <ChevronRight className="ml-1 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -282,10 +283,10 @@ export default async function VisitDetailPage({
             <Button variant="outline" size="sm" asChild>
               <Link href={planNextItem
                 ? `/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${planNextItem.assignedDoctorId ? `&doctorId=${planNextItem.assignedDoctorId}` : visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}&reason=${encodeURIComponent(planNextItem.label)}&planItemId=${planNextItem.id}${planNextItem.estimatedDate ? `&date=${planNextItem.estimatedDate}` : ""}`
-                : `/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}`
+                : `/appointments/new?patientId=${visit.patientId}&visitId=${visit.id}${nextStep?.defaultDoctorId ? `&doctorId=${nextStep.defaultDoctorId}` : visit.doctorId ? `&doctorId=${visit.doctorId}` : ""}${suggestedDate ? `&date=${suggestedDate}` : ""}${nextStep ? `&reason=${encodeURIComponent(nextStep.name)}` : ""}`
               }>
                 <CalendarDays className="mr-1 h-3.5 w-3.5" />
-                {planNextItem ? `Schedule: ${planNextItem.label}` : "Schedule F/U"}
+                {planNextItem ? `Schedule: ${planNextItem.label}` : nextStep ? `Schedule: ${nextStep.name}` : "Schedule F/U"}
               </Link>
             </Button>
           )}
@@ -455,9 +456,11 @@ export default async function VisitDetailPage({
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="font-medium">
             Billed: {"\u20B9"}{billed.toLocaleString("en-IN")}
-            {visit.discount > 0 && (
+            {(visit.discount > 0 || (visit.quantity ?? 1) > 1) && (
               <span className="text-muted-foreground ml-1">
-                ({"\u20B9"}{(visit.operationRate || 0).toLocaleString("en-IN")} - {"\u20B9"}{visit.discount.toLocaleString("en-IN")} disc.)
+                ({"\u20B9"}{(visit.operationRate || 0).toLocaleString("en-IN")}
+                {visit.discount > 0 && <> - {"\u20B9"}{visit.discount.toLocaleString("en-IN")} disc.</>}
+                {(visit.quantity ?? 1) > 1 && <> ×{visit.quantity}</>})
               </span>
             )}
           </span>

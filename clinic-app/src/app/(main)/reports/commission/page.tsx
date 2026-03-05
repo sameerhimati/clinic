@@ -194,7 +194,7 @@ export default async function CommissionReportPage({
 
   const allChainRows: ChainRow[] = chainVisits.map((root) => {
     const allVisits = [root, ...root.followUps];
-    const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - (v.discount || 0), 0);
+    const totalBilled = allVisits.reduce((sum, v) => sum + ((v.operationRate || 0) - (v.discount || 0)) * (v.quantity ?? 1), 0);
     const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
     const totalLabCost = allVisits.reduce((sum, v) => sum + v.labRateAmount * v.labQuantity, 0);
     const stepsWithExam = allVisits.filter((v) => v.clinicalReports.length > 0).length;

@@ -24,11 +24,11 @@ export default async function RescheduleAppointmentPage({
   if (!appointment) notFound();
   if (appointment.status !== "SCHEDULED") notFound();
 
-  const [doctors, rooms, availability] = await Promise.all([
+  const [doctorsRaw, rooms, availability] = await Promise.all([
     prisma.doctor.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, defaultRoomId: true },
     }),
     prisma.room.findMany({
       where: { isActive: true },
@@ -39,6 +39,12 @@ export default async function RescheduleAppointmentPage({
       select: { doctorId: true, dayOfWeek: true, startTime: true, endTime: true },
     }),
   ]);
+
+  const doctors = doctorsRaw.map(({ defaultRoomId, ...d }) => d);
+  const doctorDefaultRooms: Record<number, number> = {};
+  for (const d of doctorsRaw) {
+    if (d.defaultRoomId) doctorDefaultRooms[d.id] = d.defaultRoomId;
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -62,6 +68,7 @@ export default async function RescheduleAppointmentPage({
         appointmentId={appointment.id}
         mode="reschedule"
         doctorAvailability={availability}
+        doctorDefaultRooms={doctorDefaultRooms}
       />
     </div>
   );

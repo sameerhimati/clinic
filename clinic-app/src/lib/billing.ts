@@ -3,15 +3,17 @@
 type VisitLike = {
   operationRate: number | null;
   discount: number;
+  quantity?: number;
 };
 
 type ReceiptLike = {
   amount: number;
 };
 
-/** Calculate the billed amount for a visit (rate minus discount) */
+/** Calculate the billed amount for a visit: (rate - discount) × quantity */
 export function calcBilled(visit: VisitLike): number {
-  return (visit.operationRate || 0) - visit.discount;
+  const qty = visit.quantity ?? 1;
+  return ((visit.operationRate || 0) - visit.discount) * qty;
 }
 
 /** Calculate total paid from a list of receipts */

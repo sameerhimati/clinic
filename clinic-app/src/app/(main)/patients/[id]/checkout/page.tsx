@@ -44,6 +44,7 @@ export default async function CheckoutPage({
               receipts: { select: { amount: true } },
               operationRate: true,
               discount: true,
+              quantity: true,
               labRateAmount: true,
               labQuantity: true,
             },

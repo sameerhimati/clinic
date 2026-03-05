@@ -29,6 +29,7 @@ export async function createAppointment(formData: FormData) {
       patientId: parsed.patientId,
       doctorId: doctorId || null,
       roomId: parsed.roomId || null,
+      planItemId: parsed.planItemId || null,
       date: appointmentDate,
       timeSlot: parsed.timeSlot,
       reason: parsed.reason,

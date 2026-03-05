@@ -25,10 +25,13 @@ import {
   Edit,
   CheckCircle2,
   XCircle,
+  CalendarCheck,
+  RefreshCw,
 } from "lucide-react";
 import { format, addDays } from "date-fns";
-import { formatDate } from "@/lib/format";
+import { formatDate, toTitleCase } from "@/lib/format";
 import { completePlan, cancelPlan } from "@/app/(main)/patients/[id]/plan/actions";
+import { markStepDoneInSitting } from "@/app/(main)/patients/[id]/plan/actions";
 import { toast } from "sonner";
 
 export type PlanItem = {
@@ -42,8 +45,15 @@ export type PlanItem = {
   estimatedDayGap: number;
   visitId: number | null;
   visitDate: Date | null;
+  visitDoctorName: string | null;
   completedAt: Date | null;
   notes: string | null;
+  appointment?: {
+    id: number;
+    date: Date;
+    status: string;
+    doctorName: string | null;
+  } | null;
 };
 
 export type TreatmentPlanData = {
@@ -58,10 +68,16 @@ export type TreatmentPlanData = {
 };
 
 function estimateDate(items: PlanItem[], targetIndex: number): Date | null {
-  // Find the last completed item before targetIndex
+  // Find the last completed or scheduled item before targetIndex to anchor from
   let lastDate: Date | null = null;
   let lastIndex = -1;
   for (let i = targetIndex - 1; i >= 0; i--) {
+    // Prefer appointment date for scheduled items, visitDate for completed
+    if (items[i].appointment?.date) {
+      lastDate = new Date(items[i].appointment!.date);
+      lastIndex = i;
+      break;
+    }
     if (items[i].visitDate) {
       lastDate = new Date(items[i].visitDate!);
       lastIndex = i;
@@ -98,6 +114,17 @@ export function TreatmentPlanCard({
   const isActive = plan.status === "ACTIVE";
   const isCompleted = plan.status === "COMPLETED";
 
+  // Check if next item already has an active appointment
+  const nextItemHasAppointment = nextItem?.appointment != null;
+
+  // Find last completed visit ID for "done in same sitting" feature
+  const lastCompletedVisitId = (() => {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].visitId) return items[i].visitId;
+    }
+    return null;
+  })();
+
   const statusBadge = {
     ACTIVE: { label: "Active", className: "bg-blue-50 text-blue-700 border-blue-200" },
     COMPLETED: { label: "Completed", className: "bg-green-50 text-green-700 border-green-200" },
@@ -128,8 +155,21 @@ export function TreatmentPlanCard({
     });
   }
 
+  async function handleDoneInSitting(itemId: number) {
+    if (!lastCompletedVisitId) return;
+    startTransition(async () => {
+      try {
+        await markStepDoneInSitting(itemId, lastCompletedVisitId);
+        toast.success("Step marked as done");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to mark step");
+      }
+    });
+  }
+
   // Build schedule URL for next step
-  const scheduleUrl = nextItem
+  const scheduleUrl = nextItem && !nextItemHasAppointment
     ? `/appointments/new?patientId=${plan.patientId}${nextItem.assignedDoctorId ? `&doctorId=${nextItem.assignedDoctorId}` : ""}&reason=${encodeURIComponent(nextItem.label)}${nextEstimatedDate ? `&date=${format(nextEstimatedDate, "yyyy-MM-dd")}` : ""}&planItemId=${nextItem.id}`
     : null;
 
@@ -141,8 +181,11 @@ export function TreatmentPlanCard({
             <CardTitle className="text-base">{plan.title}</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               {completedCount} of {totalCount} steps
-              {nextItem && nextEstimatedDate && (
+              {nextItem && !nextItemHasAppointment && nextEstimatedDate && (
                 <> · Next: {nextItem.label} (~{formatDate(nextEstimatedDate)})</>
+              )}
+              {nextItem && nextItemHasAppointment && (
+                <> · Next: {nextItem.label} — {formatDate(nextItem.appointment!.date)}</>
               )}
             </p>
           </div>
@@ -165,13 +208,26 @@ export function TreatmentPlanCard({
           {items.map((item, index) => {
             const isItemCompleted = item.visitId !== null;
             const isNext = index === nextItemIndex;
-            const estimated = !isItemCompleted ? estimateDate(items, index) : null;
+            const hasAppointment = item.appointment != null;
+            const estimated = !isItemCompleted && !hasAppointment ? estimateDate(items, index) : null;
+
+            // Doctor display: for completed items use the actual visit doctor, otherwise assigned doctor
+            const doctorDisplay = isItemCompleted
+              ? (item.visitDoctorName || item.assignedDoctorName)
+              : hasAppointment
+                ? (item.appointment!.doctorName || item.assignedDoctorName)
+                : item.assignedDoctorName;
+
+            // Can this item be marked "done in same sitting"?
+            const canMarkDoneInSitting = isActive && !isItemCompleted && !hasAppointment && lastCompletedVisitId && index > 0 && items[index - 1].visitId !== null;
 
             return (
               <div key={item.id} className="flex items-start gap-2 text-sm">
                 <div className="shrink-0 mt-0.5">
                   {isItemCompleted ? (
                     <Check className="h-4 w-4 text-green-600" />
+                  ) : hasAppointment ? (
+                    <CalendarCheck className="h-4 w-4 text-blue-600" />
                   ) : isNext ? (
                     <ArrowRight className="h-4 w-4 text-primary" />
                   ) : (
@@ -180,23 +236,51 @@ export function TreatmentPlanCard({
                 </div>
                 <div className="min-w-0 flex-1">
                   <span
-                    className={`${isItemCompleted ? "text-foreground" : isNext ? "text-primary font-medium" : "text-muted-foreground"}`}
+                    className={`${isItemCompleted ? "text-foreground" : hasAppointment ? "text-blue-700 font-medium" : isNext ? "text-primary font-medium" : "text-muted-foreground"}`}
                   >
                     {item.label}
                   </span>
-                  {/* Completed: show date + doctor */}
+                  {/* Completed: show visit date + actual doctor */}
                   {isItemCompleted && item.visitDate && (
                     <span className="text-xs text-muted-foreground ml-2">
                       {formatDate(item.visitDate)}
-                      {item.assignedDoctorName && ` · Dr. ${item.assignedDoctorName}`}
+                      {doctorDisplay && ` · Dr. ${toTitleCase(doctorDisplay)}`}
                     </span>
                   )}
-                  {/* Future: show estimated date + assigned doctor */}
-                  {!isItemCompleted && (
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {estimated && `~${formatDate(estimated)}`}
-                      {item.assignedDoctorName && ` · Dr. ${item.assignedDoctorName}`}
+                  {/* Scheduled: show appointment date + doctor + badge */}
+                  {!isItemCompleted && hasAppointment && (
+                    <span className="text-xs ml-2">
+                      <span className="text-blue-600">{formatDate(item.appointment!.date)}</span>
+                      {doctorDisplay && <span className="text-muted-foreground"> · Dr. {toTitleCase(doctorDisplay)}</span>}
+                      <Badge variant="outline" className="ml-1.5 text-[10px] py-0 px-1 bg-blue-50 text-blue-600 border-blue-200">
+                        Scheduled
+                      </Badge>
                     </span>
+                  )}
+                  {/* Future unscheduled: show estimated date + assigned doctor */}
+                  {!isItemCompleted && !hasAppointment && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {estimated && (
+                        <>
+                          ~{formatDate(estimated)}
+                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-muted-foreground">
+                            Tentative
+                          </Badge>
+                        </>
+                      )}
+                      {doctorDisplay ? ` · Dr. ${toTitleCase(doctorDisplay)}` : " · Any doctor"}
+                    </span>
+                  )}
+                  {/* Done in same sitting button */}
+                  {canMarkDoneInSitting && (
+                    <button
+                      type="button"
+                      onClick={() => handleDoneInSitting(item.id)}
+                      disabled={isPending}
+                      className="ml-2 text-xs text-green-600 hover:text-green-700 hover:underline disabled:opacity-50"
+                    >
+                      ✓ Done in same sitting
+                    </button>
                   )}
                 </div>
               </div>
@@ -207,6 +291,22 @@ export function TreatmentPlanCard({
         {/* Actions */}
         {isActive && (
           <div className="flex gap-2 flex-wrap pt-2 border-t mt-2">
+            {/* Next item has appointment: show scheduled info + reschedule */}
+            {nextItem && nextItemHasAppointment && (
+              <>
+                <Badge variant="secondary" className="text-xs py-1 px-2.5">
+                  <CalendarCheck className="mr-1 h-3 w-3" />
+                  {nextItem.label} — {formatDate(nextItem.appointment!.date)}
+                </Badge>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/appointments/${nextItem.appointment!.id}/reschedule`}>
+                    <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                    Reschedule
+                  </Link>
+                </Button>
+              </>
+            )}
+            {/* Next item has no appointment: show schedule button */}
             {scheduleUrl && (
               <Button size="sm" asChild>
                 <Link href={scheduleUrl}>

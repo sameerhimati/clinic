@@ -49,8 +49,8 @@ export default async function DiscountReportPage({
     orderBy: { visitDate: "asc" },
   });
 
-  const totalBilled = visits.reduce((s, v) => s + (v.operationRate || 0), 0);
-  const totalDiscount = visits.reduce((s, v) => s + v.discount, 0);
+  const totalBilled = visits.reduce((s, v) => s + (v.operationRate || 0) * (v.quantity ?? 1), 0);
+  const totalDiscount = visits.reduce((s, v) => s + v.discount * (v.quantity ?? 1), 0);
   const totalNet = totalBilled - totalDiscount;
 
   const csvHeaders = ["Date", "Case #", "Patient", "Operation", "Doctor", "Billed", "Discount", "Net"];
@@ -62,7 +62,7 @@ export default async function DiscountReportPage({
     v.doctor ? toTitleCase(v.doctor.name) : "N/A",
     v.operationRate || 0,
     v.discount,
-    (v.operationRate || 0) - v.discount,
+    ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1),
   ]);
 
   return (
@@ -140,9 +140,9 @@ export default async function DiscountReportPage({
                       <TableCell>{toTitleCase(v.patient.name)}</TableCell>
                       <TableCell>{v.operation?.name || "N/A"}</TableCell>
                       <TableCell>{v.doctor ? toTitleCase(v.doctor.name) : "N/A"}</TableCell>
-                      <TableCell className="text-right">₹{(v.operationRate || 0).toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right text-amber-700 font-medium">₹{v.discount.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right font-medium">₹{((v.operationRate || 0) - v.discount).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right">₹{((v.operationRate || 0) * (v.quantity ?? 1)).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right text-amber-700 font-medium">₹{(v.discount * (v.quantity ?? 1)).toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="text-right font-medium">₹{(((v.operationRate || 0) - v.discount) * (v.quantity ?? 1)).toLocaleString("en-IN")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

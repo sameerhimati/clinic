@@ -1,9 +1,9 @@
 # Clinic App — Roadmap
 
 ## Current State
-All core clinical workflows implemented. 43 routes. SQLite local dev.
+All core clinical workflows implemented. 44 routes. SQLite local dev.
 
-**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Consultation flow (auto-suggest linked treatments, inline scheduling, treatment plan creation), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads with categories + lightbox + bulk upload, Print infrastructure.
+**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Consultation flow (auto-suggest linked treatments, inline scheduling, treatment plan creation), Treatment plan intelligence (appointment-aware plan cards, single-sitting support, estimated date anchoring), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Doctor activity report (procedures & revenue by doctor per month), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads with categories + lightbox + bulk upload, Print infrastructure.
 
 ---
 
@@ -104,6 +104,15 @@ When ready to go live with real data. **Full analysis in `clinic-legacy/data-rep
 
 ---
 
+## Treatment Plan Intelligence (Session 32) [DONE]
+
+- [x] **planItemId wired through appointments** — validation, form, action all store planItemId
+- [x] **Smart plan card** — appointment-aware display: scheduled steps show date + badge, completed steps show actual visit doctor, future steps show tentative dates anchored from appointments
+- [x] **Single-sitting support** — "Done in same sitting" links multiple steps to one visit, auto-completes plan
+- [x] **Doctor Activity report** — `/reports/doctor-activity` with summary/detail views, chain doctors, CSV export
+
+---
+
 ## Consultant Availability & Smart Scheduling [DONE]
 
 ### CA-1: Consultant Availability Model [DONE]
@@ -140,6 +149,7 @@ When ready to go live with real data. **Full analysis in `clinic-legacy/data-rep
 - [x] Receipts Report (payments by date range, payment mode filter, summary by mode)
 - [x] Doctor-Patient Report (patients seen by specific doctor, required doctor filter)
 - [x] Patient Directory (searchable by name/code/mobile, outstanding balances, CSV export)
+- [x] Doctor Activity Report (procedures & revenue by doctor per month, summary + detail views, chain doctors)
 
 ### P4-2: Report Enhancements
 - [ ] Excel export for all reports (not just CSV)
@@ -318,7 +328,6 @@ Harden auth, close permission gaps, protect patient data.
 
 - [ ] SMS/WhatsApp integration (reminders, birthday wishes)
 - [ ] Tooth chart / dental diagram
-- [ ] Treatment plan builder (multi-visit plans)
 - [ ] UPI/QR code payment integration
 - [ ] GST invoice generation
 - [ ] Prescription module (drug/dosage/period)

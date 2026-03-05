@@ -72,6 +72,7 @@ export type VisitWithRelations = {
   stepLabel: string | null;
   operationRate: number | null;
   discount: number;
+  quantity?: number;
   operation: { name: string } | null;
   doctor: { id?: number; name: string } | null;
   lab: { name: string } | null;
@@ -208,7 +209,7 @@ function ExpandableNotes({ report }: { report: ClinicalReport }) {
 
 /** Check if a chain is "active" — has balance due or latest visit missing notes */
 function isChainActive(allVisits: VisitWithRelations[]): boolean {
-  const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - v.discount, 0);
+  const totalBilled = allVisits.reduce((sum, v) => sum + ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1), 0);
   const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
   if (totalBilled - totalPaid > 0) return true;
   const latest = allVisits[allVisits.length - 1];
@@ -281,7 +282,7 @@ function StandaloneVisitEntry({
   const rate = visit.operationRate || 0;
 
   const paid = visit.receipts.reduce((s, r) => s + r.amount, 0);
-  const billed = rate - visit.discount;
+  const billed = (rate - visit.discount) * (visit.quantity ?? 1);
   const due = billed - paid;
 
   return (
@@ -370,7 +371,7 @@ function ChainTimeline({
   uniqueDoctors.forEach((d, i) => doctorColorMap.set(d.name, i % DOCTOR_COLORS.length));
 
   // Calculate chain totals
-  const totalBilled = allVisits.reduce((sum, v) => sum + (v.operationRate || 0) - v.discount, 0);
+  const totalBilled = allVisits.reduce((sum, v) => sum + ((v.operationRate || 0) - v.discount) * (v.quantity ?? 1), 0);
   const totalPaid = allVisits.reduce((sum, v) => sum + v.receipts.reduce((s, r) => s + r.amount, 0), 0);
   const totalDue = totalBilled - totalPaid;
 

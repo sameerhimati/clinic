@@ -84,6 +84,8 @@ export function AppointmentForm({
   appointmentId,
   mode = "create",
   doctorAvailability,
+  doctorDefaultRooms,
+  planItemId,
 }: {
   doctors: Doctor[];
   rooms?: RoomOption[];
@@ -99,6 +101,8 @@ export function AppointmentForm({
   appointmentId?: number;
   mode?: "create" | "reschedule";
   doctorAvailability?: AvailabilitySlot[];
+  doctorDefaultRooms?: Record<number, number>;
+  planItemId?: number;
 }) {
   const isDoctor = permissionLevel === 3;
   const isReschedule = mode === "reschedule";
@@ -111,6 +115,7 @@ export function AppointmentForm({
   const [customTimeSlot, setCustomTimeSlot] = useState(isDefaultCustomTime ? (defaultTimeSlot || "") : "");
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | undefined>(defaultDoctorId);
+  const [selectedRoomId, setSelectedRoomId] = useState<number | undefined>(defaultRoomId || (defaultDoctorId && doctorDefaultRooms?.[defaultDoctorId]) || undefined);
   const [selectedDate, setSelectedDate] = useState(defaultDate || todayString());
 
   // Get availability for the selected doctor
@@ -190,6 +195,7 @@ export function AppointmentForm({
         <input type="hidden" name="patientId" value={selectedPatient.id} />
       )}
       {isWalkIn && <input type="hidden" name="isWalkIn" value="true" />}
+      {planItemId && <input type="hidden" name="planItemId" value={planItemId} />}
 
       {/* Scheduling */}
       <Card>
@@ -247,7 +253,13 @@ export function AppointmentForm({
                 <select
                   name="doctorId"
                   value={selectedDoctorId || ""}
-                  onChange={(e) => setSelectedDoctorId(e.target.value ? parseInt(e.target.value) : undefined)}
+                  onChange={(e) => {
+                    const docId = e.target.value ? parseInt(e.target.value) : undefined;
+                    setSelectedDoctorId(docId);
+                    if (docId && doctorDefaultRooms?.[docId]) {
+                      setSelectedRoomId(doctorDefaultRooms[docId]);
+                    }
+                  }}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                 >
                   <option value="">Unassigned</option>
@@ -344,7 +356,8 @@ export function AppointmentForm({
                 <Label htmlFor="roomId">Room</Label>
                 <select
                   name="roomId"
-                  defaultValue={defaultRoomId || ""}
+                  value={selectedRoomId || ""}
+                  onChange={(e) => setSelectedRoomId(e.target.value ? parseInt(e.target.value) : undefined)}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
                 >
                   <option value="">No room assigned</option>

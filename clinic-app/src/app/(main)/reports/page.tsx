@@ -3,9 +3,17 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart3, AlertCircle, FileText, Receipt, FlaskConical, Percent, UserCheck, Users } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
-import { canSeeReports } from "@/lib/permissions";
+import { canSeeReports, canSeePatientDirectory } from "@/lib/permissions";
 
-const reports = [
+type ReportItem = {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  adminOnly?: boolean;
+};
+
+const reports: ReportItem[] = [
   {
     href: "/reports/commission",
     icon: BarChart3,
@@ -49,10 +57,17 @@ const reports = [
     description: "Patients seen by a specific doctor",
   },
   {
+    href: "/reports/doctor-activity",
+    icon: BarChart3,
+    title: "Doctor Activity",
+    description: "Procedures & revenue by doctor per month",
+  },
+  {
     href: "/reports/patients",
     icon: Users,
     title: "Patient Directory",
     description: "Full patient listing with contact & visit info",
+    adminOnly: true,
   },
 ];
 
@@ -61,12 +76,15 @@ export default async function ReportsPage() {
   if (!canSeeReports(currentUser.permissionLevel)) {
     redirect("/dashboard");
   }
+  const isAdminUser = canSeePatientDirectory(currentUser.permissionLevel);
+  const visibleReports = reports.filter((r) => !r.adminOnly || isAdminUser);
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Reports</h2>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {reports.map((r) => (
+        {visibleReports.map((r) => (
           <Link key={r.href} href={r.href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardContent className="flex items-center gap-3 pt-6">

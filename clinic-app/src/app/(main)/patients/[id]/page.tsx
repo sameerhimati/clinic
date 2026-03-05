@@ -154,7 +154,13 @@ export default async function PatientDetailPage({
           include: {
             operation: { select: { name: true } },
             assignedDoctor: { select: { name: true } },
-            visit: { select: { id: true, visitDate: true } },
+            visit: { select: { id: true, visitDate: true, doctor: { select: { name: true } } } },
+            appointments: {
+              where: { status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] } },
+              select: { id: true, date: true, status: true, doctor: { select: { name: true } } },
+              orderBy: { date: "asc" },
+              take: 1,
+            },
           },
         },
       },
@@ -315,20 +321,30 @@ export default async function PatientDetailPage({
       createdAt: plan.createdAt,
       createdByName: plan.createdBy.name,
       patientId: plan.patientId,
-      items: plan.items.map((item) => ({
-        id: item.id,
-        sortOrder: item.sortOrder,
-        label: item.label,
-        operationId: item.operationId,
-        operationName: item.operation?.name || null,
-        assignedDoctorId: item.assignedDoctorId,
-        assignedDoctorName: item.assignedDoctor?.name || null,
-        estimatedDayGap: item.estimatedDayGap,
-        visitId: item.visitId,
-        visitDate: item.visit?.visitDate || null,
-        completedAt: item.completedAt,
-        notes: item.notes,
-      })),
+      items: plan.items.map((item) => {
+        const appt = item.appointments[0] || null;
+        return {
+          id: item.id,
+          sortOrder: item.sortOrder,
+          label: item.label,
+          operationId: item.operationId,
+          operationName: item.operation?.name || null,
+          assignedDoctorId: item.assignedDoctorId,
+          assignedDoctorName: item.assignedDoctor?.name || null,
+          estimatedDayGap: item.estimatedDayGap,
+          visitId: item.visitId,
+          visitDate: item.visit?.visitDate || null,
+          visitDoctorName: item.visit?.doctor?.name || null,
+          completedAt: item.completedAt,
+          notes: item.notes,
+          appointment: appt ? {
+            id: appt.id,
+            date: appt.date,
+            status: appt.status,
+            doctorName: appt.doctor?.name || null,
+          } : null,
+        };
+      }),
     })),
   };
 

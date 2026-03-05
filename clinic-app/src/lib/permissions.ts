@@ -16,6 +16,11 @@ export function canCollectPayments(permissionLevel: number): boolean {
   return permissionLevel <= 2;
 }
 
+/** Can access Patient Directory report (bulk PII + financials with CSV export) */
+export function canSeePatientDirectory(permissionLevel: number): boolean {
+  return permissionLevel <= 1;
+}
+
 /** Can edit patient demographics */
 export function canEditPatients(permissionLevel: number): boolean {
   return permissionLevel <= 2;
