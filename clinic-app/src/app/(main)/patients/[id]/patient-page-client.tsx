@@ -163,6 +163,16 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   // Treatment history view mode
   const [viewMode, setViewMode] = useState<"timeline" | "log">("timeline");
 
+  // Build visitId → plan title mapping for timeline badges
+  const visitPlanMap = new Map<number, string>();
+  for (const plan of data.treatmentPlans) {
+    for (const item of plan.items) {
+      if (item.visitId) {
+        visitPlanMap.set(item.visitId, plan.title);
+      }
+    }
+  }
+
   // Quick Visit Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [followUpContext, setFollowUpContext] = useState<{
@@ -552,6 +562,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             patientId={patient.id}
             activeVisitId={activeVisitId || undefined}
             onAddFollowUp={openFollowUp}
+            visitPlanMap={visitPlanMap}
           />
         ) : (
           <VisitLogTable

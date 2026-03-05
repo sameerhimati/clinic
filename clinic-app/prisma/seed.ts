@@ -936,20 +936,20 @@ async function main() {
   // ==========================================
   const patientFiles = [
     // Patient 10001 (id=1) — files linked to visit 1
-    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/xray-upper-left.jpg", fileName: "xray-upper-left.jpg", description: "Upper left molar X-ray", fileType: "jpg", uploadedById: kazim!.id },
-    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/opg-scan-feb2026.pdf", fileName: "opg-scan-feb2026.pdf", description: "Full mouth OPG scan", fileType: "pdf", uploadedById: kazim!.id },
+    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/xray-upper-left.jpg", fileName: "xray-upper-left.jpg", description: "Upper left molar X-ray", fileType: "jpg", category: "XRAY", uploadedById: kazim!.id },
+    { patientId: 1, visitId: 1, filePath: "/uploads/patients/1/opg-scan-feb2026.pdf", fileName: "opg-scan-feb2026.pdf", description: "Full mouth OPG scan", fileType: "pdf", category: "SCAN", uploadedById: kazim!.id },
     // Patient 10001 — patient-level file (no visitId)
-    { patientId: 1, filePath: "/uploads/patients/1/consent-form-signed.pdf", fileName: "consent-form-signed.pdf", description: "Treatment consent form", fileType: "pdf", uploadedById: kazim!.id },
+    { patientId: 1, filePath: "/uploads/patients/1/consent-form-signed.pdf", fileName: "consent-form-signed.pdf", description: "Treatment consent form", fileType: "pdf", category: "DOCUMENT", uploadedById: kazim!.id },
     // Patient 10003 (id=3) — files linked to visit 3 (RCT)
-    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/clinical-photo-tooth36.png", fileName: "clinical-photo-tooth36.png", description: "Pre-op photo of tooth #36", fileType: "png", uploadedById: ramana!.id },
-    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/iopa-tooth36.jpg", fileName: "iopa-tooth36.jpg", description: "IOPA radiograph tooth #36", fileType: "jpg", uploadedById: ramana!.id },
-    { patientId: 3, filePath: "/uploads/patients/3/medical-history-form.pdf", fileName: "medical-history-form.pdf", description: "Medical history questionnaire", fileType: "pdf", uploadedById: kazim!.id },
+    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/clinical-photo-tooth36.png", fileName: "clinical-photo-tooth36.png", description: "Pre-op photo of tooth #36", fileType: "png", category: "PHOTO", uploadedById: ramana!.id },
+    { patientId: 3, visitId: 3, filePath: "/uploads/patients/3/iopa-tooth36.jpg", fileName: "iopa-tooth36.jpg", description: "IOPA radiograph tooth #36", fileType: "jpg", category: "XRAY", uploadedById: ramana!.id },
+    { patientId: 3, filePath: "/uploads/patients/3/medical-history-form.pdf", fileName: "medical-history-form.pdf", description: "Medical history questionnaire", fileType: "pdf", category: "DOCUMENT", uploadedById: kazim!.id },
     // Patient 10006 (id=6) — files linked to visit 6 (CER CROWN)
-    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/crown-shade-photo.jpg", fileName: "crown-shade-photo.jpg", description: "Shade matching photo", fileType: "jpg", uploadedById: ramana!.id },
-    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/impression-scan.pdf", fileName: "impression-scan.pdf", description: "Digital impression report", fileType: "pdf", uploadedById: ramana!.id },
+    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/crown-shade-photo.jpg", fileName: "crown-shade-photo.jpg", description: "Shade matching photo", fileType: "jpg", category: "PHOTO", uploadedById: ramana!.id },
+    { patientId: 6, visitId: 6, filePath: "/uploads/patients/6/impression-scan.pdf", fileName: "impression-scan.pdf", description: "Digital impression report", fileType: "pdf", category: "SCAN", uploadedById: ramana!.id },
     // Patient 10007 (id=7) — file linked to visit 7 (Bleaching)
-    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/before-bleaching.jpg", fileName: "before-bleaching.jpg", description: "Before bleaching photo", fileType: "jpg", uploadedById: anitha!.id },
-    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/after-bleaching.jpg", fileName: "after-bleaching.jpg", description: "After bleaching photo", fileType: "jpg", uploadedById: anitha!.id },
+    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/before-bleaching.jpg", fileName: "before-bleaching.jpg", description: "Before bleaching photo", fileType: "jpg", category: "PHOTO", uploadedById: anitha!.id },
+    { patientId: 7, visitId: 7, filePath: "/uploads/patients/7/after-bleaching.jpg", fileName: "after-bleaching.jpg", description: "After bleaching photo", fileType: "jpg", category: "PHOTO", uploadedById: anitha!.id },
   ];
 
   for (const pf of patientFiles) {
@@ -1054,17 +1054,17 @@ async function main() {
 
   if (opRCT) {
     treatmentSteps.push(
-      { operationId: opRCT.id, stepNumber: 1, name: "Initial Assessment", defaultDayGap: 0 },
-      { operationId: opRCT.id, stepNumber: 2, name: "Access Opening", defaultDayGap: 7 },
-      { operationId: opRCT.id, stepNumber: 3, name: "BMP / Obturation", defaultDayGap: 7 },
+      { operationId: opRCT.id, stepNumber: 1, name: "Initial Assessment", defaultDayGap: 0, noteTemplate: "Clinical & radiographic examination done.\nDiagnosis: Irreversible pulpitis / Pulp necrosis w.r.t. [tooth].\nAdvised RCT. Patient consent obtained." },
+      { operationId: opRCT.id, stepNumber: 2, name: "Access Opening", defaultDayGap: 7, noteTemplate: "Access opening done under LA w.r.t. [tooth].\nPulp extirpated. Working length determined.\nBMP with [files]. Irrigation with NaOCl + saline.\nCa(OH)₂ dressing placed. Temporary restoration done." },
+      { operationId: opRCT.id, stepNumber: 3, name: "BMP / Obturation", defaultDayGap: 7, noteTemplate: "Obturation done w.r.t. [tooth].\nMaster cone fit confirmed radiographically.\nObturated with GP + AH Plus sealer by lateral condensation.\nPost-operative radiograph taken. Temporary restoration placed.\nAdvised crown." },
     );
   }
 
   if (opCeramicPFM) {
     treatmentSteps.push(
-      { operationId: opCeramicPFM.id, stepNumber: 1, name: "Tooth Prep & Impression", defaultDayGap: 0 },
-      { operationId: opCeramicPFM.id, stepNumber: 2, name: "Try-in", defaultDayGap: 10 },
-      { operationId: opCeramicPFM.id, stepNumber: 3, name: "Cementation", defaultDayGap: 7 },
+      { operationId: opCeramicPFM.id, stepNumber: 1, name: "Tooth Prep & Impression", defaultDayGap: 0, noteTemplate: "Tooth preparation done w.r.t. [tooth] under LA.\nImpression taken with putty + light body.\nShade selected: [shade]. Temporary crown cemented." },
+      { operationId: opCeramicPFM.id, stepNumber: 2, name: "Try-in", defaultDayGap: 10, noteTemplate: "Crown try-in done w.r.t. [tooth].\nMarginal fit, contacts, and occlusion checked.\n[Adjustments made / Sent back for corrections / Approved for glazing]." },
+      { operationId: opCeramicPFM.id, stepNumber: 3, name: "Cementation", defaultDayGap: 7, noteTemplate: "Crown cemented w.r.t. [tooth] with GIC / resin cement.\nMargins sealed. Occlusion verified.\nPatient advised on care and follow-up." },
     );
   }
 

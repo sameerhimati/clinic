@@ -133,7 +133,7 @@ export default async function ExaminePage({
       ? prisma.treatmentStep.findMany({
           where: { operationId: visit.operationId },
           orderBy: { stepNumber: "asc" },
-          select: { name: true, defaultDayGap: true, description: true },
+          select: { name: true, defaultDayGap: true, description: true, noteTemplate: true },
         })
       : Promise.resolve([]),
     prisma.doctor.findMany({
@@ -199,6 +199,26 @@ export default async function ExaminePage({
       }
     }
   }
+
+  // Fetch patient files (X-rays, scans, photos) for reference during exam
+  const patientFiles = await prisma.patientFile.findMany({
+    where: {
+      patientId: visit.patientId,
+      category: { in: ["XRAY", "SCAN", "PHOTO"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      filePath: true,
+      fileName: true,
+      description: true,
+      fileType: true,
+      category: true,
+      createdAt: true,
+      uploadedBy: { select: { name: true } },
+      visit: { select: { id: true, caseNo: true, operation: { select: { name: true } } } },
+    },
+  });
 
   // Operations for the plan editor
   const allOperationsRaw = await prisma.operation.findMany({
@@ -276,6 +296,11 @@ export default async function ExaminePage({
         operationName={operationName}
         isFollowUp={!!visit.parentVisitId}
         treatmentSteps={treatmentSteps}
+        currentStepTemplate={
+          visit.stepLabel
+            ? treatmentSteps.find((s) => s.name === visit.stepLabel)?.noteTemplate ?? null
+            : treatmentSteps[0]?.noteTemplate ?? null
+        }
         allDoctors={activeDoctors}
         allOperations={allOperations}
         matchingPlanItem={matchingPlanItem}
@@ -285,6 +310,17 @@ export default async function ExaminePage({
           nextItemLabel: p.items.find((i) => i.visitId === null)?.label || null,
         }))}
         doctorAvailability={doctorAvailability}
+        patientFiles={patientFiles.map((f) => ({
+          id: f.id,
+          filePath: f.filePath,
+          fileName: f.fileName,
+          description: f.description,
+          fileType: f.fileType,
+          category: f.category,
+          createdAt: f.createdAt.toISOString(),
+          visitCaseNo: f.visit?.caseNo ?? null,
+          visitOperation: f.visit?.operation?.name ?? null,
+        }))}
       />
     </div>
   );

@@ -50,6 +50,7 @@ model TreatmentStep {
   stepNumber      Int
   name            String
   description     String?
+  noteTemplate    String?
   defaultDayGap   Int       @default(7)
   defaultDoctorId Int?
   defaultDoctor   Doctor?   @relation("DefaultTreatmentStepDoctor", fields: [defaultDoctorId], references: [id])

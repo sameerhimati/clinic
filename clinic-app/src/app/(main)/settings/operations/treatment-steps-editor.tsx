@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Trash2, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { toTitleCase } from "@/lib/format";
 import { saveTreatmentSteps } from "./actions";
@@ -12,6 +13,7 @@ import { saveTreatmentSteps } from "./actions";
 type Step = {
   name: string;
   description: string;
+  noteTemplate: string;
   defaultDayGap: number;
   defaultDoctorId: number | null;
 };
@@ -33,6 +35,7 @@ export function TreatmentStepsEditor({
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const [templateOpen, setTemplateOpen] = useState<number | null>(null);
 
   const isDirty =
     JSON.stringify(steps) !== JSON.stringify(initialSteps);
@@ -48,7 +51,7 @@ export function TreatmentStepsEditor({
   }
 
   function addStep() {
-    setSteps([...steps, { name: "", description: "", defaultDayGap: 7, defaultDoctorId: null }]);
+    setSteps([...steps, { name: "", description: "", noteTemplate: "", defaultDayGap: 7, defaultDoctorId: null }]);
   }
 
   function removeStep(index: number) {
@@ -106,7 +109,8 @@ export function TreatmentStepsEditor({
       {expanded && (
         <div className="mt-3 space-y-2">
           {steps.map((step, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs">
+            <div key={i}>
+            <div className="flex items-center gap-2 text-xs">
               <div className="flex flex-col gap-0.5">
                 <button
                   type="button"
@@ -165,12 +169,32 @@ export function TreatmentStepsEditor({
               )}
               <button
                 type="button"
+                onClick={() => setTemplateOpen(templateOpen === i ? null : i)}
+                className={`shrink-0 ${step.noteTemplate ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title="Note template"
+              >
+                <FileText className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
                 onClick={() => removeStep(i)}
                 className="text-muted-foreground hover:text-destructive shrink-0"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            {templateOpen === i && (
+              <div className="ml-7 mt-1 mb-1">
+                <Textarea
+                  value={step.noteTemplate}
+                  onChange={(e) => updateStep(i, "noteTemplate", e.target.value)}
+                  placeholder="Pre-filled note template for this step... (e.g. 'Access opening done under LA w.r.t. [tooth]. ...')"
+                  rows={3}
+                  className="text-xs"
+                />
+              </div>
+            )}
+          </div>
           ))}
 
           <div className="flex items-center gap-2 pt-1">

@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download } from "lucide-react";
 import { ToothChart } from "@/components/tooth-chart";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
@@ -123,6 +123,189 @@ type Addendum = {
   createdAt: string;
   doctorName: string;
 };
+
+type PatientFileRef = {
+  id: number;
+  filePath: string;
+  fileName: string | null;
+  description: string | null;
+  fileType: string | null;
+  category: string | null;
+  createdAt: string;
+  visitCaseNo: number | null;
+  visitOperation: string | null;
+};
+
+function PatientFilesPanel({
+  files,
+  collapsed,
+  onToggle,
+}: {
+  files: PatientFileRef[];
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const isImage = (ft: string | null) =>
+    ft && ["jpg", "jpeg", "png", "gif", "webp"].includes(ft.toLowerCase());
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    XRAY: "X-Ray",
+    SCAN: "Scan",
+    PHOTO: "Photo",
+  };
+
+  return (
+    <Card>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold text-sm">Patient Files</span>
+          <span className="text-xs text-muted-foreground">({files.length})</span>
+        </div>
+        {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+      </button>
+      {!collapsed && (
+        <CardContent className="pt-0 pb-3 px-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {files.map((file, idx) => (
+              <button
+                key={file.id}
+                type="button"
+                onClick={() => setLightboxIdx(idx)}
+                className="group relative aspect-square rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-primary/40 transition-all"
+              >
+                {isImage(file.fileType) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={file.filePath}
+                    alt={file.fileName || "Patient file"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                {/* Category badge */}
+                <span className="absolute top-1 left-1 px-1 py-0.5 rounded text-[9px] font-medium bg-black/60 text-white">
+                  {CATEGORY_LABELS[file.category || ""] || file.category}
+                </span>
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+                </div>
+              </button>
+            ))}
+          </div>
+          {files.length > 8 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Showing {files.length} files
+            </p>
+          )}
+        </CardContent>
+      )}
+
+      {/* Inline lightbox */}
+      {lightboxIdx !== null && (
+        <ExamFileLightbox
+          files={files}
+          initialIndex={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
+    </Card>
+  );
+}
+
+function ExamFileLightbox({
+  files,
+  initialIndex,
+  onClose,
+}: {
+  files: PatientFileRef[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const file = files[index];
+  const isImg = file?.fileType && ["jpg", "jpeg", "png", "gif", "webp"].includes(file.fileType.toLowerCase());
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft" && index > 0) setIndex(index - 1);
+      if (e.key === "ArrowRight" && index < files.length - 1) setIndex(index + 1);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose, index, files.length]);
+
+  if (!file) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90" onClick={onClose}>
+      <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+        <span className="text-xs text-white/60 mr-2">{index + 1} / {files.length}</span>
+        <a
+          href={file.filePath}
+          download={file.fileName || undefined}
+          className="p-2 rounded-md hover:bg-white/10 text-white transition-colors"
+          title="Download"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Download className="h-4 w-4" />
+        </a>
+        <button onClick={onClose} className="p-2 rounded-md hover:bg-white/10 text-white transition-colors" title="Close">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      {/* File info */}
+      <div className="absolute bottom-3 left-3 text-white/70 text-xs z-10" onClick={(e) => e.stopPropagation()}>
+        {file.fileName && <span className="block">{file.fileName}</span>}
+        {file.visitCaseNo && <span className="block">Case #{file.visitCaseNo}{file.visitOperation ? ` — ${file.visitOperation}` : ""}</span>}
+      </div>
+      {/* Navigation */}
+      {index > 0 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setIndex(index - 1); }}
+          className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white z-10"
+        >
+          ‹
+        </button>
+      )}
+      {index < files.length - 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setIndex(index + 1); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white z-10"
+        >
+          ›
+        </button>
+      )}
+      {/* Content */}
+      <div onClick={(e) => e.stopPropagation()} className="max-w-[90vw] max-h-[85vh]">
+        {isImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={file.filePath}
+            alt={file.fileName || ""}
+            className="max-w-full max-h-[85vh] object-contain"
+          />
+        ) : (
+          <iframe
+            src={`${file.filePath}#toolbar=1`}
+            className="w-[80vw] h-[80vh] bg-white rounded"
+            title={file.fileName || "PDF"}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PreviousNoteCard({ report }: { report: PreviousReport }) {
   const [expanded, setExpanded] = useState(false);
@@ -371,6 +554,8 @@ export function ExaminationForm({
   existingActivePlans,
   doctorAvailability,
   patientDiseases,
+  patientFiles,
+  currentStepTemplate,
 }: {
   visitId: number;
   patientId?: number;
@@ -390,7 +575,8 @@ export function ExaminationForm({
   previousReports?: PreviousReport[];
   operationName?: string;
   isFollowUp?: boolean;
-  treatmentSteps?: { name: string; defaultDayGap: number; description: string | null }[];
+  treatmentSteps?: { name: string; defaultDayGap: number; description: string | null; noteTemplate?: string | null }[];
+  currentStepTemplate?: string | null;
   allDoctors?: { id: number; name: string }[];
   allOperations?: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }[];
   doctorAvailability?: { doctorId: number; dayOfWeek: number; startTime: string; endTime: string }[];
@@ -403,6 +589,7 @@ export function ExaminationForm({
   } | null;
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
   patientDiseases?: string[];
+  patientFiles?: PatientFileRef[];
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -432,6 +619,63 @@ export function ExaminationForm({
   const hasDetailedFields = !!(existingReport?.examination || existingReport?.diagnosis);
   const [isQuickMode, setIsQuickMode] = useState(!hasDetailedFields);
 
+  // Autosave drafts to localStorage
+  const draftKey = `exam-draft-${visitId}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Check for existing draft on mount
+  useEffect(() => {
+    if (readOnly || isLocked) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        // Only offer restore if draft has content and differs from saved
+        const hasContent = draft.complaint || draft.examination || draft.diagnosis || draft.treatmentNotes || draft.medication;
+        const differsSaved = draft.complaint !== (existingReport?.complaint || "") ||
+          draft.treatmentNotes !== (existingReport?.treatmentNotes || "") ||
+          draft.diagnosis !== (existingReport?.diagnosis || "");
+        if (hasContent && differsSaved) {
+          setHasDraft(true);
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.complaint != null) setComplaint(draft.complaint);
+      if (draft.examination != null) setExamination(draft.examination);
+      if (draft.diagnosis != null) setDiagnosis(draft.diagnosis);
+      if (draft.treatmentNotes != null) setTreatmentNotes(draft.treatmentNotes);
+      if (draft.estimate != null) setEstimate(draft.estimate);
+      if (draft.medication != null) setMedication(draft.medication);
+      if (draft.teethSelected) {
+        try { setTeethSelected(JSON.parse(draft.teethSelected)); } catch { /* ignore */ }
+      }
+      setDraftRestored(true);
+      setHasDraft(false);
+      toast.success("Draft restored");
+    } catch { toast.error("Failed to restore draft"); }
+  }
+
+  function dismissDraft() {
+    localStorage.removeItem(draftKey);
+    setHasDraft(false);
+  }
+
+  function clearDraft() {
+    localStorage.removeItem(draftKey);
+  }
+
   // Track dirty state for beforeunload warning
   const savedRef = useRef({
     complaint: existingReport?.complaint || "",
@@ -451,15 +695,40 @@ export function ExaminationForm({
       JSON.stringify(teethSelected) !== s.teethSelected;
   }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected]);
 
+  // Debounced autosave to localStorage
+  useEffect(() => {
+    if (readOnly || isLocked) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      if (!isDirty()) return;
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          complaint, examination, diagnosis, treatmentNotes, estimate, medication,
+          teethSelected: JSON.stringify(teethSelected),
+          savedAt: Date.now(),
+        }));
+      } catch { /* quota exceeded — ignore */ }
+    }, 15000); // Save every 15s of idle
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected, readOnly, isLocked, isDirty, draftKey]);
+
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       if (isDirty()) {
         e.preventDefault();
+        // Save draft immediately on unload
+        try {
+          localStorage.setItem(draftKey, JSON.stringify({
+            complaint, examination, diagnosis, treatmentNotes, estimate, medication,
+            teethSelected: JSON.stringify(teethSelected),
+            savedAt: Date.now(),
+          }));
+        } catch { /* ignore */ }
       }
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
+  }, [isDirty, draftKey, complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected]);
 
   // Keyboard shortcuts: Cmd+S = Save, Cmd+Enter = Save & Next Patient
   const handleSaveRef = useRef(handleSave);
@@ -483,7 +752,9 @@ export function ExaminationForm({
 
   const isDoctor = permissionLevel === 3;
   const hasPreviousNotes = previousReports && previousReports.length > 0;
+  const hasFiles = patientFiles && patientFiles.length > 0;
   const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
+  const [filesCollapsed, setFilesCollapsed] = useState(true);
 
   // Treatment plan state
   const hasTemplateSteps = treatmentSteps && treatmentSteps.length > 0;
@@ -619,6 +890,7 @@ export function ExaminationForm({
     const initialSelectedCount = selectedTreatments.length;
     startTransition(async () => {
       try {
+        clearDraft();
         const result = await saveExamination(visitId, {
           doctorId,
           reportDate,
@@ -909,6 +1181,14 @@ export function ExaminationForm({
           </CardContent>
         </Card>
         )}
+
+        {hasFiles && (
+          <PatientFilesPanel
+            files={patientFiles!}
+            collapsed={filesCollapsed}
+            onToggle={() => setFilesCollapsed(!filesCollapsed)}
+          />
+        )}
       </div>
     );
 
@@ -943,6 +1223,43 @@ export function ExaminationForm({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Draft restore banner */}
+      {hasDraft && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-blue-800">
+              <FileText className="h-4 w-4 shrink-0" />
+              <span>You have an unsaved draft for this visit</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={dismissDraft}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={restoreDraft}
+                className="text-xs font-medium bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 transition-colors"
+              >
+                Restore Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patient files (X-rays, scans, photos) */}
+      {hasFiles && (
+        <PatientFilesPanel
+          files={patientFiles!}
+          collapsed={filesCollapsed}
+          onToggle={() => setFilesCollapsed(!filesCollapsed)}
+        />
       )}
 
       {/* Auto-lock warning */}
@@ -990,7 +1307,19 @@ export function ExaminationForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <div className="flex items-center justify-between">
+                <Label>Notes</Label>
+                {currentStepTemplate && !treatmentNotes && (
+                  <button
+                    type="button"
+                    onClick={() => setTreatmentNotes(currentStepTemplate)}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Use Template
+                  </button>
+                )}
+              </div>
               <Textarea
                 placeholder="Treatment notes, findings, procedures performed..."
                 value={treatmentNotes}
@@ -1046,7 +1375,19 @@ export function ExaminationForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Treatment Notes</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Treatment Notes</Label>
+                  {currentStepTemplate && !treatmentNotes && (
+                    <button
+                      type="button"
+                      onClick={() => setTreatmentNotes(currentStepTemplate)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Use Template
+                    </button>
+                  )}
+                </div>
                 <Textarea
                   placeholder="Treatment plan, recommendations, procedures performed..."
                   value={treatmentNotes}

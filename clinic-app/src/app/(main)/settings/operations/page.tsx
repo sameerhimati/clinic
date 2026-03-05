@@ -112,6 +112,7 @@ export default async function OperationsPage({
                       initialSteps={op.treatmentSteps.map((s) => ({
                         name: s.name,
                         description: s.description || "",
+                        noteTemplate: s.noteTemplate || "",
                         defaultDayGap: s.defaultDayGap,
                         defaultDoctorId: s.defaultDoctorId,
                       }))}

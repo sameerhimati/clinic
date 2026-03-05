@@ -167,6 +167,47 @@ export async function reassignDoctor(appointmentId: number, doctorId: number | n
   }
 }
 
+export async function checkConflicts(
+  doctorId: number,
+  date: string,
+  timeSlot: string,
+  excludeAppointmentId?: number,
+): Promise<{ id: number; patientName: string; timeSlot: string | null; status: string }[]> {
+  await requireAuth();
+
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const where: Record<string, unknown> = {
+    doctorId,
+    date: { gte: dayStart, lte: dayEnd },
+    status: { notIn: ["CANCELLED", "NO_SHOW", "COMPLETED"] },
+  };
+  if (excludeAppointmentId) {
+    where.id = { not: excludeAppointmentId };
+  }
+
+  const existing = await prisma.appointment.findMany({
+    where,
+    select: {
+      id: true,
+      timeSlot: true,
+      status: true,
+      patient: { select: { name: true } },
+    },
+    orderBy: { timeSlot: "asc" },
+  });
+
+  return existing.map((a) => ({
+    id: a.id,
+    patientName: a.patient.name,
+    timeSlot: a.timeSlot,
+    status: a.status,
+  }));
+}
+
 export async function deleteAppointment(appointmentId: number) {
   const currentUser = await requireAuth();
   if (!isAdmin(currentUser.permissionLevel)) throw new Error("Admin only");

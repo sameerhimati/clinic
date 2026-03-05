@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toTitleCase, formatDate, formatDateTime, getVisitLabel } from "@/lib/format";
-import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus } from "lucide-react";
+import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus, ClipboardList } from "lucide-react";
 import { useState, useTransition } from "react";
 import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
 import { toast } from "sonner";
@@ -296,11 +296,13 @@ function StandaloneVisitEntry({
   showInternalCosts,
   patientId,
   onAddFollowUp,
+  visitPlanMap,
 }: {
   visit: VisitWithRelations;
   showInternalCosts: boolean;
   patientId: number;
   onAddFollowUp?: (ctx: FollowUpContext) => void;
+  visitPlanMap?: Map<number, string>;
 }) {
   const router = useRouter();
   const report = visit.clinicalReports[0] || null;
@@ -326,6 +328,12 @@ function StandaloneVisitEntry({
               <span className="text-muted-foreground shrink-0">·</span>
               <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
               {report && <TeethBadge teethJson={report.teethSelected} />}
+              {visitPlanMap?.get(visit.id) && (
+                <Badge variant="outline" className="text-[10px] py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                  <ClipboardList className="h-3 w-3" />
+                  {visitPlanMap.get(visit.id)}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               {due > 0 ? (
@@ -373,12 +381,14 @@ function ChainTimeline({
   patientId,
   activeVisitId,
   onAddFollowUp,
+  visitPlanMap,
 }: {
   rootVisit: VisitWithRelations;
   showInternalCosts: boolean;
   patientId: number;
   activeVisitId?: number;
   onAddFollowUp?: (ctx: FollowUpContext) => void;
+  visitPlanMap?: Map<number, string>;
 }) {
   const router = useRouter();
 
@@ -473,6 +483,12 @@ function ChainTimeline({
                           </span>
                           <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
                           {report && <TeethBadge teethJson={report.teethSelected} />}
+                          {visitPlanMap?.get(visit.id) && (
+                            <Badge variant="outline" className="text-[10px] py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                              <ClipboardList className="h-3 w-3" />
+                              {visitPlanMap.get(visit.id)}
+                            </Badge>
+                          )}
                           {visit.followUpReason && FOLLOW_UP_REASON_BADGE[visit.followUpReason] && (
                             <Badge variant="outline" className={`text-[10px] py-0 ${FOLLOW_UP_REASON_BADGE[visit.followUpReason].className}`}>
                               {FOLLOW_UP_REASON_BADGE[visit.followUpReason].label}
@@ -529,12 +545,14 @@ export function TreatmentTimeline({
   patientId,
   activeVisitId,
   onAddFollowUp,
+  visitPlanMap,
 }: {
   visits: VisitWithRelations[];
   showInternalCosts: boolean;
   patientId: number;
   activeVisitId?: number;
   onAddFollowUp?: (ctx: FollowUpContext) => void;
+  visitPlanMap?: Map<number, string>;
 }) {
   if (visits.length === 0) {
     return (
@@ -558,6 +576,7 @@ export function TreatmentTimeline({
               patientId={patientId}
               activeVisitId={activeVisitId}
               onAddFollowUp={onAddFollowUp}
+              visitPlanMap={visitPlanMap}
             />
           );
         }
@@ -569,6 +588,7 @@ export function TreatmentTimeline({
             showInternalCosts={showInternalCosts}
             patientId={patientId}
             onAddFollowUp={onAddFollowUp}
+            visitPlanMap={visitPlanMap}
           />
         );
       })}

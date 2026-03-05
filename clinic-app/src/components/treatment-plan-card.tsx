@@ -243,7 +243,13 @@ export function TreatmentPlanCard({
                   {/* Completed: show visit date + actual doctor */}
                   {isItemCompleted && item.visitDate && (
                     <span className="text-xs text-muted-foreground ml-2">
-                      {formatDate(item.visitDate)}
+                      {item.visitId ? (
+                        <Link href={`/visits/${item.visitId}`} className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                          {formatDate(item.visitDate)}
+                        </Link>
+                      ) : (
+                        formatDate(item.visitDate)
+                      )}
                       {doctorDisplay && ` · Dr. ${toTitleCase(doctorDisplay)}`}
                     </span>
                   )}
