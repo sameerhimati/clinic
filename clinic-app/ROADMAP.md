@@ -184,6 +184,25 @@ When ready to go live with real data. **Full analysis in `clinic-legacy/data-rep
 
 ---
 
+## UX Overhaul (Sessions 34-35) [DONE]
+
+10-phase UX overhaul, all verified with Playwright testing (Session 36):
+- [x] Sidebar font sizes, terminology ("Visits" not "Treatments"), themed toaster
+- [x] Login searchable combobox, queue indicator mobile-visible
+- [x] Visit form "Procedure" terminology
+- [x] Medical alert banner on exam form (non-dismissible disease pills)
+- [x] "Save & Next Patient" button, keyboard shortcuts (Cmd+S, Cmd+Enter)
+- [x] All waiting patients get Examine button (not just first)
+- [x] Teeth badges in timeline, Visit Log flat table toggle
+- [x] Quick registration (collapsed form, "More Details" expands)
+- [x] Appointment conflict detection (amber warning banner)
+- [x] Exam form autosave (localStorage, restore/discard)
+- [x] Patient files on exam form (collapsible, category badges)
+- [x] Note templates in settings + "Use Template" on exam form
+- [x] Treatment plan <-> timeline bidirectional links
+
+---
+
 ## Hardening Sprint 3: Forms [DONE]
 
 - [x] Zod v4 validation schemas for all entities (`src/lib/validations.ts`)
