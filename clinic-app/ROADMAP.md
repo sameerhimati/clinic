@@ -262,6 +262,36 @@ Prepare for production scale: 40K patients, 80K visits, 20K receipts.
 
 ---
 
+## Payments, Collections & Bifurcation UX
+
+The checkout/receipt/payment flow works but hasn't had the same UX treatment as clinical workflows. Needs real-user feedback to prioritize.
+
+### PAY-1: Checkout UX
+- [ ] Clearer payment bifurcation display — how a payment splits across multiple visits (FIFO allocation is invisible to user)
+- [ ] Outstanding balance breakdown per visit on patient page (currently just a total)
+- [ ] Payment history timeline — who paid what, when, for which visits
+- [ ] Partial payment workflow polish — currently functional but UX is minimal
+
+### PAY-2: Receipt UX
+- [ ] Receipt creation flow simplification (currently requires knowing visit/case numbers)
+- [ ] Quick collect from patient page (one-click for common amounts)
+- [ ] Receipt print layout polish (amount in words, clinic header, better formatting)
+- [ ] Bulk receipt printing (day-end batch)
+
+### PAY-3: Collections Reporting
+- [ ] Daily collections summary (today's receipts by payment mode, by doctor)
+- [ ] Outstanding aging report (30/60/90 day buckets)
+- [ ] Payment mode breakdown (Cash vs Card vs UPI trends)
+- [ ] Collections vs billing gap report
+
+### PAY-4: Financial Visibility
+- [ ] Dashboard collections widget for reception (today's total, pending, collected)
+- [ ] Patient balance prominently visible during appointment check-in
+- [ ] Visit-level payment status in appointment day view
+- [ ] End-of-day cash reconciliation helper
+
+---
+
 ## Hardening Sprint 5: Security
 
 Harden auth, close permission gaps, protect patient data.
