@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAudit, logFlaggedAction } from "@/lib/audit";
 
 export async function createLab(formData: FormData) {
   await requireAdmin();
@@ -59,9 +60,11 @@ export async function toggleLabActive(formData: FormData) {
 }
 
 export async function createLabRate(formData: FormData) {
-  await requireAdmin();
+  const currentUser = await requireAdmin();
 
   const labId = parseInt(formData.get("labId") as string);
+  const itemName = (formData.get("itemName") as string).trim();
+  const rate = parseFloat(formData.get("rate") as string) || 0;
 
   const maxCode = await prisma.labRate.aggregate({
     where: { labId },
@@ -69,32 +72,57 @@ export async function createLabRate(formData: FormData) {
   });
   const nextCode = (maxCode._max.itemCode || 0) + 1;
 
-  await prisma.labRate.create({
+  const labRate = await prisma.labRate.create({
     data: {
       labId,
       itemCode: nextCode,
-      itemName: (formData.get("itemName") as string).trim(),
-      rate: parseFloat(formData.get("rate") as string) || 0,
+      itemName,
+      rate,
       isActive: true,
     },
+  });
+
+  logAudit({
+    action: "LAB_RATE_CREATED",
+    actorId: currentUser.id,
+    entityType: "LabRate",
+    entityId: labRate.id,
+    details: { itemName, rate },
   });
 
   revalidatePath(`/settings/labs/${labId}`);
 }
 
 export async function updateLabRate(formData: FormData) {
-  await requireAdmin();
+  const currentUser = await requireAdmin();
 
   const id = parseInt(formData.get("id") as string);
   const labId = parseInt(formData.get("labId") as string);
+  const newItemName = (formData.get("itemName") as string).trim();
+  const newRate = parseFloat(formData.get("rate") as string) || 0;
+
+  // Fetch old values for audit
+  const oldRate = await prisma.labRate.findUnique({
+    where: { id },
+    select: { itemName: true, rate: true },
+  });
 
   await prisma.labRate.update({
     where: { id },
-    data: {
-      itemName: (formData.get("itemName") as string).trim(),
-      rate: parseFloat(formData.get("rate") as string) || 0,
-    },
+    data: { itemName: newItemName, rate: newRate },
   });
+
+  // Audit: log rate changes
+  if (oldRate && oldRate.rate !== newRate) {
+    logFlaggedAction({
+      action: "LAB_RATE_CHANGE",
+      actorId: currentUser.id,
+      entityType: "LabRate",
+      entityId: id,
+      reason: `Rate change for ${oldRate.itemName}`,
+      details: { itemName: oldRate.itemName, oldRate: oldRate.rate, newRate },
+    });
+  }
 
   revalidatePath(`/settings/labs/${labId}`);
 }

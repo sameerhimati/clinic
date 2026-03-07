@@ -26,7 +26,7 @@ export default async function MyActivityPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel !== 3) redirect("/dashboard");
+  if (currentUser.permissionLevel < 3) redirect("/dashboard");
 
   const params = await searchParams;
   const now = new Date();

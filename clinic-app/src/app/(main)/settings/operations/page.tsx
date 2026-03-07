@@ -20,7 +20,10 @@ export default async function OperationsPage({
   searchParams: Promise<{ showAll?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
+  // L1 admins + L3 super-users can access this page
+  const isFullAdmin = canManageSystem(currentUser.permissionLevel);
+  const isL3Super = currentUser.permissionLevel === 3 && currentUser.isSuperUser;
+  if (!isFullAdmin && !isL3Super) redirect("/dashboard");
   const { showAll } = await searchParams;
   const showingAll = showAll === "1";
 
@@ -65,8 +68,8 @@ export default async function OperationsPage({
         </Button>
       </div>
 
-      {/* Add new operation */}
-      <OperationCreateForm categories={Array.from(grouped.keys())} />
+      {/* Add new operation — L1 only */}
+      {isFullAdmin && <OperationCreateForm categories={Array.from(grouped.keys())} />}
 
       {/* Operations by category */}
       {Array.from(grouped.entries()).map(([category, ops]) => (
@@ -87,23 +90,25 @@ export default async function OperationsPage({
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <OperationInlineEdit id={op.id} currentFee={op.defaultMinFee} />
-                        {op.doctorFee != null && op.doctorFee > 0 && (
+                        {isFullAdmin && <OperationInlineEdit id={op.id} currentFee={op.defaultMinFee} />}
+                        {isFullAdmin && op.doctorFee != null && op.doctorFee > 0 && (
                           <span className="text-xs text-muted-foreground" title="Doctor fee per procedure">
                             Dr: ₹{op.doctorFee.toLocaleString("en-IN")}
                           </span>
                         )}
-                        {op.labCostEstimate != null && op.labCostEstimate > 0 && (
+                        {isFullAdmin && op.labCostEstimate != null && op.labCostEstimate > 0 && (
                           <span className="text-xs text-muted-foreground" title="Estimated lab cost">
                             Lab: ₹{op.labCostEstimate.toLocaleString("en-IN")}
                           </span>
                         )}
-                        <form action={toggleOperationActive}>
-                          <input type="hidden" name="id" value={op.id} />
-                          <Button size="sm" variant="ghost" type="submit" className="h-7 text-xs">
-                            {op.isActive ? "Deactivate" : "Activate"}
-                          </Button>
-                        </form>
+                        {isFullAdmin && (
+                          <form action={toggleOperationActive}>
+                            <input type="hidden" name="id" value={op.id} />
+                            <Button size="sm" variant="ghost" type="submit" className="h-7 text-xs">
+                              {op.isActive ? "Deactivate" : "Activate"}
+                            </Button>
+                          </form>
+                        )}
                       </div>
                     </div>
                     <TreatmentStepsEditor

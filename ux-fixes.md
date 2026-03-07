@@ -134,7 +134,7 @@ Handles plan changes gracefully:
 When a consultant disagrees with the original BDS plan:
 1. Consultant opens case, sees BDS treatment plan
 2. Marks specific plan item as "Changed" or "Not Applicable" with reason
-3. Recommends alternative treatment for that tooth
+3. Recommends alternative treatment for that tooth (here we need to notify the BDS Doctors/Front Desk to schedule with the concerned consultant)
 4. System: original plan item → cancelled, new plan item → created
 5. Escrow allocation unchanged (money is unallocated until work done)
 6. Front desk sees the change, can reschedule as needed

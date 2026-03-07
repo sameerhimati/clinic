@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { notFound } from "next/navigation";
+import { canSchedule } from "@/lib/permissions";
+import { notFound, redirect } from "next/navigation";
 import { AppointmentForm } from "@/components/appointment-form";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { format } from "date-fns";
@@ -11,6 +12,7 @@ export default async function RescheduleAppointmentPage({
   params: Promise<{ id: string }>;
 }) {
   const currentUser = await requireAuth();
+  if (!canSchedule(currentUser.permissionLevel)) redirect("/appointments");
   const { id } = await params;
   const appointmentId = parseInt(id);
 

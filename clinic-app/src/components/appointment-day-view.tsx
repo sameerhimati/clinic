@@ -376,7 +376,7 @@ export function AppointmentDayView({
   const [viewMode, setViewMode] = useState<ViewMode>("room");
   const [panelApptId, setPanelApptId] = useState<number | null>(null);
 
-  const isDoctor = permissionLevel === 3;
+  const isDoctor = permissionLevel >= 3;
 
   // Date navigation helpers — locale-safe, no .toISOString() (avoids UTC shift)
   function addDays(ds: string, n: number): string {
@@ -656,12 +656,13 @@ export function AppointmentDayView({
 
       {filteredAppointments.length === 0 && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
-          {isDoctor && !showAll
+          {isDoctor
             ? "No appointments assigned to you today."
-            : "No appointments for this date."}{" "}
-          <Link href={`/appointments/new?date=${dateStr}`} className="text-primary hover:underline">
-            Schedule one
-          </Link>
+            : (<>No appointments for this date.{" "}
+                <Link href={`/appointments/new?date=${dateStr}`} className="text-primary hover:underline">
+                  Schedule one
+                </Link>
+              </>)}
         </div>
       )}
 

@@ -21,6 +21,7 @@ export async function getCurrentDoctor() {
       permissionLevel: true,
       designationId: true,
       isConsultant: true,
+      isSuperUser: true,
     },
   });
 

@@ -83,9 +83,7 @@ export function DoctorScheduleWidget({
       <div className="rounded-lg border p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
         <CheckCircle2 className="h-8 w-8 text-green-500" />
         <span>No appointments today</span>
-        <Link href="/appointments/new" className="text-primary hover:underline text-sm">
-          Schedule one
-        </Link>
+        <span className="text-sm text-muted-foreground">Contact reception to schedule</span>
       </div>
     );
   }

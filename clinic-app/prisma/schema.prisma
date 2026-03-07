@@ -39,6 +39,7 @@ model Operation {
   visits              Visit[]
   treatmentSteps      TreatmentStep[]
   planItems           TreatmentPlanItem[]
+  workDoneEntries     WorkDone[]
 
   @@map("operations")
 }
@@ -167,6 +168,7 @@ model Doctor {
   permissionLevel   Int                      @default(3)
   password          String?
   specialty         String?
+  isSuperUser       Boolean                  @default(false)
   isConsultant      Boolean                  @default(false)
   defaultRoomId     Int?
   defaultRoom       Room?                    @relation("DefaultRoom", fields: [defaultRoomId], references: [id])
@@ -187,6 +189,11 @@ model Doctor {
   assignedPlanItems    TreatmentPlanItem[] @relation("AssignedPlanItems")
   availability         DoctorAvailability[]
   defaultStepDoctors   TreatmentStep[]        @relation("DefaultTreatmentStepDoctor")
+  auditLogs            AuditLog[]
+  toothStatusHistory   ToothStatusHistory[]
+  workDoneEntries      WorkDone[]
+  prescriptionsCreated Prescription[]  @relation("PrescriptionDoctor")
+  prescriptionsPrinted Prescription[]  @relation("PrescriptionPrintedBy")
 
   @@map("doctors")
 }
@@ -234,6 +241,9 @@ model Patient {
   files               PatientFile[]
   appointments        Appointment[]
   treatmentPlans      TreatmentPlan[]
+  toothStatuses       ToothStatus[]
+  toothStatusHistory  ToothStatusHistory[]
+  prescriptions       Prescription[]
 
   @@map("patients")
 }
@@ -268,6 +278,7 @@ model Visit {
   operation               Operation?       @relation(fields: [operationId], references: [id])
   operationRate           Float?
   discount                Float            @default(0)
+  discountReason          String?
   quantity                Int              @default(1)
   doctorId                Int?
   doctor                  Doctor?          @relation("PrimaryDoctor", fields: [doctorId], references: [id])
@@ -289,6 +300,10 @@ model Visit {
   files                   PatientFile[]
   appointments            Appointment[]
   planItems               TreatmentPlanItem[]
+  toothStatuses           ToothStatus[]
+  toothStatusHistory      ToothStatusHistory[]
+  workDone                WorkDone[]
+  prescriptions           Prescription[]
 
   @@map("visits")
 }
@@ -435,7 +450,156 @@ model TreatmentPlanItem {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   appointments     Appointment[]
+  workDoneEntries  WorkDone[]
 
   @@index([planId])
   @@map("treatment_plan_items")
+}
+
+// ============================================
+// DENTAL ODONTOGRAM
+// ============================================
+
+model ToothFinding {
+  id            Int           @id @default(autoincrement())
+  name          String        @unique
+  category      String?       // "Caries", "Periodontal", "Structural", "Prosthetic", "Other"
+  color         String?       // hex color for chart display
+  sortOrder     Int           @default(0)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  toothStatuses      ToothStatus[]
+  toothStatusHistory ToothStatusHistory[]
+
+  @@map("tooth_findings")
+}
+
+model ToothStatus {
+  id           Int           @id @default(autoincrement())
+  patientId    Int
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  toothNumber  Int           // FDI: 11-18, 21-28, 31-38, 41-48
+  status       String        @default("HEALTHY") // HEALTHY|CARIES|FILLED|CROWNED|MISSING|RCT|IMPLANT|EXTRACTED
+  findingId    Int?
+  finding      ToothFinding? @relation(fields: [findingId], references: [id])
+  notes        String?
+  reportedById Int?
+  reportedAt   DateTime?
+  visitId      Int?
+  visit        Visit?        @relation(fields: [visitId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([patientId, toothNumber])
+  @@index([patientId])
+  @@map("tooth_statuses")
+}
+
+model ToothStatusHistory {
+  id           Int           @id @default(autoincrement())
+  patientId    Int
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  toothNumber  Int
+  status       String
+  findingId    Int?
+  finding      ToothFinding? @relation(fields: [findingId], references: [id])
+  notes        String?
+  visitId      Int?
+  visit        Visit?        @relation(fields: [visitId], references: [id])
+  recordedById Int
+  recordedBy   Doctor        @relation(fields: [recordedById], references: [id])
+  recordedAt   DateTime      @default(now())
+
+  @@index([patientId, toothNumber])
+  @@map("tooth_status_history")
+}
+
+// ============================================
+// WORK DONE (per-tooth per-visit procedures)
+// ============================================
+
+model WorkDone {
+  id              Int                @id @default(autoincrement())
+  visitId         Int
+  visit           Visit              @relation(fields: [visitId], references: [id])
+  operationId     Int
+  operation       Operation          @relation(fields: [operationId], references: [id])
+  toothNumber     Int?
+  resultingStatus String?
+  planItemId      Int?
+  planItem        TreatmentPlanItem? @relation(fields: [planItemId], references: [id])
+  notes           String?
+  performedById   Int
+  performedBy     Doctor             @relation(fields: [performedById], references: [id])
+  createdAt       DateTime           @default(now())
+
+  @@index([visitId])
+  @@index([planItemId])
+  @@map("work_done")
+}
+
+// ============================================
+// PRESCRIPTIONS
+// ============================================
+
+model Prescription {
+  id          Int                @id @default(autoincrement())
+  visitId     Int
+  visit       Visit              @relation(fields: [visitId], references: [id])
+  doctorId    Int
+  doctor      Doctor             @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
+  patientId   Int
+  patient     Patient            @relation(fields: [patientId], references: [id])
+  isPrinted   Boolean            @default(false)
+  printedAt   DateTime?
+  printedById Int?
+  printedBy   Doctor?            @relation("PrescriptionPrintedBy", fields: [printedById], references: [id])
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       PrescriptionItem[]
+
+  @@index([visitId])
+  @@index([isPrinted])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             Int          @id @default(autoincrement())
+  prescriptionId Int
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  sortOrder      Int          @default(1)
+  drug           String
+  dosage         String?
+  frequency      String?
+  duration       String?
+  instructions   String?
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  action     String   // LARGE_DISCOUNT, OPERATION_RATE_CHANGE, LAB_RATE_CHANGE, LAB_RATE_CREATED, PLAN_CANCELLED, PLAN_MODIFIED
+  severity   String   @default("INFO") // INFO, FLAG
+  actorId    Int
+  actor      Doctor   @relation(fields: [actorId], references: [id])
+  patientId  Int?
+  visitId    Int?
+  entityType String   // Visit, Operation, LabRate, TreatmentPlan
+  entityId   Int?
+  reason     String?
+  details    String?  // JSON stringified
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([severity])
+  @@map("audit_logs")
 }

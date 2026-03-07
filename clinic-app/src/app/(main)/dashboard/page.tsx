@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   UserPlus,
-  Plus,
   Receipt,
   CalendarDays,
 } from "lucide-react";
@@ -15,6 +14,7 @@ import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 import { DashboardAppointmentList } from "./dashboard-appointments";
+import { PrescriptionQueue } from "@/components/prescription-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -87,12 +87,26 @@ async function getAdminDashboardData() {
     .filter((v) => calcBalance(v, v.receipts) > 0)
     .slice(0, 5);
 
+  // Pending prescriptions
+  const pendingPrescriptions = await prisma.prescription.findMany({
+    where: { isPrinted: false },
+    include: {
+      patient: { select: { id: true, code: true, name: true } },
+      doctor: { select: { name: true } },
+      visit: { select: { id: true, caseNo: true } },
+      items: { select: { id: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
   return {
     todayVisits,
     todayCollections: todayReceipts._sum.amount || 0,
     totalOutstanding,
     pendingPayments,
     todayAppointments,
+    pendingPrescriptions,
   };
 }
 
@@ -122,7 +136,8 @@ async function getDoctorDashboardData(doctorId: number) {
 
 export default async function DashboardPage() {
   const doctor = await requireAuth();
-  const isDoctor = doctor.permissionLevel === 3;
+  const isDoctor = doctor.permissionLevel >= 3;
+  const isConsultant = doctor.permissionLevel === 4;
   const canCollect = canCollectPayments(doctor.permissionLevel);
   const greeting = getGreeting();
 
@@ -133,12 +148,9 @@ export default async function DashboardPage() {
         {/* Compact header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-2xl font-bold">{greeting}, Dr. {toTitleCase(doctor.name)}</h2>
+            <h2 className="text-2xl font-bold">{greeting}, {isConsultant ? "" : "Dr. "}{toTitleCase(doctor.name)}</h2>
             <span className="text-sm text-muted-foreground">{formatFullDate(new Date())}</span>
           </div>
-          <Button size="sm" asChild>
-            <Link href="/visits/new"><Plus className="mr-2 h-4 w-4" />New Visit</Link>
-          </Button>
         </div>
 
         {/* Schedule as hero — the primary content */}
@@ -213,6 +225,9 @@ export default async function DashboardPage() {
           reason: appt.reason,
         }))}
       />
+
+      {/* Prescription Queue — pending for print */}
+      <PrescriptionQueue prescriptions={data.pendingPrescriptions} />
 
       {/* Pending Payments — actionable for reception */}
       {data.pendingPayments.length > 0 && (

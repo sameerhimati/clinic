@@ -5,110 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { toUserError } from "@/lib/action-utils";
-import { visitSchema, parseFormData } from "@/lib/validations";
-
-export async function createVisit(formData: FormData) {
-  const currentUser = await requireAuth();
-  if (currentUser.permissionLevel !== 3) {
-    throw new Error("Only doctors can create visits");
-  }
-  const parsed = parseFormData(visitSchema, formData);
-
-  if (!parsed.patientId) throw new Error("Patient is required");
-
-  // Doctor auto-assignment
-  const doctorId = currentUser.id;
-
-  // Rate: use tariff for standard ops, or form value for custom
-  const isCustom = !parsed.operationId && !!parsed.customLabel;
-  const rawRate = isCustom
-    ? (parsed.operationRate || 0)
-    : parsed.operationId
-      ? (await prisma.operation.findUnique({ where: { id: parsed.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
-      : 0;
-
-  // Discount validation — doctors can give up to 10%
-  let validatedDiscount = parsed.discount;
-  if (rawRate > 0 && validatedDiscount > 0) {
-    const discountPercent = (validatedDiscount / rawRate) * 100;
-    const maxPercent = 10; // Doctors capped at 10%
-    if (discountPercent > maxPercent + 0.5) {
-      throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
-    }
-    validatedDiscount = Math.min(validatedDiscount, rawRate);
-  }
-
-  // Auto-generate case number
-  const maxCase = await prisma.visit.aggregate({ _max: { caseNo: true } });
-  const nextCaseNo = (maxCase._max.caseNo || 80000) + 1;
-
-  // Get doctor commission percent
-  let commPercent: number | null = null;
-  if (doctorId) {
-    const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
-    if (doctor) commPercent = doctor.commissionPercent;
-  }
-
-  // For follow-ups, resolve to root parent (flat chain)
-  let resolvedParentId = parsed.parentVisitId || null;
-  if (resolvedParentId) {
-    const parent = await prisma.visit.findUnique({
-      where: { id: resolvedParentId },
-      select: { parentVisitId: true },
-    });
-    if (parent?.parentVisitId) {
-      resolvedParentId = parent.parentVisitId;
-    }
-  }
-
-  let visitId: number;
-  try {
-    const visit = await prisma.visit.create({
-      data: {
-        caseNo: nextCaseNo,
-        patientId: parsed.patientId,
-        visitDate: parsed.visitDate,
-        visitType: parsed.visitType,
-        parentVisitId: resolvedParentId,
-        stepLabel: parsed.stepLabel,
-        customLabel: parsed.customLabel || null,
-        followUpReason: parsed.followUpReason || null,
-        operationId: parsed.operationId,
-        operationRate: rawRate,
-        discount: validatedDiscount,
-        quantity: parsed.quantity,
-        doctorId,
-        doctorCommissionPercent: commPercent,
-        notes: parsed.notes,
-      },
-    });
-    visitId = visit.id;
-
-    // Link appointment if provided
-    if (parsed.appointmentId) {
-      await prisma.appointment.update({
-        where: { id: parsed.appointmentId },
-        data: { visitId: visit.id, status: "IN_PROGRESS" },
-      });
-      revalidatePath("/appointments");
-    }
-
-    // Link plan item if provided (from search params)
-    if (parsed.planItemId) {
-      await prisma.treatmentPlanItem.update({
-        where: { id: parsed.planItemId },
-        data: { visitId: visit.id, completedAt: new Date() },
-      });
-    }
-  } catch (error) {
-    throw new Error(toUserError(error));
-  }
-
-  revalidatePath("/visits");
-  revalidatePath("/dashboard");
-  revalidatePath(`/patients/${parsed.patientId}`);
-  redirect(`/visits/${visitId}?newVisit=1`);
-}
+import { maxDiscountPercent, canExamine } from "@/lib/permissions";
+import { logFlaggedAction } from "@/lib/audit";
 
 // --- Quick Visit (returns visitId instead of redirecting) ---
 
@@ -130,12 +28,13 @@ type QuickVisitInput = {
   labQuantity?: number;
   appointmentId?: number;
   planItemId?: number;
+  discountReason?: string;
 };
 
 export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId: number }> {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel !== 3) {
-    throw new Error("Only doctors can create visits");
+  if (currentUser.permissionLevel >= 3) {
+    throw new Error("Use appointment workflow to create visits");
   }
 
   if (!data.patientId) throw new Error("Patient is required");
@@ -147,13 +46,13 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
     ? (await prisma.operation.findUnique({ where: { id: data.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
     : 0;
 
-  // Discount validation — doctors can give up to 10%
+  // Discount validation using role-based limits
   let validatedDiscount = data.discount;
   if (rawRate > 0 && validatedDiscount > 0) {
     const discountPercent = (validatedDiscount / rawRate) * 100;
-    const maxPercent = 10;
-    if (discountPercent > maxPercent + 0.5) {
-      throw new Error(`Discount exceeds your authorized limit (${maxPercent}%)`);
+    const maxPct = maxDiscountPercent(currentUser.permissionLevel, currentUser.isSuperUser);
+    if (discountPercent > maxPct + 0.5) {
+      throw new Error(`Discount exceeds your authorized limit (${maxPct}%)`);
     }
     validatedDiscount = Math.min(validatedDiscount, rawRate);
   }
@@ -190,12 +89,30 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
         operationId: data.operationId || null,
         operationRate: rawRate,
         discount: validatedDiscount,
+        discountReason: data.discountReason || null,
         quantity: data.quantity || 1,
         doctorId,
         doctorCommissionPercent: commPercent,
         notes: data.notes || null,
       },
     });
+
+    // Audit: flag large discounts (>20%)
+    if (rawRate > 0 && validatedDiscount > 0) {
+      const discountPercent = (validatedDiscount / rawRate) * 100;
+      if (discountPercent > 20) {
+        logFlaggedAction({
+          action: "LARGE_DISCOUNT",
+          actorId: currentUser.id,
+          patientId: data.patientId,
+          visitId: visit.id,
+          entityType: "Visit",
+          entityId: visit.id,
+          reason: data.discountReason || "No reason provided",
+          details: { rate: rawRate, discount: validatedDiscount, discountPercent: Math.round(discountPercent * 10) / 10, discountReason: data.discountReason },
+        });
+      }
+    }
 
     if (data.appointmentId) {
       await prisma.appointment.update({
@@ -231,7 +148,7 @@ export async function createVisitAndExamine(
   planItemId?: number | null
 ): Promise<{ visitId: number }> {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel !== 3) {
+  if (!canExamine(currentUser.permissionLevel)) {
     throw new Error("Only doctors can create visits");
   }
 

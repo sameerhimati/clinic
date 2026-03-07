@@ -18,7 +18,7 @@ export default async function VisitsPage({
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string; page?: string }>;
 }) {
   const currentDoctor = await requireAuth();
-  if (currentDoctor.permissionLevel === 3) redirect("/dashboard");
+  if (currentDoctor.permissionLevel >= 3) redirect("/dashboard");
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;

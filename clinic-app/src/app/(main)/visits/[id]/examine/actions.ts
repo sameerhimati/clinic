@@ -18,6 +18,14 @@ export async function saveExamination(
     estimate: string | null;
     medication: string | null;
     teethSelected?: string | null;
+    toothUpdates?: { toothNumber: number; status: string; findingId?: number; notes?: string }[];
+    workDone?: {
+      operationId: number;
+      toothNumber?: number;
+      resultingStatus?: string;
+      planItemId?: number;
+      notes?: string;
+    }[];
   }
 ) {
   const currentUser = await requireAuth();
@@ -65,6 +73,152 @@ export async function saveExamination(
         teethSelected: data.teethSelected || null,
       },
     });
+  }
+
+  // Upsert tooth statuses + append history
+  if (data.toothUpdates && data.toothUpdates.length > 0) {
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      select: { patientId: true },
+    });
+    if (visit) {
+      // Fetch existing statuses to detect actual changes
+      const existingStatuses = await prisma.toothStatus.findMany({
+        where: {
+          patientId: visit.patientId,
+          toothNumber: { in: data.toothUpdates.map((tu) => tu.toothNumber) },
+        },
+      });
+      const existingMap = new Map(existingStatuses.map((s) => [s.toothNumber, s]));
+
+      for (const tu of data.toothUpdates) {
+        await prisma.toothStatus.upsert({
+          where: {
+            patientId_toothNumber: {
+              patientId: visit.patientId,
+              toothNumber: tu.toothNumber,
+            },
+          },
+          update: {
+            status: tu.status,
+            findingId: tu.findingId || null,
+            notes: tu.notes || null,
+            reportedById: data.doctorId,
+            reportedAt: new Date(),
+            visitId,
+          },
+          create: {
+            patientId: visit.patientId,
+            toothNumber: tu.toothNumber,
+            status: tu.status,
+            findingId: tu.findingId || null,
+            notes: tu.notes || null,
+            reportedById: data.doctorId,
+            reportedAt: new Date(),
+            visitId,
+          },
+        });
+
+        // Append to history only if status actually changed
+        const prev = existingMap.get(tu.toothNumber);
+        if (!prev || prev.status !== tu.status || prev.findingId !== (tu.findingId || null)) {
+          await prisma.toothStatusHistory.create({
+            data: {
+              patientId: visit.patientId,
+              toothNumber: tu.toothNumber,
+              status: tu.status,
+              findingId: tu.findingId || null,
+              notes: tu.notes || null,
+              visitId,
+              recordedById: data.doctorId,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  // Process WorkDone entries
+  if (data.workDone && data.workDone.length > 0) {
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      select: { patientId: true },
+    });
+    if (visit) {
+      for (const wd of data.workDone) {
+        // Create WorkDone record
+        await prisma.workDone.create({
+          data: {
+            visitId,
+            operationId: wd.operationId,
+            toothNumber: wd.toothNumber || null,
+            resultingStatus: wd.resultingStatus || null,
+            planItemId: wd.planItemId || null,
+            notes: wd.notes || null,
+            performedById: data.doctorId,
+          },
+        });
+
+        // Update tooth status if resultingStatus + toothNumber provided
+        if (wd.resultingStatus && wd.toothNumber) {
+          await prisma.toothStatus.upsert({
+            where: {
+              patientId_toothNumber: {
+                patientId: visit.patientId,
+                toothNumber: wd.toothNumber,
+              },
+            },
+            update: {
+              status: wd.resultingStatus,
+              reportedById: data.doctorId,
+              reportedAt: new Date(),
+              visitId,
+            },
+            create: {
+              patientId: visit.patientId,
+              toothNumber: wd.toothNumber,
+              status: wd.resultingStatus,
+              reportedById: data.doctorId,
+              reportedAt: new Date(),
+              visitId,
+            },
+          });
+          await prisma.toothStatusHistory.create({
+            data: {
+              patientId: visit.patientId,
+              toothNumber: wd.toothNumber,
+              status: wd.resultingStatus,
+              visitId,
+              recordedById: data.doctorId,
+            },
+          });
+        }
+
+        // Complete linked plan item
+        if (wd.planItemId) {
+          await prisma.treatmentPlanItem.update({
+            where: { id: wd.planItemId },
+            data: { visitId, completedAt: new Date() },
+          });
+          // Check if all items in the plan are complete
+          const planItem = await prisma.treatmentPlanItem.findUnique({
+            where: { id: wd.planItemId },
+            select: { planId: true },
+          });
+          if (planItem) {
+            const incompleteCount = await prisma.treatmentPlanItem.count({
+              where: { planId: planItem.planId, completedAt: null },
+            });
+            if (incompleteCount === 0) {
+              await prisma.treatmentPlan.update({
+                where: { id: planItem.planId },
+                data: { status: "COMPLETED" },
+              });
+            }
+          }
+        }
+      }
+    }
   }
 
   // Auto-complete linked appointment

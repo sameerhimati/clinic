@@ -146,6 +146,7 @@ export type PatientPageData = {
     id: number;
     name: string;
     permissionLevel: number;
+    isSuperUser: boolean;
   };
   canCollect: boolean;
   showInternalCosts: boolean;
@@ -158,7 +159,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { patient, currentUser } = data;
-  const isDoctor = currentUser.permissionLevel === 3;
+  const isDoctor = currentUser.permissionLevel >= 3;
 
   // Treatment history view mode
   const [viewMode, setViewMode] = useState<"timeline" | "log">("timeline");
@@ -286,14 +287,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           </Link>
         </Button>
       );
-    } else if (isDoctor) {
-      primaryCta = (
-        <Button size="sm" onClick={openNewVisit}>
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          New Visit
-        </Button>
-      );
-    } else if (!hasActiveAppointment) {
+    } else if (!isDoctor && !hasActiveAppointment) {
       // Only show "Schedule Appointment" if there's no active appointment today
       primaryCta = (
         <Button size="sm" asChild>
@@ -561,7 +555,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             showInternalCosts={data.showInternalCosts}
             patientId={patient.id}
             activeVisitId={activeVisitId || undefined}
-            onAddFollowUp={openFollowUp}
+            onAddFollowUp={!isDoctor ? openFollowUp : undefined}
             visitPlanMap={visitPlanMap}
           />
         ) : (
@@ -664,22 +658,25 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </section>
       )}
 
-      {/* Quick Visit Sheet */}
-      <QuickVisitSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        patientId={patient.id}
-        patientName={toTitleCase(patient.name)}
-        patientCode={patient.code}
-        operations={data.operations}
-        doctors={data.doctors}
-        labs={data.labs}
-        permissionLevel={currentUser.permissionLevel}
-        currentDoctorId={currentUser.id}
-        followUpContext={followUpContext}
-        appointmentId={todayAppt?.status === "ARRIVED" ? todayAppt.id : undefined}
-        totalPaid={data.totalPaid}
-      />
+      {/* Quick Visit Sheet — hidden for doctors (they use appointment workflow) */}
+      {!isDoctor && (
+        <QuickVisitSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          patientId={patient.id}
+          patientName={toTitleCase(patient.name)}
+          patientCode={patient.code}
+          operations={data.operations}
+          doctors={data.doctors}
+          labs={data.labs}
+          permissionLevel={currentUser.permissionLevel}
+          isSuperUser={currentUser.isSuperUser}
+          currentDoctorId={currentUser.id}
+          followUpContext={followUpContext}
+          appointmentId={todayAppt?.status === "ARRIVED" ? todayAppt.id : undefined}
+          totalPaid={data.totalPaid}
+        />
+      )}
     </div>
   );
 }

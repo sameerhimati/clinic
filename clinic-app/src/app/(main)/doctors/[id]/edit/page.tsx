@@ -35,8 +35,8 @@ export default async function EditDoctorPage({
     prisma.room.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
   ]);
 
-  // Only show availability for L3 (doctor) accounts
-  const showAvailability = doctor.permissionLevel === 3;
+  // Show availability for L3 (doctor) and L4 (consultant) accounts
+  const showAvailability = doctor.permissionLevel >= 3;
   const canEditProfile = canManageSystem(currentUser.permissionLevel);
 
   return (

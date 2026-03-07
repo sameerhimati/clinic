@@ -1,5 +1,5 @@
-// Simple permission helpers
-// Permission levels: 0=SYSADM, 1=Admin, 2=Reception, 3=Doctor
+// Permission helpers
+// Permission levels: 0=SYSADM, 1=Admin, 2=Reception, 3=Doctor, 4=Consultant
 
 /** Can view reports pages (commission, outstanding — shows other doctors' earnings) */
 export function canSeeReports(permissionLevel: number): boolean {
@@ -31,19 +31,37 @@ export function canManageSystem(permissionLevel: number): boolean {
   return permissionLevel <= 1;
 }
 
-/** Can create visits (doctors only) */
-export function canCreateVisits(permissionLevel: number): boolean {
-  return permissionLevel === 3;
+/** Can create/edit clinical examination reports (L3 doctors + L4 consultants) */
+export function canExamine(permissionLevel: number): boolean {
+  return permissionLevel === 3 || permissionLevel === 4;
 }
 
-/** Can create/edit clinical examination reports (doctors only) */
-export function canExamine(permissionLevel: number): boolean {
+/** Can schedule appointments (L1 admin + L2 reception only) */
+export function canSchedule(permissionLevel: number): boolean {
+  return permissionLevel <= 2;
+}
+
+/** Can create treatment plans (L3 BDS doctors only) */
+export function canCreateTreatmentPlans(permissionLevel: number): boolean {
   return permissionLevel === 3;
 }
 
 /** Admin can unlock reports and visits */
 export function isAdmin(permissionLevel: number): boolean {
   return permissionLevel <= 1;
+}
+
+/** Max discount percent allowed by role */
+export function maxDiscountPercent(permissionLevel: number, isSuperUser: boolean): number {
+  if (permissionLevel <= 1) return 100; // L1: unlimited
+  if (permissionLevel === 2 && isSuperUser) return 50; // L2 super: up to 50%
+  if (permissionLevel <= 3) return 20; // L2 standard + L3: up to 20%
+  return 0; // L4: no discounts
+}
+
+/** Whether discount >20% requires a reason (for audit) */
+export function discountRequiresReason(discountPercent: number): boolean {
+  return discountPercent > 20;
 }
 
 const LOCK_AFTER_HOURS = 24;

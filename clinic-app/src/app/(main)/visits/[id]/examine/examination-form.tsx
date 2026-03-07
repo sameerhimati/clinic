@@ -22,9 +22,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download } from "lucide-react";
-import { ToothChart } from "@/components/tooth-chart";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download, Pill } from "lucide-react";
+import { PrescriptionSheet } from "@/components/prescription-sheet";
+import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
+import { ToothDetailPanel, type ToothUpdate, type ToothFindingOption } from "@/components/tooth-detail-panel";
+import { TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, getStatusColor, type ToothStatusKey } from "@/lib/dental";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
+import { WorkDoneCard, type WorkDoneEntry } from "@/components/work-done-card";
 import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
 import { toTitleCase, formatDateTime } from "@/lib/format";
@@ -87,21 +91,6 @@ const MORE_COMPLAINTS = [
   "OTHER",
 ];
 
-const COMMON_MEDICATIONS = [
-  "Amoxicillin 500mg TDS x 5d",
-  "Ibuprofen 400mg SOS",
-  "Omeprazole 20mg OD x 5d",
-  "Chlorhexidine MW BD x 2w",
-  "Metronidazole 400mg TDS x 5d",
-  "Dolo 650mg SOS",
-];
-
-const MORE_MEDICATIONS = [
-  "Augmentin 625mg BD x 5d",
-  "Ketorol DT SOS",
-  "Ornidazole 500mg BD x 5d",
-  "Betadine Gargle TDS x 1w",
-];
 
 type ExistingReport = {
   id: number;
@@ -476,54 +465,68 @@ function ComplaintPills({ complaint, setComplaint }: { complaint: string; setCom
   );
 }
 
-function MedicationPills({ medication, setMedication }: { medication: string; setMedication: (v: string) => void }) {
-  const [showMore, setShowMore] = useState(false);
-  const lines = medication.split("\n").map(s => s.trim()).filter(Boolean);
-  const hasMoreSelected = MORE_MEDICATIONS.some(m => lines.includes(m));
-  const visibleMeds = (showMore || hasMoreSelected) ? [...COMMON_MEDICATIONS, ...MORE_MEDICATIONS] : COMMON_MEDICATIONS;
+/** Floating apply toolbar — appears when teeth are selected */
+function ToothApplyBar({
+  selected,
+  onApply,
+  onClear,
+  onDetails,
+}: {
+  selected: number[];
+  onApply: (status: string) => void;
+  onClear: () => void;
+  onDetails: () => void;
+}) {
+  if (selected.length === 0) return null;
 
-  const toggle = (med: string) => {
-    if (lines.includes(med)) {
-      setMedication(lines.filter(l => l !== med).join("\n"));
-    } else {
-      setMedication(medication.trim() ? medication.trim() + "\n" + med : med);
-    }
-  };
+  const statusButtons: { key: string; label: string; indicator: string; color: string }[] = [
+    { key: "MISSING", label: "Missing", indicator: TOOTH_STATUS_INDICATORS.MISSING, color: getStatusColor("MISSING") },
+    { key: "CARIES", label: "Caries", indicator: TOOTH_STATUS_INDICATORS.CARIES, color: getStatusColor("CARIES") },
+    { key: "FILLED", label: "Filled", indicator: TOOTH_STATUS_INDICATORS.FILLED, color: getStatusColor("FILLED") },
+    { key: "CROWNED", label: "Crown", indicator: TOOTH_STATUS_INDICATORS.CROWNED, color: getStatusColor("CROWNED") },
+    { key: "RCT", label: "RCT", indicator: TOOTH_STATUS_INDICATORS.RCT, color: getStatusColor("RCT") },
+    { key: "IMPLANT", label: "Implant", indicator: TOOTH_STATUS_INDICATORS.IMPLANT, color: getStatusColor("IMPLANT") },
+    { key: "EXTRACTED", label: "Extracted", indicator: TOOTH_STATUS_INDICATORS.EXTRACTED, color: getStatusColor("EXTRACTED") },
+  ];
 
   return (
-    <div className="space-y-1.5">
-      <Label>Medication</Label>
-      <div className="flex flex-wrap gap-1.5">
-        {visibleMeds.map((m) => (
-          <button
-            key={m}
-            type="button"
-            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-              lines.includes(m)
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background border-input hover:bg-accent"
-            }`}
-            onClick={() => toggle(m)}
-          >
-            {m}
-          </button>
-        ))}
-        {!showMore && !hasMoreSelected && (
-          <button
-            type="button"
-            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
-            onClick={() => setShowMore(true)}
-          >
-            More…
-          </button>
-        )}
-      </div>
-      <Textarea
-        placeholder="Prescribed medication (one per line)..."
-        value={medication}
-        onChange={(e) => setMedication(e.target.value)}
-        rows={3}
-      />
+    <div className="flex flex-wrap items-center gap-1.5 mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
+      <span className="text-xs font-medium text-primary mr-1">
+        {selected.length} {selected.length === 1 ? "tooth" : "teeth"}:
+      </span>
+      {statusButtons.map(({ key, label, indicator, color }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onApply(key)}
+          className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-input bg-background hover:bg-accent cursor-pointer"
+        >
+          <span style={{ color }} className="text-[10px]">{indicator}</span>
+          {label}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => onApply("HEALTHY")}
+        className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-green-300 text-green-700 bg-green-50 hover:bg-green-100 cursor-pointer"
+      >
+        Healthy
+      </button>
+      <div className="flex-1" />
+      <button
+        type="button"
+        onClick={onDetails}
+        className="text-xs text-primary hover:underline cursor-pointer"
+      >
+        Details...
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+      >
+        Clear
+      </button>
     </div>
   );
 }
@@ -556,6 +559,9 @@ export function ExaminationForm({
   patientDiseases,
   patientFiles,
   currentStepTemplate,
+  toothStatuses: toothStatusesProp,
+  toothFindings,
+  toothHistory: toothHistoryProp,
 }: {
   visitId: number;
   patientId?: number;
@@ -590,6 +596,9 @@ export function ExaminationForm({
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
   patientDiseases?: string[];
   patientFiles?: PatientFileRef[];
+  toothStatuses?: { toothNumber: number; status: string; findingId?: number; findingName?: string; color?: string; notes?: string }[];
+  toothFindings?: ToothFindingOption[];
+  toothHistory?: { toothNumber: number; status: string; findingName?: string; date: string; doctorName: string; visitCaseNo?: number }[];
 }) {
   const { doctor: currentDoctor } = useAuth();
   const router = useRouter();
@@ -607,13 +616,129 @@ export function ExaminationForm({
   const [diagnosis, setDiagnosis] = useState(existingReport?.diagnosis || "");
   const [treatmentNotes, setTreatmentNotes] = useState(existingReport?.treatmentNotes || "");
   const [estimate, setEstimate] = useState(existingReport?.estimate || "");
-  const [medication, setMedication] = useState(existingReport?.medication || "");
   const [addendumText, setAddendumText] = useState("");
   const [teethSelected, setTeethSelected] = useState<number[]>(() => {
     try {
       return existingReport?.teethSelected ? JSON.parse(existingReport.teethSelected) : [];
     } catch { return []; }
   });
+
+  // Work Done state
+  const [workDoneEntries, setWorkDoneEntries] = useState<WorkDoneEntry[]>([]);
+
+  // Prescription sheet state
+  const [rxSheetOpen, setRxSheetOpen] = useState(false);
+
+  // Tooth detail panel state
+  const [toothUpdates, setToothUpdates] = useState<Map<number, ToothUpdate>>(new Map());
+  const [detailTooth, setDetailTooth] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // Build merged tooth status data: server data + local updates
+  const mergedToothStatuses: ToothStatusData[] = (() => {
+    const result = new Map<number, ToothStatusData>();
+    // Start with server data
+    if (toothStatusesProp) {
+      for (const ts of toothStatusesProp) {
+        result.set(ts.toothNumber, {
+          toothNumber: ts.toothNumber,
+          status: ts.status,
+          findingName: ts.findingName,
+          color: ts.color,
+        });
+      }
+    }
+    // Overlay local updates
+    for (const [toothNum, update] of toothUpdates) {
+      const finding = toothFindings?.find((f) => f.id === update.findingId);
+      result.set(toothNum, {
+        toothNumber: toothNum,
+        status: update.status,
+        findingName: finding?.name,
+        color: finding?.color ?? undefined,
+      });
+    }
+    return Array.from(result.values());
+  })();
+
+  function handleBatchApply(status: string) {
+    setToothUpdates((prev) => {
+      const next = new Map(prev);
+      for (const tooth of teethSelected) {
+        if (status === "HEALTHY") {
+          next.delete(tooth);
+        } else {
+          const existing = next.get(tooth);
+          next.set(tooth, { toothNumber: tooth, status, findingId: existing?.findingId, notes: existing?.notes });
+        }
+      }
+      return next;
+    });
+    setTeethSelected([]);
+  }
+
+  function handleToothDoubleClick(tooth: number) {
+    if (readOnly || isLocked) return;
+    setDetailTooth(tooth);
+    setDetailOpen(true);
+  }
+
+  function handleToothSave(update: ToothUpdate) {
+    setToothUpdates((prev) => {
+      const next = new Map(prev);
+      next.set(update.toothNumber, update);
+      return next;
+    });
+    // Also add to teethSelected for backward compat
+    if (!teethSelected.includes(update.toothNumber)) {
+      setTeethSelected((prev) => [...prev, update.toothNumber]);
+    }
+  }
+
+  // Get current data for the detail panel
+  function getToothCurrentData(tooth: number) {
+    // Local update takes precedence
+    const localUpdate = toothUpdates.get(tooth);
+    if (localUpdate) {
+      return { status: localUpdate.status, findingId: localUpdate.findingId, notes: localUpdate.notes };
+    }
+    // Fall back to server data
+    const serverData = toothStatusesProp?.find((ts) => ts.toothNumber === tooth);
+    if (serverData) {
+      return { status: serverData.status, findingId: serverData.findingId, notes: serverData.notes };
+    }
+    return null;
+  }
+
+  function handleAddWorkDone(entry: WorkDoneEntry) {
+    setWorkDoneEntries((prev) => [...prev, entry]);
+    // Auto-update tooth statuses for Work Done entries
+    if (entry.resultingStatus && entry.toothNumbers.length > 0) {
+      setToothUpdates((prev) => {
+        const next = new Map(prev);
+        for (const tooth of entry.toothNumbers) {
+          next.set(tooth, { toothNumber: tooth, status: entry.resultingStatus! });
+        }
+        return next;
+      });
+    }
+  }
+
+  function handleRemoveWorkDone(id: string) {
+    setWorkDoneEntries((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  // Build plan items available for Work Done auto-matching
+  const activePlanItemsForWorkDone = (() => {
+    if (!matchingPlanItem) return undefined;
+    return matchingPlanItem.allItems
+      .filter((item) => !item.isCompleted)
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+        operationId: null as number | null, // plan items may not have operationId exposed
+      }));
+  })();
 
   // Quick mode = default for new reports. Detailed = default when existing report has examination or diagnosis.
   const hasDetailedFields = !!(existingReport?.examination || existingReport?.diagnosis);
@@ -633,7 +758,7 @@ export function ExaminationForm({
       if (raw) {
         const draft = JSON.parse(raw);
         // Only offer restore if draft has content and differs from saved
-        const hasContent = draft.complaint || draft.examination || draft.diagnosis || draft.treatmentNotes || draft.medication;
+        const hasContent = draft.complaint || draft.examination || draft.diagnosis || draft.treatmentNotes;
         const differsSaved = draft.complaint !== (existingReport?.complaint || "") ||
           draft.treatmentNotes !== (existingReport?.treatmentNotes || "") ||
           draft.diagnosis !== (existingReport?.diagnosis || "");
@@ -657,7 +782,6 @@ export function ExaminationForm({
       if (draft.diagnosis != null) setDiagnosis(draft.diagnosis);
       if (draft.treatmentNotes != null) setTreatmentNotes(draft.treatmentNotes);
       if (draft.estimate != null) setEstimate(draft.estimate);
-      if (draft.medication != null) setMedication(draft.medication);
       if (draft.teethSelected) {
         try { setTeethSelected(JSON.parse(draft.teethSelected)); } catch { /* ignore */ }
       }
@@ -683,7 +807,6 @@ export function ExaminationForm({
     diagnosis: existingReport?.diagnosis || "",
     treatmentNotes: existingReport?.treatmentNotes || "",
     estimate: existingReport?.estimate || "",
-    medication: existingReport?.medication || "",
     teethSelected: existingReport?.teethSelected || "[]",
   });
 
@@ -691,9 +814,10 @@ export function ExaminationForm({
     const s = savedRef.current;
     return complaint !== s.complaint || examination !== s.examination ||
       diagnosis !== s.diagnosis || treatmentNotes !== s.treatmentNotes ||
-      estimate !== s.estimate || medication !== s.medication ||
-      JSON.stringify(teethSelected) !== s.teethSelected;
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected]);
+      estimate !== s.estimate ||
+      JSON.stringify(teethSelected) !== s.teethSelected ||
+      workDoneEntries.length > 0;
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, workDoneEntries]);
 
   // Debounced autosave to localStorage
   useEffect(() => {
@@ -703,14 +827,14 @@ export function ExaminationForm({
       if (!isDirty()) return;
       try {
         localStorage.setItem(draftKey, JSON.stringify({
-          complaint, examination, diagnosis, treatmentNotes, estimate, medication,
+          complaint, examination, diagnosis, treatmentNotes, estimate,
           teethSelected: JSON.stringify(teethSelected),
           savedAt: Date.now(),
         }));
       } catch { /* quota exceeded — ignore */ }
     }, 15000); // Save every 15s of idle
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected, readOnly, isLocked, isDirty, draftKey]);
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, readOnly, isLocked, isDirty, draftKey]);
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -719,7 +843,7 @@ export function ExaminationForm({
         // Save draft immediately on unload
         try {
           localStorage.setItem(draftKey, JSON.stringify({
-            complaint, examination, diagnosis, treatmentNotes, estimate, medication,
+            complaint, examination, diagnosis, treatmentNotes, estimate,
             teethSelected: JSON.stringify(teethSelected),
             savedAt: Date.now(),
           }));
@@ -728,7 +852,7 @@ export function ExaminationForm({
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty, draftKey, complaint, examination, diagnosis, treatmentNotes, estimate, medication, teethSelected]);
+  }, [isDirty, draftKey, complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected]);
 
   // Keyboard shortcuts: Cmd+S = Save, Cmd+Enter = Save & Next Patient
   const handleSaveRef = useRef(handleSave);
@@ -750,7 +874,7 @@ export function ExaminationForm({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [readOnly, isLocked]);
 
-  const isDoctor = permissionLevel === 3;
+  const isDoctor = (permissionLevel ?? 0) >= 3;
   const hasPreviousNotes = previousReports && previousReports.length > 0;
   const hasFiles = patientFiles && patientFiles.length > 0;
   const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
@@ -899,12 +1023,34 @@ export function ExaminationForm({
           diagnosis: diagnosis || null,
           treatmentNotes: treatmentNotes || null,
           estimate: estimate || null,
-          medication: medication || null,
+          medication: null,
           teethSelected: teethSelected.length > 0 ? JSON.stringify(teethSelected) : null,
+          toothUpdates: toothUpdates.size > 0 ? Array.from(toothUpdates.values()) : undefined,
+          workDone: workDoneEntries.length > 0
+            ? workDoneEntries.flatMap((entry) => {
+                if (entry.toothNumbers.length === 0) {
+                  return [{
+                    operationId: entry.operationId,
+                    resultingStatus: entry.resultingStatus || undefined,
+                    planItemId: entry.planItemId || undefined,
+                    notes: entry.notes || undefined,
+                  }];
+                }
+                return entry.toothNumbers.map((tooth, idx) => ({
+                  operationId: entry.operationId,
+                  toothNumber: tooth,
+                  resultingStatus: entry.resultingStatus || undefined,
+                  planItemId: idx === 0 ? (entry.planItemId || undefined) : undefined,
+                  notes: idx === 0 ? (entry.notes || undefined) : undefined,
+                }));
+              })
+            : undefined,
         });
 
         // Auto-complete matching plan item for follow-up visits
-        if (matchingPlanItem) {
+        // Skip if WorkDone entries already handle plan item completion
+        const workDoneHandlesPlan = workDoneEntries.some((e) => e.planItemId != null);
+        if (matchingPlanItem && !workDoneHandlesPlan) {
           try {
             await completePlanItems([matchingPlanItem.itemId], visitId);
             toast.success(`Step completed: ${matchingPlanItem.itemLabel}`);
@@ -1302,8 +1448,15 @@ export function ExaminationForm({
             <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
 
             <div className="space-y-1.5">
-              <Label>Teeth</Label>
-              <ToothChart selected={teethSelected} onChange={setTeethSelected} />
+              <Label>Teeth {toothUpdates.size > 0 && <span className="text-xs text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</Label>
+              <ToothChart
+                selected={teethSelected}
+                onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
+                toothStatuses={mergedToothStatuses}
+                onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
+                readOnly={readOnly || isLocked}
+              />
+              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} />}
             </div>
 
             <div className="space-y-1.5">
@@ -1329,7 +1482,6 @@ export function ExaminationForm({
               />
             </div>
 
-            <MedicationPills medication={medication} setMedication={setMedication} />
           </CardContent>
         </Card>
       ) : (
@@ -1343,8 +1495,15 @@ export function ExaminationForm({
               <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
 
               <div className="space-y-1.5">
-                <Label>Teeth</Label>
-                <ToothChart selected={teethSelected} onChange={setTeethSelected} />
+                <Label>Teeth {toothUpdates.size > 0 && <span className="text-xs text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</Label>
+                <ToothChart
+                  selected={teethSelected}
+                  onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
+                  toothStatuses={mergedToothStatuses}
+                  onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
+                  readOnly={readOnly || isLocked}
+                />
+                {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} />}
               </div>
 
               <div className="space-y-1.5">
@@ -1408,10 +1567,21 @@ export function ExaminationForm({
                 </div>
               )}
 
-              <MedicationPills medication={medication} setMedication={setMedication} />
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Work Done — between notes and treatment plan */}
+      {isDoctor && (
+        <WorkDoneCard
+          entries={workDoneEntries}
+          onAdd={handleAddWorkDone}
+          onRemove={handleRemoveWorkDone}
+          selectedTeeth={teethSelected}
+          allOperations={allOperations || []}
+          activePlanItems={activePlanItemsForWorkDone}
+        />
       )}
 
       {/* Treatment Plan — context-aware section */}
@@ -1770,6 +1940,17 @@ export function ExaminationForm({
               <Printer className="mr-1 h-3.5 w-3.5" />
               Print
             </Button>
+            {isDoctor && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRxSheetOpen(true)}
+                disabled={isPending}
+              >
+                <Pill className="mr-1 h-3.5 w-3.5" />
+                Prescribe
+              </Button>
+            )}
             <Button
               variant={isDoctor ? "outline" : "default"}
               size="sm"
@@ -1793,7 +1974,27 @@ export function ExaminationForm({
     </div>
   );
 
-  if (!hasPreviousNotes) return editableContent;
+  const toothPanel = toothFindings && toothFindings.length > 0 ? (
+    <ToothDetailPanel
+      toothNumber={detailTooth}
+      open={detailOpen}
+      onOpenChange={setDetailOpen}
+      findings={toothFindings}
+      currentData={detailTooth ? getToothCurrentData(detailTooth) : null}
+      onSave={handleToothSave}
+      history={detailTooth ? toothHistoryProp?.filter((h) => h.toothNumber === detailTooth) : undefined}
+    />
+  ) : null;
+
+  const prescriptionSheet = (
+    <PrescriptionSheet
+      open={rxSheetOpen}
+      onOpenChange={setRxSheetOpen}
+      visitId={visitId}
+    />
+  );
+
+  if (!hasPreviousNotes) return <>{editableContent}{toothPanel}{prescriptionSheet}</>;
   return (
     <>
       {previousNotesMobile}
@@ -1802,6 +2003,8 @@ export function ExaminationForm({
         <div className="max-w-3xl">{editableContent}</div>
       </div>
       <div className="lg:hidden">{editableContent}</div>
+      {toothPanel}
+      {prescriptionSheet}
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { canSchedule } from "@/lib/permissions";
 import { AppointmentForm } from "@/components/appointment-form";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 
@@ -17,6 +19,7 @@ export default async function NewAppointmentPage({
   }>;
 }) {
   const currentUser = await requireAuth();
+  if (!canSchedule(currentUser.permissionLevel)) redirect("/appointments");
   const params = await searchParams;
 
   const [doctorsRaw, rooms, availability] = await Promise.all([
@@ -71,7 +74,7 @@ export default async function NewAppointmentPage({
         doctors={doctors}
         rooms={rooms}
         defaultPatient={defaultPatient}
-        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : currentUser.permissionLevel === 3 ? currentUser.id : undefined}
+        defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : currentUser.permissionLevel >= 3 ? currentUser.id : undefined}
         defaultDate={params.date}
         defaultReason={defaultReason}
         permissionLevel={currentUser.permissionLevel}

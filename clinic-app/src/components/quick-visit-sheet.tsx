@@ -19,13 +19,7 @@ import { OperationCombobox, type Operation, type Doctor, type Lab } from "@/comp
 import { toTitleCase } from "@/lib/format";
 import { createQuickVisit } from "@/app/(main)/visits/actions";
 import { todayString } from "@/lib/validations";
-
-const DISCOUNT_TIERS = [
-  { label: "No Discount", percent: 0, minLevel: 3 },
-  { label: "10%", percent: 10, minLevel: 3 },
-  { label: "15%", percent: 15, minLevel: 2 },
-  { label: "20%", percent: 20, minLevel: 1 },
-] as const;
+import { maxDiscountPercent } from "@/lib/permissions";
 
 function formatINR(amount: number): string {
   return amount.toLocaleString("en-IN");
@@ -50,6 +44,7 @@ export function QuickVisitSheet({
   doctors,
   labs,
   permissionLevel,
+  isSuperUser,
   currentDoctorId,
   followUpContext,
   appointmentId,
@@ -65,6 +60,7 @@ export function QuickVisitSheet({
   doctors: Doctor[];
   labs: Lab[];
   permissionLevel: number;
+  isSuperUser: boolean;
   currentDoctorId: number;
   followUpContext?: FollowUpContext;
   appointmentId?: number;
@@ -73,8 +69,9 @@ export function QuickVisitSheet({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const isDoctor = permissionLevel === 3;
+  const isDoctor = permissionLevel >= 3;
   const isFollowUp = !!followUpContext;
+  const maxPct = maxDiscountPercent(permissionLevel, isSuperUser);
 
   // Form state
   const [selectedOperationId, setSelectedOperationId] = useState<number | undefined>(
@@ -285,31 +282,28 @@ export function QuickVisitSheet({
             </div>
 
             {/* Discount selector */}
-            {rateNum > 0 && (
+            {rateNum > 0 && maxPct > 0 && (
               <div className="space-y-2">
                 <Label>Discount</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {DISCOUNT_TIERS.map((tier) => {
-                    const canUse = permissionLevel <= tier.minLevel;
-                    const isSelected = selectedDiscountPercent === tier.percent;
+                  {[0, 10, 15, 20, 50].filter(p => p <= maxPct).map((percent) => {
+                    const label = percent === 0 ? "No Discount" : `${percent}%`;
+                    const isSelected = selectedDiscountPercent === percent;
                     return (
                       <button
-                        key={tier.percent}
+                        key={percent}
                         type="button"
-                        disabled={!canUse}
                         onClick={() => {
-                          setSelectedDiscountPercent(tier.percent);
-                          setDiscount(Math.round(rateNum * tier.percent / 100));
+                          setSelectedDiscountPercent(percent);
+                          setDiscount(Math.round(rateNum * percent / 100));
                         }}
                         className={`inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                           isSelected
                             ? "border-primary bg-primary text-primary-foreground"
-                            : canUse
-                              ? "border-input bg-background hover:bg-accent cursor-pointer"
-                              : "border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "border-input bg-background hover:bg-accent cursor-pointer"
                         }`}
                       >
-                        {tier.label}
+                        {label}
                       </button>
                     );
                   })}

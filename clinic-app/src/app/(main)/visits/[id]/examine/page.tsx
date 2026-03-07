@@ -127,6 +127,28 @@ export default async function ExaminePage({
 
   const operationName = visit.operation?.name || "Visit";
 
+  // Fetch tooth statuses, findings, and history for odontogram
+  const [patientToothStatuses, activeFindings, toothHistory] = await Promise.all([
+    prisma.toothStatus.findMany({
+      where: { patientId: visit.patientId },
+      include: { finding: { select: { name: true, color: true } } },
+    }),
+    prisma.toothFinding.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, name: true, category: true, color: true },
+    }),
+    prisma.toothStatusHistory.findMany({
+      where: { patientId: visit.patientId },
+      orderBy: { recordedAt: "asc" },
+      include: {
+        recordedBy: { select: { name: true } },
+        finding: { select: { name: true } },
+        visit: { select: { caseNo: true } },
+      },
+    }),
+  ]);
+
   // Fetch data for treatment plan creation (doctors + template steps + existing plans + availability)
   const [treatmentSteps, activeDoctors, existingPlans, doctorAvailability] = await Promise.all([
     visit.operationId
@@ -137,7 +159,7 @@ export default async function ExaminePage({
         })
       : Promise.resolve([]),
     prisma.doctor.findMany({
-      where: { permissionLevel: 3, isActive: true },
+      where: { permissionLevel: { in: [3, 4] }, isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
@@ -320,6 +342,23 @@ export default async function ExaminePage({
           createdAt: f.createdAt.toISOString(),
           visitCaseNo: f.visit?.caseNo ?? null,
           visitOperation: f.visit?.operation?.name ?? null,
+        }))}
+        toothStatuses={patientToothStatuses.map((ts) => ({
+          toothNumber: ts.toothNumber,
+          status: ts.status,
+          findingId: ts.findingId ?? undefined,
+          findingName: ts.finding?.name ?? undefined,
+          color: ts.finding?.color ?? undefined,
+          notes: ts.notes ?? undefined,
+        }))}
+        toothFindings={activeFindings}
+        toothHistory={toothHistory.map((h) => ({
+          toothNumber: h.toothNumber,
+          status: h.status,
+          findingName: h.finding?.name ?? undefined,
+          date: formatDate(h.recordedAt),
+          doctorName: toTitleCase(h.recordedBy.name),
+          visitCaseNo: h.visit?.caseNo ?? undefined,
         }))}
       />
     </div>

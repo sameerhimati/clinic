@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,6 +106,7 @@ export function TreatmentPlanCard({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [cancelReason, setCancelReason] = useState("");
   const items = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const completedCount = items.filter((i) => i.visitId !== null).length;
   const totalCount = items.length;
@@ -146,8 +148,9 @@ export function TreatmentPlanCard({
   async function handleCancel() {
     startTransition(async () => {
       try {
-        await cancelPlan(plan.id);
+        await cancelPlan(plan.id, cancelReason);
         toast.success("Treatment plan cancelled");
+        setCancelReason("");
         router.refresh();
       } catch {
         toast.error("Failed to cancel plan");
@@ -313,7 +316,7 @@ export function TreatmentPlanCard({
               </>
             )}
             {/* Next item has no appointment: show schedule button */}
-            {scheduleUrl && (
+            {scheduleUrl && !isDoctor && (
               <Button size="sm" asChild>
                 <Link href={scheduleUrl}>
                   <CalendarDays className="mr-1 h-3.5 w-3.5" />
@@ -360,9 +363,20 @@ export function TreatmentPlanCard({
                       cancelled.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+                  <div className="space-y-2 py-2">
+                    <label className="text-sm font-medium">
+                      Reason for cancellation <span className="text-destructive">*</span>
+                    </label>
+                    <Textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="e.g., Patient opted out, treatment no longer needed"
+                      rows={2}
+                    />
+                  </div>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Keep Plan</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancel}>
+                    <AlertDialogCancel onClick={() => setCancelReason("")}>Keep Plan</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleCancel} disabled={!cancelReason.trim()}>
                       Yes, Cancel Plan
                     </AlertDialogAction>
                   </AlertDialogFooter>

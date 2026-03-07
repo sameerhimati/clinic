@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
+import { logFlaggedAction } from "@/lib/audit";
 
 type PlanItemInput = {
   label: string;
@@ -120,6 +121,24 @@ export async function updateTreatmentPlan(
     data: updateData,
   });
 
+  // Audit: log plan modifications when items change
+  if (data.items) {
+    const completedCount = plan.items.filter((i) => i.visitId !== null).length;
+    logFlaggedAction({
+      action: "PLAN_MODIFIED",
+      actorId: currentUser.id,
+      patientId: plan.patientId,
+      entityType: "TreatmentPlan",
+      entityId: planId,
+      reason: `Plan "${plan.items[0]?.label || 'Unknown'}" modified`,
+      details: {
+        planTitle: data.title || plan.items[0]?.label || "Unknown",
+        previousItemCount: plan.items.length,
+        newItemCount: completedCount + data.items.length,
+      },
+    });
+  }
+
   revalidatePath(`/patients/${plan.patientId}`);
   return { success: true };
 }
@@ -187,7 +206,7 @@ export async function completePlan(planId: number) {
   return { success: true };
 }
 
-export async function cancelPlan(planId: number) {
+export async function cancelPlan(planId: number, reason?: string) {
   const currentUser = await requireAuth();
   if (currentUser.permissionLevel > 3) {
     throw new Error("Unauthorized");
@@ -195,13 +214,23 @@ export async function cancelPlan(planId: number) {
 
   const plan = await prisma.treatmentPlan.findUnique({
     where: { id: planId },
-    select: { patientId: true },
+    select: { patientId: true, title: true },
   });
   if (!plan) throw new Error("Plan not found");
 
   await prisma.treatmentPlan.update({
     where: { id: planId },
     data: { status: "CANCELLED" },
+  });
+
+  logFlaggedAction({
+    action: "PLAN_CANCELLED",
+    actorId: currentUser.id,
+    patientId: plan.patientId,
+    entityType: "TreatmentPlan",
+    entityId: planId,
+    reason: reason || "No reason provided",
+    details: { planTitle: plan.title },
   });
 
   revalidatePath(`/patients/${plan.patientId}`);

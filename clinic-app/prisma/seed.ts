@@ -136,11 +136,11 @@ async function main() {
   const doctors = [
     { code: 0, name: "NONE", commissionPercent: 0, designationId: 1, permissionLevel: 2 },
     { code: 1, name: "KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 1, password: "admin" },
-    { code: 150, name: "DR. KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General" },
+    { code: 150, name: "DR. KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General", isSuperUser: true },
     { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General" },
-    { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1, permissionLevel: 3, password: "doctor", isConsultant: true, specialty: "Prosthodontist" },
-    { code: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1, isConsultant: true, specialty: "Oral Surgeon" },
-    { code: 5, name: "ANITHA", commissionPercent: 70, tdsPercent: 5.1, designationId: 1, isConsultant: true, specialty: "Orthodontist" },
+    { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Prosthodontist" },
+    { code: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Oral Surgeon" },
+    { code: 5, name: "ANITHA", commissionPercent: 70, tdsPercent: 5.1, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Orthodontist" },
     { code: 6, name: "BABU RAM", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, isConsultant: true, specialty: "General" },
     { code: 7, name: "TAUFIQ", commissionPercent: 0, designationId: 1, specialty: "General" },
     { code: 9, name: "SHEETAL", commissionPercent: 45, tdsPercent: 5.1, designationId: 1, isConsultant: true, specialty: "Endodontist" },
@@ -154,7 +154,7 @@ async function main() {
     { code: 44, name: "BHARANI KUMAR REDDY", commissionPercent: 0, tdsPercent: 5.15, designationId: 1, specialty: "General" },
     { code: 48, name: "RAJESH REDDY", commissionPercent: 0, tdsPercent: 11.33, mobile: "9177563555", designationId: 1, specialty: "General" },
     { code: 60, name: "ANIL", commissionPercent: 0, tdsPercent: 11.33, designationId: 1, specialty: "General" },
-    { code: 87, name: "MURALIDHAR", commissionPercent: 0, designationId: 2, permissionLevel: 2, password: "admin" },
+    { code: 87, name: "MURALIDHAR", commissionPercent: 0, designationId: 2, permissionLevel: 2, password: "admin", isSuperUser: true },
   ];
   await prisma.doctor.createMany({ data: doctors });
 
@@ -242,6 +242,7 @@ async function main() {
   const ramana = await prisma.doctor.findFirst({ where: { name: "RAMANA REDDY" } });
   const anitha = await prisma.doctor.findFirst({ where: { name: "ANITHA" } });
   const bhadra = await prisma.doctor.findFirst({ where: { name: "BHADRA RAO" } });
+  const muralidhar = await prisma.doctor.findFirst({ where: { name: "MURALIDHAR" } });
 
   const regCons = await prisma.operation.findFirst({ where: { code: 1 } });     // Consultation
   const scaling = await prisma.operation.findFirst({ where: { code: 7 } });     // Scaling
@@ -1198,6 +1199,78 @@ async function main() {
   console.log(`   - ${availabilityData.length} doctor availability slots`);
 
   // ==========================================
+  // TOOTH FINDINGS (28 dental findings across 5 categories)
+  // ==========================================
+  const toothFindings = [
+    // Caries (3)
+    { name: "Caries", category: "Caries", color: "#ef4444", sortOrder: 1 },
+    { name: "Deep Caries", category: "Caries", color: "#dc2626", sortOrder: 2 },
+    { name: "Root Caries", category: "Caries", color: "#b91c1c", sortOrder: 3 },
+    // Structural (5)
+    { name: "Fracture", category: "Structural", color: "#f97316", sortOrder: 10 },
+    { name: "Chip", category: "Structural", color: "#fb923c", sortOrder: 11 },
+    { name: "Attrition", category: "Structural", color: "#fdba74", sortOrder: 12 },
+    { name: "Abrasion", category: "Structural", color: "#fed7aa", sortOrder: 13 },
+    { name: "Erosion", category: "Structural", color: "#ffedd5", sortOrder: 14 },
+    // Periodontal (6)
+    { name: "Mobility Grade I", category: "Periodontal", color: "#a855f7", sortOrder: 20 },
+    { name: "Mobility Grade II", category: "Periodontal", color: "#9333ea", sortOrder: 21 },
+    { name: "Mobility Grade III", category: "Periodontal", color: "#7e22ce", sortOrder: 22 },
+    { name: "Gingival Recession", category: "Periodontal", color: "#c084fc", sortOrder: 23 },
+    { name: "Periapical Lesion", category: "Periodontal", color: "#d946ef", sortOrder: 24 },
+    { name: "Furcation", category: "Periodontal", color: "#e879f9", sortOrder: 25 },
+    // Prosthetic (7)
+    { name: "Filled", category: "Prosthetic", color: "#3b82f6", sortOrder: 30 },
+    { name: "Crowned", category: "Prosthetic", color: "#2563eb", sortOrder: 31 },
+    { name: "Bridge Abutment", category: "Prosthetic", color: "#1d4ed8", sortOrder: 32 },
+    { name: "Bridge Pontic", category: "Prosthetic", color: "#1e40af", sortOrder: 33 },
+    { name: "RCT Treated", category: "Prosthetic", color: "#6366f1", sortOrder: 34 },
+    { name: "Implant", category: "Prosthetic", color: "#4f46e5", sortOrder: 35 },
+    { name: "Veneer", category: "Prosthetic", color: "#818cf8", sortOrder: 36 },
+    // Other (7)
+    { name: "Missing", category: "Other", color: "#6b7280", sortOrder: 40 },
+    { name: "Impacted", category: "Other", color: "#4b5563", sortOrder: 41 },
+    { name: "Unerupted", category: "Other", color: "#9ca3af", sortOrder: 42 },
+    { name: "Supernumerary", category: "Other", color: "#d1d5db", sortOrder: 43 },
+    { name: "Root Stump", category: "Other", color: "#78716c", sortOrder: 44 },
+    { name: "Tender on Percussion", category: "Other", color: "#fbbf24", sortOrder: 45 },
+    { name: "Discoloration", category: "Other", color: "#a16207", sortOrder: 46 },
+  ];
+  await prisma.toothFinding.createMany({ data: toothFindings });
+  console.log(`   - ${toothFindings.length} tooth findings`);
+
+  // ==========================================
+  // SAMPLE TOOTH STATUSES (on 3 seed patients)
+  // ==========================================
+  // Look up finding IDs
+  const findingRCT = await prisma.toothFinding.findFirst({ where: { name: "RCT Treated" } });
+  const findingCaries = await prisma.toothFinding.findFirst({ where: { name: "Caries" } });
+  const findingMissing = await prisma.toothFinding.findFirst({ where: { name: "Missing" } });
+  const findingFilled = await prisma.toothFinding.findFirst({ where: { name: "Filled" } });
+  const findingCrowned = await prisma.toothFinding.findFirst({ where: { name: "Crowned" } });
+  const findingDeepCaries = await prisma.toothFinding.findFirst({ where: { name: "Deep Caries" } });
+
+  const toothStatuses = [
+    // Patient 1 (RAMCHANDER) — had RCT chain on tooth 46
+    { patientId: 1, toothNumber: 46, status: "RCT", findingId: findingRCT?.id, reportedById: surender!.id, reportedAt: daysAgo(14), visitId: rctParent.id },
+    { patientId: 1, toothNumber: 18, status: "MISSING", findingId: findingMissing?.id },
+    { patientId: 1, toothNumber: 28, status: "MISSING", findingId: findingMissing?.id },
+    { patientId: 1, toothNumber: 36, status: "CARIES", findingId: findingCaries?.id },
+    // Patient 3 (SRINIVAS NARRA) — RCT on tooth 36
+    { patientId: 3, toothNumber: 36, status: "RCT", findingId: findingRCT?.id, reportedById: surender!.id, reportedAt: daysAgo(14), visitId: rctChain3V1.id },
+    { patientId: 3, toothNumber: 48, status: "EXTRACTED", findingId: findingMissing?.id },
+    { patientId: 3, toothNumber: 37, status: "FILLED", findingId: findingFilled?.id },
+    // Patient 22 (VENKAT RAO) — implant chain on tooth 36
+    { patientId: 22, toothNumber: 36, status: "IMPLANT", findingId: null, reportedById: bhadra!.id, reportedAt: daysAgo(56), visitId: implantV3.id },
+    { patientId: 22, toothNumber: 16, status: "CROWNED", findingId: findingCrowned?.id },
+    { patientId: 22, toothNumber: 47, status: "CARIES", findingId: findingDeepCaries?.id },
+  ];
+  for (const ts of toothStatuses) {
+    await prisma.toothStatus.create({ data: ts });
+  }
+  console.log(`   - ${toothStatuses.length} tooth statuses`);
+
+  // ==========================================
   // LINK PLAN ITEMS TO APPOINTMENTS (demo: plan-aware examine flow)
   // ==========================================
   // Patient 28's appointment is plan-linked (Implant Placement step)
@@ -1214,6 +1287,61 @@ async function main() {
     });
     console.log("   - Linked Patient 28 appointment to implant plan item");
   }
+
+  // ==========================================
+  // WORK DONE (sample procedure records)
+  // ==========================================
+  // RCT chain — work done for completed visits
+  await prisma.workDone.createMany({
+    data: [
+      { visitId: rctV1.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Access opening, pulp extirpation", performedById: surender!.id },
+      { visitId: rctV2.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Biomechanical preparation, irrigation", performedById: surender!.id },
+      { visitId: rctV3.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Obturation completed", performedById: surender!.id },
+      // Implant chain — surgical implant placement
+      { visitId: implantV3.id, operationId: implant!.id, toothNumber: 36, resultingStatus: "IMPLANT", notes: "Implant placed, torque 35Ncm", performedById: bhadra!.id },
+    ],
+  });
+  console.log("   - 4 work done entries");
+
+  // ==========================================
+  // PRESCRIPTIONS (sample structured prescriptions)
+  // ==========================================
+  const rx1 = await prisma.prescription.create({
+    data: {
+      visitId: rctV1.id,
+      doctorId: surender!.id,
+      patientId: rctV1.patientId,
+      isPrinted: true,
+      printedAt: daysAgo(45),
+      printedById: muralidhar!.id,
+      notes: "Take after meals",
+      items: {
+        create: [
+          { sortOrder: 1, drug: "Amoxicillin 500mg", frequency: "TDS", duration: "5 days" },
+          { sortOrder: 2, drug: "Ibuprofen 400mg", frequency: "SOS", duration: "3 days", instructions: "Take with food" },
+          { sortOrder: 3, drug: "Omeprazole 20mg", frequency: "OD", duration: "5 days", instructions: "Before breakfast" },
+        ],
+      },
+    },
+  });
+  const rx2 = await prisma.prescription.create({
+    data: {
+      visitId: implantV3.id,
+      doctorId: bhadra!.id,
+      patientId: implantV3.patientId,
+      isPrinted: false,
+      notes: "Avoid hot food for 24 hours",
+      items: {
+        create: [
+          { sortOrder: 1, drug: "Augmentin 625mg", frequency: "BD", duration: "7 days" },
+          { sortOrder: 2, drug: "Ibuprofen 400mg", frequency: "TDS", duration: "5 days", instructions: "Take with food" },
+          { sortOrder: 3, drug: "Chlorhexidine Mouthwash 0.2%", frequency: "BD", duration: "2 weeks", instructions: "Do not rinse with water after" },
+          { sortOrder: 4, drug: "Omeprazole 20mg", frequency: "OD", duration: "7 days", instructions: "Before breakfast" },
+        ],
+      },
+    },
+  });
+  console.log("   - 2 prescriptions (7 items)");
 }
 
 main()

@@ -31,6 +31,16 @@ export default async function ClinicalReportPrintPage({
   if (!report) notFound();
 
   const clinic = await prisma.clinicSettings.findFirst();
+
+  // Fetch work done entries for this visit
+  const workDoneEntries = await prisma.workDone.findMany({
+    where: { visitId },
+    include: {
+      operation: { select: { name: true } },
+      performedBy: { select: { name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
   const patient = report.visit.patient;
 
   return (
@@ -128,6 +138,21 @@ export default async function ClinicalReportPrintPage({
             <div>
               <div className="font-bold text-muted-foreground mb-1">MEDICATION PRESCRIBED</div>
               <div className="whitespace-pre-wrap">{report.medication}</div>
+            </div>
+          )}
+          {workDoneEntries.length > 0 && (
+            <div>
+              <div className="font-bold text-muted-foreground mb-1">PROCEDURES PERFORMED</div>
+              <ul className="list-disc list-inside space-y-1">
+                {workDoneEntries.map((wd) => (
+                  <li key={wd.id}>
+                    {wd.operation.name}
+                    {wd.toothNumber ? ` — Tooth ${wd.toothNumber}` : ""}
+                    {wd.resultingStatus ? ` (→ ${wd.resultingStatus})` : ""}
+                    {wd.notes ? ` — ${wd.notes}` : ""}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

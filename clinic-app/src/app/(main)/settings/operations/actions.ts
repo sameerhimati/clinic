@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { logFlaggedAction } from "@/lib/audit";
 
 export async function createOperation(formData: FormData) {
   await requireAdmin();
@@ -27,7 +28,7 @@ export async function createOperation(formData: FormData) {
 }
 
 export async function updateOperation(formData: FormData) {
-  await requireAdmin();
+  const currentUser = await requireAdmin();
 
   const id = parseInt(formData.get("id") as string);
   const data: Record<string, unknown> = {};
@@ -52,7 +53,36 @@ export async function updateOperation(formData: FormData) {
     data.labCostEstimate = val ? parseFloat(val) : null;
   }
 
+  // Fetch old values for audit comparison
+  const oldOp = await prisma.operation.findUnique({
+    where: { id },
+    select: { name: true, defaultMinFee: true, doctorFee: true },
+  });
+
   await prisma.operation.update({ where: { id }, data });
+
+  // Audit: log fee changes
+  if (oldOp) {
+    const newFee = data.defaultMinFee as number | null | undefined;
+    const newDoctorFee = data.doctorFee as number | null | undefined;
+    const feeChanged = newFee !== undefined && newFee !== oldOp.defaultMinFee;
+    const doctorFeeChanged = newDoctorFee !== undefined && newDoctorFee !== oldOp.doctorFee;
+    if (feeChanged || doctorFeeChanged) {
+      logFlaggedAction({
+        action: "OPERATION_RATE_CHANGE",
+        actorId: currentUser.id,
+        entityType: "Operation",
+        entityId: id,
+        reason: `Rate change for ${oldOp.name}`,
+        details: {
+          name: oldOp.name,
+          ...(feeChanged ? { oldFee: oldOp.defaultMinFee, newFee } : {}),
+          ...(doctorFeeChanged ? { oldDoctorFee: oldOp.doctorFee, newDoctorFee } : {}),
+        },
+      });
+    }
+  }
+
   revalidatePath("/settings/operations");
 }
 

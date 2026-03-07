@@ -37,6 +37,7 @@ type DoctorData = {
   commissionRate: number | null;
   tdsPercent: number;
   isConsultant: boolean;
+  isSuperUser: boolean;
   password: string | null;
 } | null;
 
@@ -120,7 +121,8 @@ export function DoctorForm({
               <option value="0">SysAdmin</option>
               <option value="1">Admin</option>
               <option value="2">Reception</option>
-              <option value="3">Doctor</option>
+              <option value="3">Doctor (BDS)</option>
+              <option value="4">Consultant</option>
             </select>
           </div>
 
@@ -166,6 +168,18 @@ export function DoctorForm({
             />
             <Label htmlFor="isConsultant" className="font-normal">Visiting Consultant</Label>
             <span className="text-xs text-muted-foreground">(receives per-procedure fees)</span>
+          </div>
+
+          <div className="sm:col-span-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isSuperUser"
+              name="isSuperUser"
+              defaultChecked={doctor?.isSuperUser ?? false}
+              className="h-4 w-4 rounded border-input accent-primary"
+            />
+            <Label htmlFor="isSuperUser" className="font-normal">Super User</Label>
+            <span className="text-xs text-muted-foreground">(elevated privileges within role — larger discounts, config access)</span>
           </div>
         </CardContent>
       </Card>

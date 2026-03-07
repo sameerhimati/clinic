@@ -308,6 +308,7 @@ export default async function PatientDetailPage({
       id: currentUser.id,
       name: currentUser.name,
       permissionLevel: currentUser.permissionLevel,
+      isSuperUser: currentUser.isSuperUser,
     },
     canCollect,
     showInternalCosts,

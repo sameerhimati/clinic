@@ -104,7 +104,7 @@ export function AppointmentForm({
   doctorDefaultRooms?: Record<number, number>;
   planItemId?: number;
 }) {
-  const isDoctor = permissionLevel === 3;
+  const isDoctor = (permissionLevel ?? 0) >= 3;
   const isReschedule = mode === "reschedule";
   const [selectedPatient, setSelectedPatient] = useState<DefaultPatient | null>(
     defaultPatient || null

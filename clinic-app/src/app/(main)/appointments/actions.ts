@@ -4,12 +4,13 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, canSchedule } from "@/lib/permissions";
 import { getAllowedNextStatuses } from "@/lib/appointment-status";
 import { appointmentSchema, parseFormData } from "@/lib/validations";
 
 export async function createAppointment(formData: FormData) {
   const currentUser = await requireAuth();
+  if (!canSchedule(currentUser.permissionLevel)) throw new Error("Only admin/reception can schedule appointments");
   const parsed = parseFormData(appointmentSchema, formData);
 
   // Validate date is today or future
@@ -19,8 +20,8 @@ export async function createAppointment(formData: FormData) {
   today.setHours(0, 0, 0, 0);
   if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
 
-  // L3 doctors can only create appointments for themselves
-  const doctorId = currentUser.permissionLevel === 3
+  // L3/L4 doctors can only create appointments for themselves
+  const doctorId = currentUser.permissionLevel >= 3
     ? currentUser.id
     : (parsed.doctorId || null);
 
@@ -83,6 +84,7 @@ export async function updateAppointmentStatus(
 
 export async function updateAppointment(appointmentId: number, formData: FormData) {
   const currentUser = await requireAuth();
+  if (!canSchedule(currentUser.permissionLevel)) throw new Error("Only admin/reception can schedule appointments");
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -99,8 +101,8 @@ export async function updateAppointment(appointmentId: number, formData: FormDat
   today.setHours(0, 0, 0, 0);
   if (updateDate < today) throw new Error("Cannot reschedule appointments to the past");
 
-  // L3 doctors can only assign appointments to themselves
-  const doctorId = currentUser.permissionLevel === 3
+  // L3/L4 doctors can only assign appointments to themselves
+  const doctorId = currentUser.permissionLevel >= 3
     ? currentUser.id
     : (parsed.doctorId || null);
 

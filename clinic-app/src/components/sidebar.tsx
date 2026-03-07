@@ -46,7 +46,7 @@ const navSections: NavSection[] = [
     label: "Main",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/patients", label: "Patients", icon: Users },
+      { href: "/patients", label: "Patients", icon: Users, minPermission: 3 },
       { href: "/appointments", label: "Appointments", icon: CalendarDays },
     ],
   },
@@ -69,10 +69,10 @@ const navSections: NavSection[] = [
   },
   {
     label: "Personal",
-    visible: (level) => level === 3,
+    visible: (level) => level >= 3,
     items: [
-      { href: "/my-activity", label: "My Activity", icon: Activity, exactPermission: 3 },
-      { href: (id: number) => `/doctors/${id}/edit`, label: "My Schedule", icon: Clock, exactPermission: 3 },
+      { href: "/my-activity", label: "My Activity", icon: Activity },
+      { href: (id: number) => `/doctors/${id}/edit`, label: "My Schedule", icon: Clock },
     ],
   },
 ];
@@ -80,6 +80,7 @@ const navSections: NavSection[] = [
 function getRoleBadge(level: number) {
   if (level <= 1) return { label: "Admin", className: "bg-violet-100 text-violet-700" };
   if (level === 2) return { label: "Reception", className: "bg-sky-100 text-sky-700" };
+  if (level === 4) return { label: "Consultant", className: "bg-amber-100 text-amber-700" };
   return { label: "Doctor", className: "bg-emerald-100 text-emerald-700" };
 }
 

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { BarChart3, AlertCircle, FileText, Receipt, FlaskConical, Percent, UserCheck, Users } from "lucide-react";
+import { BarChart3, AlertCircle, FileText, Receipt, FlaskConical, Percent, UserCheck, Users, Shield } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canSeeReports, canSeePatientDirectory } from "@/lib/permissions";
 
@@ -67,6 +67,13 @@ const reports: ReportItem[] = [
     icon: Users,
     title: "Patient Directory",
     description: "Full patient listing with contact & visit info",
+    adminOnly: true,
+  },
+  {
+    href: "/reports/audit",
+    icon: Shield,
+    title: "Audit Log",
+    description: "Flagged actions: discounts, rate changes, plan modifications",
     adminOnly: true,
   },
 ];

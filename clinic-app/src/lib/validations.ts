@@ -90,52 +90,6 @@ export const patientSchema = z.object({
 
 export type PatientInput = z.output<typeof patientSchema>;
 
-// ── Visit ────────────────────────────────────────────────────────────
-
-export const visitSchema = z.object({
-  patientId: z.coerce.number().int().positive("Patient is required"),
-  operationId: optionalInt,
-  doctorId: optionalInt,
-  assistingDoctorId: optionalInt,
-  labId: optionalInt,
-  labRateId: optionalInt,
-  visitType: z.enum(["NEW", "FOLLOWUP", "REVIEW"]).default("NEW"),
-  parentVisitId: optionalInt,
-  stepLabel: optionalString,
-  customLabel: optionalString,
-  followUpReason: optionalString,
-  appointmentId: optionalInt,
-  planItemId: optionalInt,
-  operationRate: numericOrZero,
-  discount: numericOrZero,
-  labRateAmount: numericOrZero,
-  quantity: z
-    .string()
-    .optional()
-    .default("1")
-    .transform((s) => {
-      if (!s) return 1;
-      const n = parseInt(s, 10);
-      return isNaN(n) || n < 1 ? 1 : n;
-    }),
-  labQuantity: z
-    .string()
-    .optional()
-    .default("1")
-    .transform((s) => {
-      if (!s) return 1;
-      const n = parseFloat(s.replace(/,/g, ""));
-      return isNaN(n) || n <= 0 ? 1 : n;
-    }),
-  visitDate: z
-    .string()
-    .optional()
-    .transform((s) => (s ? new Date(s) : new Date())),
-  notes: optionalString,
-});
-
-export type VisitInput = z.output<typeof visitSchema>;
-
 // ── Receipt ──────────────────────────────────────────────────────────
 
 export const receiptSchema = z.object({
@@ -179,7 +133,7 @@ export const doctorSchema = z.object({
   designationId: optionalInt,
   specialty: optionalString,
   defaultRoomId: optionalInt,
-  permissionLevel: z.coerce.number().int().min(0).max(3).default(3),
+  permissionLevel: z.coerce.number().int().min(0).max(4).default(3),
   commissionPercent: z.coerce.number().min(0).max(100).default(0),
   commissionRate: z
     .string()
@@ -191,6 +145,7 @@ export const doctorSchema = z.object({
     }),
   tdsPercent: z.coerce.number().min(0).max(100).default(0),
   isConsultant: z.string().optional().transform((s) => s === "on" || s === "true"),
+  isSuperUser: z.string().optional().transform((s) => s === "on" || s === "true"),
   password: optionalString,
 });
 
