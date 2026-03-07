@@ -662,9 +662,10 @@ export function ExaminationForm({
   })();
 
   function handleBatchApply(status: string) {
+    const selectedTeeth = [...teethSelected];
     setToothUpdates((prev) => {
       const next = new Map(prev);
-      for (const tooth of teethSelected) {
+      for (const tooth of selectedTeeth) {
         if (status === "HEALTHY") {
           next.delete(tooth);
         } else {
@@ -674,6 +675,12 @@ export function ExaminationForm({
       }
       return next;
     });
+    // Auto-append tooth findings to treatment notes
+    if (status !== "HEALTHY" && selectedTeeth.length > 0) {
+      const statusLabel = TOOTH_STATUSES[status as ToothStatusKey]?.label || status;
+      const lines = selectedTeeth.map((t) => `${t} -- ${statusLabel}`).join("\n");
+      setTreatmentNotes((prev) => prev ? `${prev}\n${lines}` : lines);
+    }
     setTeethSelected([]);
   }
 

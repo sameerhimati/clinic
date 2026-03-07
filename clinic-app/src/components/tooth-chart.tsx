@@ -72,13 +72,20 @@ export function ToothChart({
 
   const handleMouseDown = useCallback(
     (tooth: number, e: React.MouseEvent) => {
-      if (readOnly || !onChange) return;
+      if (readOnly && !onDoubleClick) return;
+      if (readOnly) {
+        // readOnly with onDoubleClick — just track for mouseUp
+        isDragging.current = true;
+        dragMoved.current = false;
+        return;
+      }
+      if (!onChange) return;
       e.preventDefault();
       isDragging.current = true;
       dragStartTooth.current = tooth;
       dragMoved.current = false;
     },
-    [readOnly, onChange]
+    [readOnly, onChange, onDoubleClick]
   );
 
   const handleMouseEnter = useCallback(
@@ -115,28 +122,36 @@ export function ToothChart({
       if (!isDragging.current) return;
       isDragging.current = false;
 
-      if (!dragMoved.current && onChange && !readOnly) {
-        // No drag happened — this is a single click toggle
-        // Delay to distinguish from double-click
-        if (clickTimer.current) {
-          clearTimeout(clickTimer.current);
-          clickTimer.current = null;
-          // This is the second click (double-click)
-          pendingClick.current = null;
-          if (onDoubleClick) onDoubleClick(tooth);
+      if (!dragMoved.current) {
+        // ReadOnly with onDoubleClick — treat single click as action
+        if (readOnly && onDoubleClick) {
+          onDoubleClick(tooth);
           return;
         }
 
-        pendingClick.current = tooth;
-        clickTimer.current = setTimeout(() => {
-          clickTimer.current = null;
-          // Single click — toggle selection
-          const next = selectedSet.has(tooth)
-            ? selected.filter((t) => t !== tooth)
-            : [...selected, tooth];
-          onChange(next);
-          pendingClick.current = null;
-        }, 200);
+        if (onChange && !readOnly) {
+          // No drag happened — this is a single click toggle
+          // Delay to distinguish from double-click
+          if (clickTimer.current) {
+            clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+            // This is the second click (double-click)
+            pendingClick.current = null;
+            if (onDoubleClick) onDoubleClick(tooth);
+            return;
+          }
+
+          pendingClick.current = tooth;
+          clickTimer.current = setTimeout(() => {
+            clickTimer.current = null;
+            // Single click — toggle selection
+            const next = selectedSet.has(tooth)
+              ? selected.filter((t) => t !== tooth)
+              : [...selected, tooth];
+            onChange(next);
+            pendingClick.current = null;
+          }, 200);
+        }
       }
 
       dragStartTooth.current = null;

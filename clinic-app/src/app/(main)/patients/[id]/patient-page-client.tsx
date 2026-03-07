@@ -39,6 +39,14 @@ import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
+import { TOOTH_STATUSES, getStatusColor, type ToothStatusKey } from "@/lib/dental";
 import { toTitleCase, formatDate } from "@/lib/format";
 import { ToastOnParam } from "@/components/toast-on-param";
 import { ClipboardList } from "lucide-react";
@@ -127,6 +135,7 @@ export type PatientPageData = {
   totalBilled: number;
   totalPaid: number;
   totalBalance: number;
+  escrowBalance: number;
   visitCount: number;
   firstVisit: Date | null;
   lastVisit: Date | null;
@@ -153,6 +162,28 @@ export type PatientPageData = {
   canEdit: boolean;
   isAdmin: boolean;
   treatmentPlans: TreatmentPlanData[];
+  toothStatuses: {
+    toothNumber: number;
+    status: string;
+    findingName: string | null;
+    findingColor: string | null;
+  }[];
+  toothHistory: {
+    toothNumber: number;
+    status: string;
+    findingName: string | null;
+    doctorName: string;
+    caseNo: number | null;
+    recordedAt: string;
+  }[];
+  patientWorkDone: {
+    toothNumber: number | null;
+    operationName: string;
+    doctorName: string;
+    caseNo: number | null;
+    visitDate: string;
+    notes: string | null;
+  }[];
 };
 
 export function PatientPageClient({ data }: { data: PatientPageData }) {
@@ -163,6 +194,9 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
 
   // Treatment history view mode
   const [viewMode, setViewMode] = useState<"timeline" | "log">("timeline");
+
+  // Tooth history modal
+  const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
 
   // Build visitId → plan title mapping for timeline badges
   const visitPlanMap = new Map<number, string>();
@@ -278,12 +312,13 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   // No appointment-driven CTA — default actions
   if (!primaryCta) {
     const hasActiveAppointment = todayAppt && ["ARRIVED", "IN_PROGRESS"].includes(todayAppt.status);
-    if (data.canCollect && data.totalBalance > 0) {
+    if (data.canCollect && (data.totalBalance > 0 || data.escrowBalance < 0)) {
+      const displayAmount = data.escrowBalance < 0 ? Math.abs(data.escrowBalance) : data.totalBalance;
       primaryCta = (
         <Button size="sm" asChild>
           <Link href={`/patients/${patient.id}/checkout`}>
             <IndianRupee className="mr-1 h-3.5 w-3.5" />
-            Collect ₹{data.totalBalance.toLocaleString("en-IN")}
+            Collect {"\u20B9"}{displayAmount.toLocaleString("en-IN")}
           </Link>
         </Button>
       );
@@ -345,8 +380,13 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
                 {data.firstVisit && <span> · First: {formatDate(data.firstVisit)}</span>}
                 {data.lastVisit && <span> · Last: {formatDate(data.lastVisit)}</span>}
-                {data.canCollect && data.totalBalance > 0 && (
-                  <span className="text-destructive font-medium"> · ₹{data.totalBalance.toLocaleString("en-IN")} due</span>
+                {data.canCollect && data.escrowBalance !== 0 && (
+                  <span className={`font-medium ${data.escrowBalance > 0 ? "text-green-700" : "text-destructive"}`}>
+                    {" · "}Escrow: {data.escrowBalance > 0 ? "+" : ""}{"\u20B9"}{Math.abs(data.escrowBalance).toLocaleString("en-IN")}
+                  </span>
+                )}
+                {data.canCollect && data.escrowBalance === 0 && data.totalBalance > 0 && (
+                  <span className="text-destructive font-medium"> · {"\u20B9"}{data.totalBalance.toLocaleString("en-IN")} due</span>
                 )}
                 {nextFutureAppt && (
                   <span> · Next appt: {formatDate(nextFutureAppt.date)}</span>
@@ -497,6 +537,108 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           </CardContent>
         </Card>
       </section>
+
+      {/* Dental Chart (read-only) */}
+      {data.toothStatuses.length > 0 && (
+        <section>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Dental Chart</h3>
+          <Card>
+            <CardContent className="pt-4">
+              <ToothChart
+                selected={[]}
+                toothStatuses={data.toothStatuses.map((ts) => ({
+                  toothNumber: ts.toothNumber,
+                  status: ts.status,
+                  findingName: ts.findingName || undefined,
+                  color: ts.findingColor || undefined,
+                }))}
+                onDoubleClick={(tooth) => setSelectedTooth(tooth)}
+                readOnly
+              />
+              <p className="text-xs text-muted-foreground mt-2 text-center">Click any tooth to see history</p>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Tooth History Modal */}
+      <Dialog open={selectedTooth !== null} onOpenChange={(open) => { if (!open) setSelectedTooth(null); }}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tooth #{selectedTooth}</DialogTitle>
+          </DialogHeader>
+          {selectedTooth && (() => {
+            const currentStatus = data.toothStatuses.find((ts) => ts.toothNumber === selectedTooth);
+            const history = data.toothHistory.filter((th) => th.toothNumber === selectedTooth);
+            const workDone = data.patientWorkDone.filter((wd) => wd.toothNumber === selectedTooth);
+            return (
+              <div className="space-y-4">
+                {/* Current Status */}
+                <div>
+                  <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Current Status</div>
+                  {currentStatus ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getStatusColor(currentStatus.status) }} />
+                      <span className="font-medium">
+                        {TOOTH_STATUSES[currentStatus.status as ToothStatusKey]?.label || currentStatus.status}
+                      </span>
+                      {currentStatus.findingName && (
+                        <Badge variant="outline" className="text-xs">{currentStatus.findingName}</Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No records</span>
+                  )}
+                </div>
+
+                {/* History Timeline */}
+                {history.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">History</div>
+                    <div className="space-y-1.5">
+                      {history.map((entry, i) => (
+                        <div key={i} className="flex items-start gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: getStatusColor(entry.status) }} />
+                          <div>
+                            <span className="font-medium">{formatDate(entry.recordedAt)}</span>
+                            <span className="text-muted-foreground"> — {TOOTH_STATUSES[entry.status as ToothStatusKey]?.label || entry.status}</span>
+                            {entry.findingName && <span className="text-muted-foreground"> ({entry.findingName})</span>}
+                            <span className="text-muted-foreground"> · Dr. {toTitleCase(entry.doctorName)}</span>
+                            {entry.caseNo && <span className="text-muted-foreground/70"> (Case #{entry.caseNo})</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Work Done */}
+                {workDone.length > 0 && (
+                  <div>
+                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Procedures</div>
+                    <div className="space-y-1.5">
+                      {workDone.map((wd, i) => (
+                        <div key={i} className="text-sm border rounded-md p-2">
+                          <div className="font-medium">{wd.operationName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(wd.visitDate)} · Dr. {toTitleCase(wd.doctorName)}
+                            {wd.caseNo && ` · Case #${wd.caseNo}`}
+                          </div>
+                          {wd.notes && <div className="text-xs text-muted-foreground mt-0.5">{wd.notes}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {history.length === 0 && workDone.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No history for this tooth</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Treatment Plans */}
       {(data.treatmentPlans.length > 0 || isDoctor) && (

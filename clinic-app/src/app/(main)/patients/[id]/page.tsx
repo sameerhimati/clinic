@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, canEditPatients, isAdmin as checkIsAdmin } from "@/lib/permissions";
 import { calcBilled, calcPaid } from "@/lib/billing";
+import { calcEscrowBalance } from "@/lib/escrow";
 import { PatientPageClient, type PatientPageData } from "./patient-page-client";
 import type { VisitWithRelations } from "@/components/treatment-timeline";
 import { toTitleCase } from "@/lib/format";
@@ -29,7 +30,7 @@ export default async function PatientDetailPage({
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, treatmentPlans] = await Promise.all([
+  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, toothStatuses, toothHistory, patientWorkDone, treatmentPlans] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -143,6 +144,33 @@ export default async function PatientDetailPage({
     }),
     // All diseases for inline editor
     canEdit ? prisma.disease.findMany({ orderBy: { id: "asc" } }) : Promise.resolve([]),
+    // Tooth statuses for dental chart
+    prisma.toothStatus.findMany({
+      where: { patientId },
+      include: {
+        finding: { select: { name: true, color: true } },
+      },
+    }),
+    // Tooth status history for per-tooth history modal
+    prisma.toothStatusHistory.findMany({
+      where: { patientId },
+      orderBy: { recordedAt: "desc" },
+      include: {
+        finding: { select: { name: true } },
+        recordedBy: { select: { name: true } },
+        visit: { select: { caseNo: true } },
+      },
+    }),
+    // Work done entries per patient for tooth history
+    prisma.workDone.findMany({
+      where: { visit: { patientId } },
+      include: {
+        operation: { select: { name: true } },
+        performedBy: { select: { name: true } },
+        visit: { select: { caseNo: true, visitDate: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
     // Treatment plans
     prisma.treatmentPlan.findMany({
       where: { patientId },
@@ -180,6 +208,9 @@ export default async function PatientDetailPage({
     totalPaid += calcPaid(visit.receipts);
   }
   const totalBalance = totalBilled - totalPaid;
+
+  // Escrow balance
+  const escrowBalance = await calcEscrowBalance(patientId);
 
   // Visit stats
   const visitCount = patient.visits.length;
@@ -269,6 +300,7 @@ export default async function PatientDetailPage({
     totalBilled,
     totalPaid,
     totalBalance,
+    escrowBalance,
     visitCount,
     firstVisit,
     lastVisit,
@@ -346,6 +378,28 @@ export default async function PatientDetailPage({
           } : null,
         };
       }),
+    })),
+    toothStatuses: toothStatuses.map((ts) => ({
+      toothNumber: ts.toothNumber,
+      status: ts.status,
+      findingName: ts.finding?.name || null,
+      findingColor: ts.finding?.color || null,
+    })),
+    toothHistory: toothHistory.map((th) => ({
+      toothNumber: th.toothNumber,
+      status: th.status,
+      findingName: th.finding?.name || null,
+      doctorName: th.recordedBy.name,
+      caseNo: th.visit?.caseNo || null,
+      recordedAt: th.recordedAt.toISOString(),
+    })),
+    patientWorkDone: patientWorkDone.map((wd) => ({
+      toothNumber: wd.toothNumber,
+      operationName: wd.operation.name,
+      doctorName: wd.performedBy.name,
+      caseNo: wd.visit.caseNo,
+      visitDate: wd.visit.visitDate.toISOString(),
+      notes: wd.notes,
     })),
   };
 

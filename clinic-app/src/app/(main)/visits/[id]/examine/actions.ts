@@ -142,12 +142,16 @@ export async function saveExamination(
   if (data.workDone && data.workDone.length > 0) {
     const visit = await prisma.visit.findUnique({
       where: { id: visitId },
-      select: { patientId: true },
+      select: { patientId: true, operationRate: true, discount: true, quantity: true },
     });
     if (visit) {
+      // Calculate fulfillment amount per WorkDone: split visit cost evenly across work done entries
+      const visitBilled = Math.max(0, ((visit.operationRate || 0) - (visit.discount || 0)) * (visit.quantity ?? 1));
+      const fulfillmentAmountPerEntry = data.workDone.length > 0 ? visitBilled / data.workDone.length : 0;
+
       for (const wd of data.workDone) {
         // Create WorkDone record
-        await prisma.workDone.create({
+        const workDoneRecord = await prisma.workDone.create({
           data: {
             visitId,
             operationId: wd.operationId,
@@ -158,6 +162,19 @@ export async function saveExamination(
             performedById: data.doctorId,
           },
         });
+
+        // Auto-create EscrowFulfillment
+        if (fulfillmentAmountPerEntry > 0) {
+          await prisma.escrowFulfillment.create({
+            data: {
+              patientId: visit.patientId,
+              workDoneId: workDoneRecord.id,
+              visitId,
+              amount: fulfillmentAmountPerEntry,
+              doctorId: data.doctorId,
+            },
+          });
+        }
 
         // Update tooth status if resultingStatus + toothNumber provided
         if (wd.resultingStatus && wd.toothNumber) {

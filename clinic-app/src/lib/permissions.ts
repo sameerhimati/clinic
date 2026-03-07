@@ -46,6 +46,11 @@ export function canCreateTreatmentPlans(permissionLevel: number): boolean {
   return permissionLevel === 3;
 }
 
+/** Can create visits directly (L1 admin + L2 reception only) */
+export function canCreateVisits(permissionLevel: number): boolean {
+  return permissionLevel <= 2;
+}
+
 /** Admin can unlock reports and visits */
 export function isAdmin(permissionLevel: number): boolean {
   return permissionLevel <= 1;

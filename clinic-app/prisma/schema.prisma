@@ -194,6 +194,8 @@ model Doctor {
   workDoneEntries      WorkDone[]
   prescriptionsCreated Prescription[]  @relation("PrescriptionDoctor")
   prescriptionsPrinted Prescription[]  @relation("PrescriptionPrintedBy")
+  payments             PatientPayment[]
+  escrowFulfillments   EscrowFulfillment[]
 
   @@map("doctors")
 }
@@ -244,6 +246,8 @@ model Patient {
   toothStatuses       ToothStatus[]
   toothStatusHistory  ToothStatusHistory[]
   prescriptions       Prescription[]
+  payments            PatientPayment[]
+  escrowFulfillments  EscrowFulfillment[]
 
   @@map("patients")
 }
@@ -304,6 +308,7 @@ model Visit {
   toothStatusHistory      ToothStatusHistory[]
   workDone                WorkDone[]
   prescriptions           Prescription[]
+  escrowFulfillments      EscrowFulfillment[]
 
   @@map("visits")
 }
@@ -385,6 +390,7 @@ model Appointment {
   createdBy    Doctor?  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  payments     PatientPayment[]
 
   @@index([date])
   @@index([doctorId, date])
@@ -533,6 +539,7 @@ model WorkDone {
   performedById   Int
   performedBy     Doctor             @relation(fields: [performedById], references: [id])
   createdAt       DateTime           @default(now())
+  fulfillment     EscrowFulfillment?
 
   @@index([visitId])
   @@index([planItemId])
@@ -602,4 +609,49 @@ model AuditLog {
   @@index([actorId])
   @@index([severity])
   @@map("audit_logs")
+}
+
+// ============================================
+// ESCROW PAYMENTS
+// ============================================
+
+model PatientPayment {
+  id            Int                 @id @default(autoincrement())
+  patientId     Int
+  patient       Patient             @relation(fields: [patientId], references: [id])
+  receiptNo     Int?
+  amount        Float
+  paymentMode   String              @default("Cash")
+  paymentDate   DateTime
+  notes         String?
+  appointmentId Int?
+  appointment   Appointment?        @relation(fields: [appointmentId], references: [id])
+  createdById   Int
+  createdBy     Doctor              @relation(fields: [createdById], references: [id])
+  createdAt     DateTime            @default(now())
+  fulfillments  EscrowFulfillment[]
+
+  @@index([patientId])
+  @@map("patient_payments")
+}
+
+model EscrowFulfillment {
+  id              Int              @id @default(autoincrement())
+  patientId       Int
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  workDoneId      Int              @unique
+  workDone        WorkDone         @relation(fields: [workDoneId], references: [id])
+  visitId         Int
+  visit           Visit            @relation(fields: [visitId], references: [id])
+  amount          Float
+  doctorId        Int?
+  doctor          Doctor?          @relation(fields: [doctorId], references: [id])
+  paymentId       Int?
+  payment         PatientPayment?  @relation(fields: [paymentId], references: [id])
+  fulfilledAt     DateTime         @default(now())
+
+  @@index([patientId])
+  @@index([visitId])
+  @@index([workDoneId])
+  @@map("escrow_fulfillments")
 }

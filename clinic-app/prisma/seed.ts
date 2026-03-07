@@ -1342,6 +1342,66 @@ async function main() {
     },
   });
   console.log("   - 2 prescriptions (7 items)");
+
+  // ==========================================
+  // ESCROW PAYMENTS (sample patient escrow deposits)
+  // ==========================================
+  // Patient 3 (SRINIVAS NARRA) — paid Rs 5000 upfront for RCT, but RCT costs Rs 7000 (negative escrow)
+  await prisma.patientPayment.create({
+    data: {
+      patientId: 3,
+      amount: 5000,
+      paymentMode: "Cash",
+      paymentDate: daysAgo(14),
+      receiptNo: receiptNo++,
+      notes: "Advance for RCT",
+      createdById: muralidhar!.id,
+    },
+  });
+
+  // Patient 22 (VENKAT RAO) — paid Rs 25000 for implant, surgery cost Rs 15000 (positive escrow)
+  await prisma.patientPayment.create({
+    data: {
+      patientId: 22,
+      amount: 25000,
+      paymentMode: "UPI",
+      paymentDate: daysAgo(60),
+      receiptNo: receiptNo++,
+      notes: "Advance for implant treatment",
+      createdById: muralidhar!.id,
+    },
+  });
+  await prisma.patientPayment.create({
+    data: {
+      patientId: 22,
+      amount: 10000,
+      paymentMode: "Cash",
+      paymentDate: daysAgo(30),
+      receiptNo: receiptNo++,
+      notes: "Second installment",
+      createdById: muralidhar!.id,
+    },
+  });
+
+  // Create fulfillments for completed work done entries
+  const workDoneEntries = await prisma.workDone.findMany({
+    include: { visit: { select: { patientId: true, operationRate: true, discount: true, quantity: true, doctorId: true } } },
+  });
+  for (const wd of workDoneEntries) {
+    const amount = Math.max(0, ((wd.visit.operationRate || 0) - (wd.visit.discount || 0)) * (wd.visit.quantity ?? 1));
+    if (amount > 0) {
+      await prisma.escrowFulfillment.create({
+        data: {
+          patientId: wd.visit.patientId,
+          workDoneId: wd.id,
+          visitId: wd.visitId,
+          amount,
+          doctorId: wd.visit.doctorId,
+        },
+      });
+    }
+  }
+  console.log("   - 3 escrow deposits + fulfillments for work done");
 }
 
 main()

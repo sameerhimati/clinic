@@ -202,6 +202,7 @@ export default async function VisitDetailPage({
       operation: { select: { name: true } },
       performedBy: { select: { name: true } },
       planItem: { select: { label: true } },
+      fulfillment: { select: { id: true, amount: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -451,8 +452,8 @@ export default async function VisitDetailPage({
               </div>
             )}
 
-            {/* Schedule next step button — plan-aware */}
-            {(planNextItem || nextStep) && (
+            {/* Schedule next step button — plan-aware, hidden for doctors */}
+            {!isDoctor && (planNextItem || nextStep) && (
               <div className="pt-3 border-t mt-3">
                 <Button size="sm" asChild>
                   <Link href={planNextItem
@@ -592,6 +593,11 @@ export default async function VisitDetailPage({
                       <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0 inline-flex items-center gap-1">
                         <Check className="h-3 w-3" />
                         {wd.planItem.label}
+                      </span>
+                    )}
+                    {wd.fulfillment && !isDoctor && (
+                      <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0">
+                        Escrow: {"\u20B9"}{wd.fulfillment.amount.toLocaleString("en-IN")}
                       </span>
                     )}
                   </div>

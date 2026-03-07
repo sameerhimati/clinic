@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
+import { canCollectPayments } from "@/lib/permissions";
 
 export async function recordCheckoutPayment(data: {
   patientId: number;
@@ -67,4 +68,48 @@ export async function recordCheckoutPayment(data: {
   revalidatePath("/dashboard");
   revalidatePath("/visits");
   redirect(`/patients/${patientId}?paid=1`);
+}
+
+export async function recordEscrowDeposit(data: {
+  patientId: number;
+  amount: number;
+  paymentMode: string;
+  paymentDate: string;
+  notes?: string;
+  appointmentId?: number;
+}) {
+  const currentDoctor = await requireAuth();
+  if (!canCollectPayments(currentDoctor.permissionLevel)) {
+    throw new Error("Only reception/admin can collect payments");
+  }
+
+  const { patientId, amount, paymentMode, paymentDate, notes, appointmentId } = data;
+
+  if (amount <= 0) {
+    throw new Error("Amount must be greater than zero");
+  }
+
+  // Get next receipt number (shared sequence with Receipt)
+  const [maxReceipt, maxPayment] = await Promise.all([
+    prisma.receipt.aggregate({ _max: { receiptNo: true } }),
+    prisma.patientPayment.aggregate({ _max: { receiptNo: true } }),
+  ]);
+  const nextReceiptNo = Math.max(maxReceipt._max.receiptNo || 0, maxPayment._max.receiptNo || 0) + 1;
+
+  await prisma.patientPayment.create({
+    data: {
+      patientId,
+      amount,
+      paymentMode,
+      paymentDate: new Date(paymentDate),
+      notes: notes || null,
+      appointmentId: appointmentId || null,
+      receiptNo: nextReceiptNo,
+      createdById: currentDoctor.id,
+    },
+  });
+
+  revalidatePath(`/patients/${patientId}`);
+  revalidatePath(`/patients/${patientId}/checkout`);
+  revalidatePath("/dashboard");
 }

@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getToothName, TOOTH_STATUSES, getStatusColor, TOOTH_STATUS_INDICATORS, type ToothStatusKey } from "@/lib/dental";
 
 export type ToothFindingOption = {
@@ -93,16 +93,16 @@ export function ToothDetailPanel({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[340px] sm:w-[400px]">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>
             Tooth #{toothNumber}
-          </SheetTitle>
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {getToothName(toothNumber)}
           </p>
-        </SheetHeader>
+        </DialogHeader>
 
         <div className="space-y-5 mt-6">
           {/* Status selector */}
@@ -217,7 +217,7 @@ export function ToothDetailPanel({
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -87,6 +87,37 @@ async function getAdminDashboardData() {
     .filter((v) => calcBalance(v, v.receipts) > 0)
     .slice(0, 5);
 
+  // Negative escrow patients
+  const allPatientPayments = await prisma.patientPayment.groupBy({
+    by: ["patientId"],
+    _sum: { amount: true },
+  });
+  const allFulfillments = await prisma.escrowFulfillment.groupBy({
+    by: ["patientId"],
+    _sum: { amount: true },
+  });
+  const fulfillmentMap = new Map(allFulfillments.map((f) => [f.patientId, f._sum.amount || 0]));
+  const negativeEscrowPatientIds = allPatientPayments
+    .filter((p) => {
+      const deposits = p._sum.amount || 0;
+      const fulfilled = fulfillmentMap.get(p.patientId) || 0;
+      return deposits - fulfilled < 0;
+    })
+    .map((p) => p.patientId);
+
+  let negativeEscrowPatients: { id: number; code: number | null; name: string; balance: number }[] = [];
+  if (negativeEscrowPatientIds.length > 0) {
+    const patients = await prisma.patient.findMany({
+      where: { id: { in: negativeEscrowPatientIds } },
+      select: { id: true, code: true, name: true },
+    });
+    negativeEscrowPatients = patients.map((p) => {
+      const dep = allPatientPayments.find((pp) => pp.patientId === p.id)?._sum.amount || 0;
+      const ful = fulfillmentMap.get(p.id) || 0;
+      return { id: p.id, code: p.code, name: toTitleCase(p.name), balance: dep - ful };
+    });
+  }
+
   // Pending prescriptions
   const pendingPrescriptions = await prisma.prescription.findMany({
     where: { isPrinted: false },
@@ -107,6 +138,7 @@ async function getAdminDashboardData() {
     pendingPayments,
     todayAppointments,
     pendingPrescriptions,
+    negativeEscrowPatients,
   };
 }
 
@@ -228,6 +260,37 @@ export default async function DashboardPage() {
 
       {/* Prescription Queue — pending for print */}
       <PrescriptionQueue prescriptions={data.pendingPrescriptions} />
+
+      {/* Negative Escrow Patients */}
+      {data.negativeEscrowPatients.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-medium text-red-700">
+              Escrow Deficit ({data.negativeEscrowPatients.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {data.negativeEscrowPatients.map((p) => (
+                <div key={p.id} className="flex items-center justify-between py-2">
+                  <Link href={`/patients/${p.id}`} className="font-medium hover:underline flex items-center gap-2">
+                    <span className="font-mono text-sm text-muted-foreground">#{p.code}</span>
+                    {p.name}
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="text-xs">
+                      {"\u20B9"}{Math.abs(p.balance).toLocaleString("en-IN")} owed
+                    </Badge>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/patients/${p.id}/checkout`}>Collect</Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pending Payments — actionable for reception */}
       {data.pendingPayments.length > 0 && (

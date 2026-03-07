@@ -243,6 +243,57 @@ export default async function CommissionReportPage({
     chainDoctorTotals.set(key, existing);
   }
 
+  // ============================
+  // Fulfillment view data
+  // ============================
+  const fulfillments = await prisma.escrowFulfillment.findMany({
+    where: {
+      fulfilledAt: { gte: fromDate, lte: toDate },
+      ...(params.doctorId ? { doctorId: parseInt(params.doctorId) } : {}),
+    },
+    include: {
+      patient: { select: { name: true, code: true } },
+      workDone: {
+        include: { operation: { select: { name: true } } },
+      },
+      visit: { select: { caseNo: true } },
+      doctor: true,
+    },
+    orderBy: { fulfilledAt: "asc" },
+  });
+
+  type FulfillmentRow = {
+    id: number;
+    date: Date;
+    caseNo: number | null;
+    patientName: string;
+    operationName: string;
+    doctorName: string;
+    amount: number;
+    toothNumber: number | null;
+  };
+
+  const fulfillmentRows: FulfillmentRow[] = fulfillments
+    .filter((f) => f.doctor)
+    .map((f) => ({
+      id: f.id,
+      date: f.fulfilledAt,
+      caseNo: f.visit.caseNo,
+      patientName: toTitleCase(f.patient.name),
+      operationName: f.workDone.operation.name,
+      doctorName: toTitleCase(f.doctor!.name),
+      amount: f.amount,
+      toothNumber: f.workDone.toothNumber,
+    }));
+
+  const fulfillmentDoctorTotals = new Map<string, { count: number; total: number }>();
+  for (const row of fulfillmentRows) {
+    const existing = fulfillmentDoctorTotals.get(row.doctorName) || { count: 0, total: 0 };
+    existing.count++;
+    existing.total += row.amount;
+    fulfillmentDoctorTotals.set(row.doctorName, existing);
+  }
+
   // Build query string for view toggle
   const baseQuery = `from=${params.from}&to=${params.to}${params.doctorId ? `&doctorId=${params.doctorId}` : ""}${params.consultantsOnly === "off" ? "&consultantsOnly=off" : ""}`;
 
@@ -308,6 +359,12 @@ export default async function CommissionReportPage({
           className={`px-3 py-1.5 text-sm rounded-md transition-colors ${viewMode === "chains" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
         >
           By Treatment
+        </Link>
+        <Link
+          href={`/reports/commission?${baseQuery}&view=fulfillments`}
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${viewMode === "fulfillments" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+        >
+          By Fulfillment
         </Link>
       </div>
 
@@ -402,7 +459,7 @@ export default async function CommissionReportPage({
             </Card>
           )}
         </>
-      ) : (
+      ) : viewMode === "chains" ? (
         <>
           {/* Treatment Chain view */}
           <div className="flex items-center gap-3 print:hidden">
@@ -527,7 +584,83 @@ export default async function CommissionReportPage({
             </Card>
           )}
         </>
-      )}
+      ) : viewMode === "fulfillments" ? (
+        <>
+          {/* Fulfillment view */}
+          {fulfillmentDoctorTotals.size > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Fulfillment Summary</h3>
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Doctor</TableHead>
+                        <TableHead className="text-right">Procedures</TableHead>
+                        <TableHead className="text-right font-bold">Total Fulfilled</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Array.from(fulfillmentDoctorTotals.entries()).map(([name, totals]) => (
+                        <TableRow key={name}>
+                          <TableCell className="font-medium">Dr. {name}</TableCell>
+                          <TableCell className="text-right">{totals.count}</TableCell>
+                          <TableCell className="text-right font-bold">{"\u20B9"}{totals.total.toLocaleString("en-IN")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {fulfillmentRows.length > 0 && (
+            <>
+              <h3 className="text-lg font-semibold">Detail ({fulfillmentRows.length} entries)</h3>
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Case #</TableHead>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>Procedure</TableHead>
+                        <TableHead>Doctor</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fulfillmentRows.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{formatDate(row.date)}</TableCell>
+                          <TableCell>{row.caseNo || "-"}</TableCell>
+                          <TableCell>{row.patientName}</TableCell>
+                          <TableCell>
+                            {row.operationName}
+                            {row.toothNumber && <span className="text-muted-foreground ml-1">(Tooth {row.toothNumber})</span>}
+                          </TableCell>
+                          <TableCell>Dr. {row.doctorName}</TableCell>
+                          <TableCell className="text-right font-medium">{"\u20B9"}{row.amount.toLocaleString("en-IN")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {fulfillmentRows.length === 0 && (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                No fulfillments in the selected period. Work Done entries auto-create fulfillments.
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
