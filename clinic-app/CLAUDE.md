@@ -2,36 +2,35 @@
 
 ## Session Start Rule
 
-**Before starting any new feature or roadmap item, ask the user:**
-> "Have you finished testing the daily patient flow? Any bugs or workflow issues to fix before we move on?"
-
-Do NOT proceed with new roadmap items until the user confirms. Workflow-first development.
+**Read `../ux-fixes.md` first every session.** It is the ground truth for the workflow redesign (Sessions 37+). All roadmap items are paused until the redesign is complete.
 
 ## Stack
 - Next.js 16 (App Router), TypeScript, Tailwind CSS 4 + shadcn/ui
 - Prisma 6 with SQLite, package manager: bun (`$HOME/.bun/bin` in PATH)
 - Light-only theme (no `dark:` prefixes)
 
-## Daily Patient Flow (the core workflow)
+## Daily Patient Flow (the core workflow — BEING REDESIGNED)
 
-1. **Reception** creates patient + appointment
-2. **BDS doctor** (SURENDER, L3) does initial exam
-3. BDS schedules follow-up with **consultant** (RAMANA REDDY, L3)
-4. Consultant opens follow-up — sees BDS notes in side-by-side panel
-5. Consultant examines, schedules next step (RCT = 5 visits, Crown = 3, etc.)
-6. **Reception** (MURALIDHAR, L2) collects payment
+1. **Reception (L2)** registers patient, schedules appointment
+2. **BDS doctor (L3)** examines, creates treatment plan via dental chart (per-tooth findings + treatments)
+3. **Reception (L2)** schedules follow-up with consultant, collects advance → patient escrow
+4. **Consultant (L4)** views schedule, sees case summary, examines, marks "Work Done" per tooth
+5. **Work Done** triggers: tooth status update + plan advancement + escrow fulfillment
+6. **Reception (L2)** manages escrow balance, collects remaining payments
+
+## Roles (BEING UPDATED — see `../ux-fixes.md` for full spec)
+| Role | Level | Super-User | Key Access |
+|------|-------|------------|------------|
+| Admin | L1 | — | Everything, oversight, monthly audit review |
+| Front Desk | L2 | Murli (lab rates, tariffs, large discounts) | Schedule, collect, follow-up patients |
+| BDS Doctor | L3 | Clinical Head (edit findings dropdown, step templates) | Examine, treatment plans, 20% discount |
+| Consultant | L4 | — | View own schedule, examine assigned cases only |
 
 ## Key Data Model
 - `Visit.parentVisitId` → flat chain to root parent (not nested tree)
 - `Visit.stepLabel` → maps to `TreatmentStep.name` for guided progress
 - `TreatmentStep` on `Operation` → multi-step procedure templates
-
-## Roles
-| Role | Level | Key restriction |
-|------|-------|-----------------|
-| Admin | 1 | Everything |
-| Reception | 2 | No clinical exam |
-| Doctor | 3 | No reports, lab costs, commission %, collect buttons, receipts, visits list |
+- **PLANNED**: `isSuperUser` on Doctor, `AuditLog`, `ToothStatus`, `ToothFinding`, `WorkDone`, escrow fields
 
 ## UI Design Standards
 - **Target quality**: Apple, Notion, Linear, Vercel — smart, elegant, intentional
@@ -63,6 +62,7 @@ rm prisma/dev.db && bunx prisma db push && bun prisma/seed.ts  # fresh re-seed (
 |------|---------|
 | `CLAUDE.md` (this file) | Concise context loaded every session |
 | `ROADMAP.md` | Full project roadmap — phases, sprints, what's done/pending |
+| `../ux-fixes.md` | **Ground truth** — workflow redesign spec + UX bugs (read first every session) |
 | `../session-handoff.md` | Session-to-session handoff — immediate next tasks, design research, current state |
 | `../BLUEPRINT.md` | Original legacy system analysis + full requirements |
 | `../FILE_INVENTORY.md` | Legacy Centura CTD21 data file catalog (for data import) |

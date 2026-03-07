@@ -1,13 +1,73 @@
 # Clinic App — Roadmap
 
 ## Current State
-All core clinical workflows implemented. 44 routes. SQLite local dev.
-
-**Key capabilities**: Patient CRUD + global search, Appointment scheduling (dual-view timetable, rooms, status flow), Visit/treatment with follow-up chains (parentVisitId + stepLabel + TreatmentStep templates), Clinical examination (per-visit exam, locking, addendums, side-by-side previous notes), Consultation flow (auto-suggest linked treatments, inline scheduling, treatment plan creation), Treatment plan intelligence (appointment-aware plan cards, single-sitting support, estimated date anchoring), Patient checkout (multi-visit FIFO allocation), Doctor commission report (dual-view: legacy receipt-based + new treatment chain view), Doctor activity report (procedures & revenue by doctor per month), Per-operation doctor fees (`Operation.doctorFee`), Step tracker with chain cost summary, Doctor dashboard with 3-section queue (Now Seeing/Waiting Room/Schedule), Role-based access (Admin L1, Reception L2, Doctor L3), File uploads with categories + lightbox + bulk upload, Print infrastructure.
+44 routes. SQLite local dev. Core clinical workflows implemented but undergoing major redesign based on real-user testing feedback.
 
 ---
 
-## Critical Fixes (Do First)
+## ACTIVE: Workflow Redesign (Sessions 37+)
+
+**All other roadmap items are paused until this is complete.**
+
+Full spec in `/ux-fixes.md` (ground truth document). Key changes:
+
+### WR-1: Permission Model Overhaul
+- [ ] Add L4 permission level (Consultants — view schedule + examine only)
+- [ ] Add `isSuperUser` boolean on Doctor model
+- [ ] L2 super-user (Murli): change lab/tariff rates, authorize large discounts
+- [ ] L3 super-user (Clinical Head): edit findings dropdown, treatment step templates
+- [ ] Enforce discount limits per role (L3/L4: 20%, L2: 20%, L2 super: 50%+, L1: unlimited)
+- [ ] Strip L4 UI to schedule + examine only
+
+### WR-2: Audit Log & Accountability
+- [ ] `AuditLog` model: who, what, when, which patient, mandatory reason for flagged actions
+- [ ] Auto-flag: discount >20%, rate change, plan modification, cancelled treatment
+- [ ] Monthly review report page for L1
+
+### WR-3: Escrow Payment Model
+- [ ] Patient escrow balance (replaces FIFO visit allocation)
+- [ ] Advance payment at scheduling → escrow
+- [ ] "Work Done" = strict completion trigger → escrow fulfillment
+- [ ] Escrow visible on patient page, checkout, dashboard
+
+### WR-4: Dental Chart / Odontogram Redesign
+- [ ] Per-tooth findings (from editable dropdown — `ToothFinding` reference table)
+- [ ] Per-tooth work done history (`ToothStatus`, `WorkDone` models)
+- [ ] Multi-tooth selection (bridges, quadrants)
+- [ ] Dental chart as primary patient page interface
+- [ ] Findings → treatment plan auto-generation
+
+### WR-5: Examination & Work Done Flow
+- [ ] "Work Done" section: per-tooth, per-visit record of actual procedures performed
+- [ ] Work Done triggers: tooth status update + plan advancement + escrow fulfillment
+- [ ] Consultant add-on notes for existing cases (without full exam form)
+- [ ] Remove medication tab → optional Prescription flow with front desk notification + print
+
+### WR-6: Role-Based Workflow Enforcement
+- [ ] Remove visit creation UI for L3/L4 (visits auto-created from appointments)
+- [ ] Remove sidebar sheet visit creation
+- [ ] L3/L4 view schedule only (no scheduling)
+- [ ] Front desk (L2) owns all scheduling, including treatment plan follow-ups
+- [ ] Treatment type → department/consultant matching
+
+### WR-7: Patient Follow-up & Reminders
+- [ ] Pending follow-up queue (treatment plan created, no appointment scheduled)
+- [ ] Follow-up schedule per treatment type (configurable intervals)
+- [ ] Front desk dashboard: "patients needing follow-up calls"
+- [ ] Post-treatment checkup reminders (e.g. 6-month after RCT)
+
+### WR-8: Patient Page Redesign
+- [ ] Dental chart as hero (interactive odontogram with current tooth states)
+- [ ] Sticky header: patient info + medical alerts + escrow balance
+- [ ] Active treatment plans with per-tooth progress
+- [ ] Upcoming appointments, payment summary
+- [ ] Visit history/timeline as secondary (collapsible)
+
+---
+
+## Critical Fixes
+
+Previously "Do First" — now secondary to Workflow Redesign.
 
 ### CF-1: Patient Code as Primary Identifier [DONE]
 - [x] `code` field, prominent display, search priority, auto-generation

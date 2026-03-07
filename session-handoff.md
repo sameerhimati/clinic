@@ -1,62 +1,58 @@
 # Session Handoff
-> Last updated: 2026-03-06 (Session 36 — Verification Testing)
+> Last updated: 2026-03-07 (Session 37 — Workflow Redesign Planning)
 
-## Completed This Session (Session 36)
-
-Comprehensive Playwright-based verification of ALL Session 34/35 features (Phases 1-10 UX Overhaul). Every feature tested across 3 roles (KAZIM L1, MURALIDHAR L2, SURENDER L3).
-
-**All 41 test items passed.** No bugs found. All 10 phases fully functional.
-
-### Verified Features (Sessions 34-35, Phases 1-10)
-- [x] **Phase 1A**: Sidebar font sizes (`text-xs` labels, `text-sm` nav items)
-- [x] **Phase 1B**: Themed toaster (sonner with app styling)
-- [x] **Phase 1C**: Queue indicator visible on mobile (no `hidden sm:`)
-- [x] **Phase 1D**: Login searchable combobox (type to filter doctors)
-- [x] **Phase 2A**: Sidebar says "Visits" not "Treatments"
-- [x] **Phase 2B**: Visit form "Procedure" terminology (code-verified)
-- [x] **Phase 3A**: Medical alert banner (red, non-dismissible, disease pills)
-- [x] **Phase 3B**: "Save & Next Patient" button in sticky save bar
-- [x] **Phase 3C**: Keyboard shortcuts (Cmd+S, Cmd+Enter)
-- [x] **Phase 3D**: ALL waiting patients get Examine button
-- [x] **Phase 4A**: Teeth badges in treatment timeline
-- [x] **Phase 4B/C**: Visit Log flat table with Timeline/Log toggle
-- [x] **Phase 5A**: Quick registration (collapsed form, "More Details" expands)
-- [x] **Phase 6**: Appointment conflict detection (amber warning with patient list)
-- [x] **Phase 7**: Exam form autosave (localStorage, restore/discard banner)
-- [x] **Phase 8**: Patient files on exam form (collapsible, category badges)
-- [x] **Phase 9**: Note templates in settings + "Use Template" on exam form
-- [x] **Phase 10**: Treatment plan <-> timeline bidirectional links
+## Completed This Session
+- [x] Audited last 10 session handoffs for missed items (5 found, documented)
+- [x] Created comprehensive `ux-fixes.md` — ground truth document for clinic workflow redesign
+- [x] Captured full workflow redesign spec from user + Murli (reception) + Dr. Baisakhi (BDS)
+- [x] Updated ROADMAP.md — all other items paused, workflow redesign is the active priority
+- [x] Entered plan mode — need to create phased implementation plan
 
 ## Current State
 - **Branch:** main
-- **Last commit:** `b3f8f13` (Session 35 handoff update)
+- **Last commit:** `6c7f83b` Add Payments, Collections & Bifurcation UX to roadmap
 - **Build:** Passing (44 routes)
-- **All Sessions 34-35 features verified working**
+- **Uncommitted changes:** `ux-fixes.md` (new), `ROADMAP.md` (updated), `session-handoff.md` (updated), `prisma/import-legacy.bun.ts` (unrelated)
+- **Blockers:** None — spec is complete enough to start planning
 
-## What's Next
+## Ground Truth Document: `ux-fixes.md`
+**Read this file first every session.** It contains:
+- Part 1: Full workflow redesign spec (permissions, escrow, dental chart, prescription flow, follow-ups)
+- Part 2: Specific UX bugs and issues
 
-### Immediate: Manual Workflow Test
-User is having someone test the full daily patient flow end-to-end:
-1. Reception registers patient + schedules appointment + marks arrived
-2. Doctor examines (waiting room -> examine button -> fill form -> save)
-3. Doctor schedules follow-up
-4. Reception collects payment + prints receipt
-5. Doctor opens follow-up (checks side-by-side previous notes)
+### Summary of Major Changes
+1. **L4 permission level** — Consultants (schedule view + examine only, stripped UI)
+2. **Super-user tier** — `isSuperUser` flag for L2 (Murli: lab rates, large discounts) and L3 (Clinical Head: findings dropdown, step templates)
+3. **Escrow payment model** — Replace FIFO allocation. Money held unallocated, fulfilled only on "Work Done"
+4. **Dental chart as odontogram** — Per-tooth findings, work done history, multi-select, chart-centric patient page
+5. **Work Done flow** — Strict completion trigger per tooth/visit. Updates chart + advances plan + triggers escrow
+6. **Prescription flow** — Replace medication tab. Separate form, auto-notify front desk to print
+7. **Role enforcement** — Remove visit creation for L3/L4. Front desk owns all scheduling
+8. **Patient follow-up tracking** — Pending queue, configurable reminder schedules
+9. **Audit log** — Flagged actions with mandatory reasons, monthly report for L1
+10. **Patient page redesign** — Dental chart as hero, not visit timeline
 
-**Wait for feedback before building new features.**
+### Key Design Decisions
+- **No approval queues** — Actions happen immediately. Accountability via audit log + monthly review.
+- **Escrow not per-treatment** — Patient-level balance. Allocated only on procedure completion.
+- **L3/L4 cannot schedule anything** — "Schedule" in L4 context means VIEW their schedule, not create appointments.
+- **Findings dropdown editable by L3 super-user** — Like how L1 manages tariff cards.
 
-### After Testing Feedback
-1. **Fix any bugs** found during manual testing
-2. **Hardening Sprint 4: Performance** — Database indexes for 40K patient scale (see ROADMAP.md H4-1 through H4-5)
-3. **Hardening Sprint 5: Security** — Session tokens, permission gaps, password hashing (see ROADMAP.md H5-1 through H5-5)
-4. **Phase 6: Production Readiness** — PostgreSQL migration, Supabase, deployment
+## Next Session Should
+1. **Read `ux-fixes.md`** — the ground truth document
+2. **Plan mode** — break WR-1 through WR-8 into implementation phases with dependency order
+3. **Start with WR-1 (Permission Model)** — everything else depends on L4 + isSuperUser existing
+4. **Then WR-6 (Role Enforcement)** — remove visit creation UI, enforce scheduling restrictions
+5. **Then WR-2 (Audit Log)** — foundation for accountability before building escrow/discount changes
 
-### Lower Priority Backlog
-- Diagnosis pills (like complaint pills for common dental diagnoses)
-- Timeline filtering (date range, operation, doctor filters for 50+ visit patients)
-- Walk-in combined flow (register + schedule + examine wizard)
-- Room conflict detection (Phase 6 only does doctor conflicts)
-- Report enhancements (Excel export, print layouts, date presets)
+## Context to Remember
+- "Murli" = MURALIDHAR (L2 reception, primary tester, will be L2 super-user)
+- "Dr. Baisakhi" = BDS doctor who provided clinical workflow feedback
+- User explicitly clarified: L3/L4 CANNOT schedule appointments. "View schedule" only.
+- Discount tiers: L3/L4 up to 20%, L2 standard up to 20%, L2 super up to 50%+, L1 unlimited. 100% only on L1 instruction.
+- The existing Visit model may need significant rework — visits should auto-create from appointments, not be manually created
+- Escrow model replaces the current FIFO checkout allocation entirely
+- Dental chart redesign is the biggest UI change — becomes the primary patient page interface
 
 ## Start Command
 ```bash
