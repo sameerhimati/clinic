@@ -7,27 +7,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
-import { createTreatmentPlan, getOperationSteps } from "../actions";
+import { createTreatmentPlan, updateTreatmentPlan, getOperationSteps } from "../actions";
 import { toast } from "sonner";
 
 type OperationOption = { id: number; name: string; category: string | null };
 type DoctorOption = { id: number; name: string };
+
+type ExistingPlan = {
+  id: number;
+  title: string;
+  items: Array<{
+    id: number;
+    label: string;
+    operationId: number | null;
+    assignedDoctorId: number | null;
+    estimatedDayGap: number;
+    notes: string | null;
+    visitId: number | null;
+  }>;
+};
 
 export function NewPlanForm({
   patientId,
   operations,
   doctors,
   currentDoctorId,
+  existingPlan,
 }: {
   patientId: number;
   operations: OperationOption[];
   doctors: DoctorOption[];
   currentDoctorId: number;
+  existingPlan?: ExistingPlan;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [title, setTitle] = useState("");
-  const [items, setItems] = useState<PlanItemDraft[]>([]);
+  const isEditMode = !!existingPlan;
+
+  const [title, setTitle] = useState(existingPlan?.title ?? "");
+  const [items, setItems] = useState<PlanItemDraft[]>(() => {
+    if (!existingPlan) return [];
+    return existingPlan.items.map((item) => ({
+      id: crypto.randomUUID(),
+      label: item.label,
+      operationId: item.operationId,
+      assignedDoctorId: item.assignedDoctorId,
+      estimatedDayGap: item.estimatedDayGap,
+      notes: item.notes,
+      isCompleted: item.visitId !== null,
+    }));
+  });
 
   async function loadTemplateSteps(operationId: number) {
     const steps = await getOperationSteps(operationId);
@@ -54,21 +83,38 @@ export function NewPlanForm({
 
     startTransition(async () => {
       try {
-        await createTreatmentPlan(
-          patientId,
-          title,
-          items.map((i) => ({
-            label: i.label,
-            operationId: i.operationId,
-            assignedDoctorId: i.assignedDoctorId,
-            estimatedDayGap: i.estimatedDayGap,
-            notes: i.notes,
-          })),
-        );
-        toast.success("Treatment plan created");
+        if (isEditMode) {
+          const uncompletedItems = items
+            .filter((i) => !i.isCompleted)
+            .map((i) => ({
+              label: i.label,
+              operationId: i.operationId,
+              assignedDoctorId: i.assignedDoctorId,
+              estimatedDayGap: i.estimatedDayGap,
+              notes: i.notes,
+            }));
+          await updateTreatmentPlan(existingPlan!.id, {
+            title,
+            items: uncompletedItems,
+          });
+          toast.success("Treatment plan updated");
+        } else {
+          await createTreatmentPlan(
+            patientId,
+            title,
+            items.map((i) => ({
+              label: i.label,
+              operationId: i.operationId,
+              assignedDoctorId: i.assignedDoctorId,
+              estimatedDayGap: i.estimatedDayGap,
+              notes: i.notes,
+            })),
+          );
+          toast.success("Treatment plan created");
+        }
         router.push(`/patients/${patientId}`);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to create plan");
+        toast.error(e instanceof Error ? e.message : isEditMode ? "Failed to update plan" : "Failed to create plan");
       }
     });
   }
@@ -112,7 +158,9 @@ export function NewPlanForm({
           Cancel
         </Button>
         <Button onClick={handleSubmit} disabled={isPending}>
-          {isPending ? "Creating..." : "Create Plan"}
+          {isPending
+            ? (isEditMode ? "Updating..." : "Creating...")
+            : (isEditMode ? "Update Plan" : "Create Plan")}
         </Button>
       </div>
     </div>

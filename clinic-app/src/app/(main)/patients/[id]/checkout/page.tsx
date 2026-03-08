@@ -143,6 +143,7 @@ export default async function CheckoutPage({
           visitId: true,
           completedAt: true,
           estimatedDayGap: true,
+          assignedDoctorId: true,
           operation: { select: { name: true, defaultMaxFee: true, doctorFee: true, labCostEstimate: true } },
         },
       },
@@ -150,7 +151,7 @@ export default async function CheckoutPage({
   });
 
   // Find next uncompleted step across all active plans
-  const nextSteps: { planTitle: string; planId: number; stepLabel: string; estimatedDayGap: number; lastCompletedDate: Date | null; operationName: string | null; estimatedCost: number | null; doctorFee: number | null; labCost: number | null }[] = [];
+  const nextSteps: { planTitle: string; planId: number; stepLabel: string; estimatedDayGap: number; lastCompletedDate: Date | null; operationName: string | null; estimatedCost: number | null; doctorFee: number | null; labCost: number | null; planItemId: number; assignedDoctorId: number | null }[] = [];
   let totalRemainingCost = 0;
   for (const plan of activePlans) {
     const items = plan.items.sort((a, b) => a.sortOrder - b.sortOrder);
@@ -180,6 +181,8 @@ export default async function CheckoutPage({
         estimatedCost,
         doctorFee,
         labCost,
+        planItemId: nextItem.id,
+        assignedDoctorId: nextItem.assignedDoctorId,
       });
     }
   }
@@ -297,17 +300,17 @@ export default async function CheckoutPage({
         </Card>
       )}
 
-      {/* Next Steps — active treatment plans with cost estimates */}
+      {/* Next Steps — active treatment plans with cost estimates + consolidated alerts */}
       {nextSteps.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50/30">
+        <Card className="border-blue-300 bg-blue-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <ArrowRight className="h-4 w-4 text-blue-600" />
               Next Steps
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="divide-y divide-blue-100">
+          <CardContent className="space-y-0">
+            <div className="divide-y divide-blue-200">
               {nextSteps.map((step) => {
                 const estimatedDate = step.lastCompletedDate
                   ? new Date(step.lastCompletedDate.getTime() + step.estimatedDayGap * 24 * 60 * 60 * 1000)
@@ -328,8 +331,8 @@ export default async function CheckoutPage({
                         )}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={`/appointments/new?patientId=${patientId}`}>
+                    <Button size="sm" variant="default" asChild>
+                      <Link href={`/appointments/new?patientId=${patientId}${step.assignedDoctorId ? `&doctorId=${step.assignedDoctorId}` : ''}&reason=${encodeURIComponent(step.stepLabel)}&planItemId=${step.planItemId}`}>
                         <CalendarDays className="mr-1 h-3.5 w-3.5" />
                         Schedule F/U
                       </Link>
@@ -339,42 +342,46 @@ export default async function CheckoutPage({
               })}
             </div>
             {totalRemainingCost > 0 && (
-              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-blue-100">
+              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-blue-200">
                 Estimated remaining treatment: {"\u20B9"}{totalRemainingCost.toLocaleString("en-IN")}
+              </div>
+            )}
+
+            {/* Consolidated financial alerts inside next steps card */}
+            {(nextProcedureCost > 0 || chainWarnings.length > 0) && (
+              <div className="mt-3 pt-3 border-t border-blue-200 space-y-2">
+                {nextProcedureCost > 0 && shortfall > 0 && (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    <span className="font-medium">Minimum needed:</span>{" "}
+                    {nextSteps.map((s) => s.stepLabel).join(", ")}
+                    {nextSteps[0].doctorFee && (
+                      <span> — Doctor fee {"\u20B9"}{nextSteps[0].doctorFee.toLocaleString("en-IN")}</span>
+                    )}
+                    {nextSteps[0].labCost ? ` + Lab est. \u20B9${nextSteps[0].labCost.toLocaleString("en-IN")}` : ""}
+                    {" = "}<span className="font-bold">{"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")}</span>
+                    <div className="text-amber-700 mt-0.5">
+                      Balance: {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} → <span className="font-semibold">Collect {"\u20B9"}{shortfall.toLocaleString("en-IN")} more</span>
+                    </div>
+                  </div>
+                )}
+                {nextProcedureCost > 0 && shortfall <= 0 && (
+                  <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm font-medium text-green-800">
+                    Sufficient balance for next procedure ({"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")} needed, {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} available)
+                  </div>
+                )}
+                {chainWarnings.map((w, i) => (
+                  <div key={i} className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-700">
+                    <span className="font-medium text-amber-800">{w.operationName}:</span> {"\u20B9"}{w.collected.toLocaleString("en-IN")} collected, doctor fee {"\u20B9"}{w.doctorFee.toLocaleString("en-IN")}{w.labCost > 0 ? ` + lab \u20B9${w.labCost.toLocaleString("en-IN")}` : ""} — <span className="font-semibold">{"\u20B9"}{w.shortfall.toLocaleString("en-IN")} short</span>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Smart minimum collection */}
-      {nextSteps.length > 0 && nextProcedureCost > 0 && (
-        shortfall > 0 ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <div className="text-sm text-amber-800">
-              <span className="font-medium">Next procedure minimum:</span>{" "}
-              {nextSteps.map((s) => s.stepLabel).join(", ")}
-              {nextSteps[0].doctorFee && (
-                <span> — Doctor fee {"\u20B9"}{nextSteps[0].doctorFee.toLocaleString("en-IN")}</span>
-              )}
-              {nextSteps[0].labCost ? ` + Lab est. \u20B9${nextSteps[0].labCost.toLocaleString("en-IN")}` : ""}
-              {" = "}<span className="font-bold">{"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")} needed</span>
-            </div>
-            <div className="text-sm text-amber-700 mt-1">
-              Current balance: {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} → <span className="font-semibold">Collect at least {"\u20B9"}{shortfall.toLocaleString("en-IN")} more</span>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-            <div className="text-sm font-medium text-green-800">
-              Sufficient balance for next procedure ({"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")} needed, {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} available)
-            </div>
-          </div>
-        )
-      )}
-
-      {/* Balance warning */}
-      {escrowData.balance < 0 && nextSteps.length === 0 && (
+      {/* Standalone alerts when no next steps */}
+      {nextSteps.length === 0 && escrowData.balance < 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="text-sm font-medium text-red-800">
             Patient owes {"\u20B9"}{Math.abs(escrowData.balance).toLocaleString("en-IN")} — collect before scheduling follow-up
@@ -382,8 +389,7 @@ export default async function CheckoutPage({
         </div>
       )}
 
-      {/* Minimum collection warnings */}
-      {chainWarnings.length > 0 && (
+      {nextSteps.length === 0 && chainWarnings.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
           <div className="text-sm font-medium text-amber-800">Collection Warning</div>
           {chainWarnings.map((w, i) => (

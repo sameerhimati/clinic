@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { recordEscrowDeposit } from "./actions";
 import { format } from "date-fns";
 import { todayString } from "@/lib/validations";
@@ -104,20 +110,24 @@ export function EscrowCheckout({
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const isPositiveBalance = escrow.balance >= 0;
+
   return (
     <div className="space-y-6">
-      {/* How does this work? — collapsible explainer */}
+      {/* How does this work? — styled info card trigger */}
       <button
         type="button"
         onClick={() => setShowHelp(!showHelp)}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="w-full flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-700 hover:bg-blue-100 transition-colors"
       >
-        <HelpCircle className="h-4 w-4" />
-        <span>How does this work?</span>
-        {showHelp ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        <div className="flex items-center gap-2">
+          <HelpCircle className="h-4 w-4" />
+          <span className="font-medium">How does this work?</span>
+        </div>
+        {showHelp ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       {showHelp && (
-        <Card className="border-blue-200 bg-blue-50/30">
+        <Card className="border-blue-200 bg-blue-50/50">
           <CardContent className="pt-4 pb-4">
             <div className="grid gap-4 sm:grid-cols-3 text-center text-sm">
               <div className="space-y-1.5">
@@ -140,22 +150,29 @@ export function EscrowCheckout({
         </Card>
       )}
 
-      {/* Account Balance Card */}
-      <Card className={escrow.balance >= 0 ? "border-green-200" : "border-red-200"}>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
+      {/* Account Balance Hero Card */}
+      <Card className="overflow-hidden border-0 shadow-md">
+        <div className={`${isPositiveBalance ? "bg-green-600" : "bg-red-600"} px-6 py-5 text-center`}>
+          <div className="text-sm font-medium text-white/80 uppercase tracking-wide">
+            {isPositiveBalance ? "Account Balance" : "Patient Owes"}
+          </div>
+          <div className="text-4xl font-bold font-mono text-white mt-1">
+            {"\u20B9"}{Math.abs(escrow.balance).toLocaleString("en-IN")}
+          </div>
+        </div>
+        <CardContent className="pt-4 pb-4">
+          <div className="grid grid-cols-2 gap-4 text-center">
             <div>
-              <div className="text-sm text-muted-foreground">Account Balance</div>
-              <div className={`text-3xl font-bold font-mono ${escrow.balance >= 0 ? "text-green-700" : "text-red-700"}`}>
-                {"\u20B9"}{Math.abs(escrow.balance).toLocaleString("en-IN")}
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Collected</div>
+              <div className="text-lg font-semibold font-mono text-green-700 mt-0.5">
+                {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}
               </div>
-              {escrow.balance < 0 && (
-                <div className="text-sm text-red-600 mt-0.5">Patient owes this amount</div>
-              )}
             </div>
-            <div className="text-right text-sm text-muted-foreground space-y-1">
-              <div>Collected: {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}</div>
-              <div>Deducted: {"\u20B9"}{escrow.fulfilled.toLocaleString("en-IN")}</div>
+            <div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Deducted</div>
+              <div className="text-lg font-semibold font-mono text-blue-700 mt-0.5">
+                {"\u20B9"}{escrow.fulfilled.toLocaleString("en-IN")}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -183,17 +200,18 @@ export function EscrowCheckout({
             </div>
             <div className="space-y-2">
               <Label>Payment Mode</Label>
-              <select
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-              >
-                <option value="Cash">Cash</option>
-                <option value="Card">Card</option>
-                <option value="UPI">UPI</option>
-                <option value="NEFT">NEFT</option>
-                <option value="Cheque">Cheque</option>
-              </select>
+              <Select value={paymentMode} onValueChange={setPaymentMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Card">Card</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="NEFT">NEFT</SelectItem>
+                  <SelectItem value="Cheque">Cheque</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
@@ -203,6 +221,21 @@ export function EscrowCheckout({
                 onChange={(e) => setPaymentDate(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Quick-amount buttons */}
+          <div className="flex gap-2 flex-wrap">
+            {[500, 1000, 2000, 5000, 10000].map((amt) => (
+              <Button
+                key={amt}
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={() => setAmount(String(amt))}
+              >
+                +{"\u20B9"}{amt.toLocaleString("en-IN")}
+              </Button>
+            ))}
           </div>
 
           <div className="space-y-2">
@@ -222,7 +255,7 @@ export function EscrowCheckout({
           <Button
             onClick={handleSubmit}
             disabled={isPending || payAmount <= 0}
-            className="w-full"
+            className={`w-full ${payAmount > 0 ? "bg-green-600 hover:bg-green-700" : ""}`}
             size="lg"
           >
             {isPending ? "Processing..." : payAmount > 0 ? `Collect \u20B9${payAmount.toLocaleString("en-IN")}` : "Enter Amount"}
@@ -237,27 +270,33 @@ export function EscrowCheckout({
             <CardTitle>Payment History</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y">
+            <div className="relative">
               {timeline.map((item, i) => (
-                <div key={i} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <div className="flex items-center gap-3">
-                    <div className={`rounded-full p-1.5 ${item.type === "deposit" ? "bg-green-100" : "bg-blue-100"}`}>
-                      {item.type === "deposit" ? (
-                        <ArrowDown className="h-3.5 w-3.5 text-green-700" />
-                      ) : (
-                        <ArrowUp className="h-3.5 w-3.5 text-blue-700" />
+                <div key={i} className="flex items-start justify-between px-4 py-3 text-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex flex-col items-center">
+                      <div className={`rounded-full p-2 ${item.type === "deposit" ? "bg-green-100" : "bg-blue-100"}`}>
+                        {item.type === "deposit" ? (
+                          <ArrowDown className="h-4 w-4 text-green-700" />
+                        ) : (
+                          <ArrowUp className="h-4 w-4 text-blue-700" />
+                        )}
+                      </div>
+                      {/* Connector line between entries */}
+                      {i < timeline.length - 1 && (
+                        <div className="w-px bg-border flex-1 min-h-[8px] mt-1" />
                       )}
                     </div>
-                    <div>
-                      <div className="font-medium">{item.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(item.date), "dd-MM-yyyy")}
+                    <div className="pt-0.5">
+                      <div className="font-medium">{format(new Date(item.date), "dd MMM yyyy")}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {item.label}
                         {item.detail && ` · ${item.detail}`}
                         {item.receiptNo && ` · Rcpt #${item.receiptNo}`}
                       </div>
                     </div>
                   </div>
-                  <span className={`font-medium font-mono ${item.type === "deposit" ? "text-green-700" : "text-blue-700"}`}>
+                  <span className={`font-medium font-mono pt-0.5 ${item.type === "deposit" ? "text-green-700" : "text-blue-700"}`}>
                     {item.type === "deposit" ? "+" : "-"}{"\u20B9"}{item.amount.toLocaleString("en-IN")}
                   </span>
                 </div>

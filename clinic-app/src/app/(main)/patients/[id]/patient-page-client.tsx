@@ -271,11 +271,29 @@ function ScheduleNowBanner({ patientId }: { patientId: number }) {
   );
 }
 
+function getSmartScheduleUrl(patientId: number, plans: TreatmentPlanData[]): string {
+  const base = `/appointments/new?patientId=${patientId}`;
+  for (const plan of plans.filter((p) => p.status === "ACTIVE")) {
+    const sorted = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const next = sorted.find((i) => !i.visitId && !i.modifiedStatus && !i.appointment);
+    if (next) {
+      const params = new URLSearchParams({ patientId: String(patientId) });
+      if (next.assignedDoctorId) params.set("doctorId", String(next.assignedDoctorId));
+      params.set("reason", next.label);
+      params.set("planItemId", String(next.id));
+      return `/appointments/new?${params.toString()}`;
+    }
+  }
+  return base;
+}
+
 export function PatientPageClient({ data }: { data: PatientPageData }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { patient, currentUser } = data;
   const isDoctor = currentUser.permissionLevel >= 3;
+
+  const smartScheduleUrl = getSmartScheduleUrl(patient.id, data.treatmentPlans);
 
   // Treatment history view mode
   const [viewMode, setViewMode] = useState<"timeline" | "log">("log");
@@ -438,7 +456,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       // Only show "Schedule Appointment" if there's no active appointment today
       primaryCta = (
         <Button size="sm" asChild>
-          <Link href={`/appointments/new?patientId=${patient.id}`}>
+          <Link href={smartScheduleUrl}>
             <CalendarDays className="mr-1 h-3.5 w-3.5" />
             Schedule Appointment
           </Link>
@@ -852,7 +870,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
           <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-            <Link href={`/appointments/new?patientId=${patient.id}`}>
+            <Link href={smartScheduleUrl}>
               <CalendarDays className="h-3.5 w-3.5 mr-1" />
               Schedule
             </Link>

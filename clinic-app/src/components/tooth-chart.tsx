@@ -40,8 +40,8 @@ type ChartSize = "sm" | "md" | "lg";
 
 const SIZE_CONFIG: Record<ChartSize, { cell: string; gap: string; indicator: string; dividerH: string }> = {
   sm: { cell: "w-7 h-7 text-[11px]", gap: "gap-1", indicator: "", dividerH: "h-5" },
-  md: { cell: "w-8 h-8 text-xs", gap: "gap-1.5", indicator: "text-[8px]", dividerH: "h-6" },
-  lg: { cell: "w-9 h-9 text-xs sm:w-10 sm:h-10 sm:text-sm", gap: "gap-1", indicator: "text-[10px] font-semibold", dividerH: "h-7 sm:h-8" },
+  md: { cell: "w-9 h-9 text-xs", gap: "gap-1.5", indicator: "text-[8px]", dividerH: "h-6" },
+  lg: { cell: "w-11 h-11 text-sm sm:w-12 sm:h-12 sm:text-base", gap: "gap-1.5 sm:gap-2", indicator: "text-[11px] font-semibold", dividerH: "h-8 sm:h-10" },
 };
 
 export function ToothChart({
@@ -251,7 +251,7 @@ export function ToothChart({
         onTouchStart={() => handleTouchStart(tooth)}
         onTouchEnd={() => handleTouchEnd(tooth)}
         disabled={readOnly && !onDoubleClick}
-        className={`${config.cell} rounded font-mono font-medium transition-colors relative select-none flex items-center justify-center ${bgClass} ${
+        className={`${config.cell} shrink-0 appearance-none rounded font-mono font-medium transition-colors relative select-none flex items-center justify-center ${bgClass} ${
           isHighlighted && !isSelected ? "ring-2 ring-amber-400" : ""
         }`}
         style={!isSelected ? bgStyle : undefined}
@@ -321,30 +321,30 @@ export function ToothChart({
         </div>
       )}
       {/* Upper row */}
-      <div className="flex items-center">
-        <div className={`flex ${config.gap}`}>
+      <div className="flex flex-nowrap items-center">
+        <div className={`flex flex-nowrap ${config.gap}`}>
           {Q1.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
-        <div className={`w-px ${config.dividerH} bg-border mx-1`} />
-        <div className={`flex ${config.gap}`}>
+        <div className={`w-px ${config.dividerH} bg-border ${resolvedSize === "lg" ? "mx-3" : "mx-1"}`} />
+        <div className={`flex flex-nowrap ${config.gap}`}>
           {Q2.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
       </div>
       {/* Horizontal divider */}
-      <div className="h-px bg-border my-1.5" />
+      <div className={`h-px bg-border ${resolvedSize === "lg" ? "my-3" : "my-1.5"}`} />
       {/* Lower row */}
-      <div className="flex items-center">
-        <div className={`flex ${config.gap}`}>
+      <div className="flex flex-nowrap items-center">
+        <div className={`flex flex-nowrap ${config.gap}`}>
           {Q4.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
-        <div className={`w-px ${config.dividerH} bg-border mx-1`} />
-        <div className={`flex ${config.gap}`}>
+        <div className={`w-px ${config.dividerH} bg-border ${resolvedSize === "lg" ? "mx-3" : "mx-1"}`} />
+        <div className={`flex flex-nowrap ${config.gap}`}>
           {Q3.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
