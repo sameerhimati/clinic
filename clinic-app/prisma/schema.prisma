@@ -196,6 +196,7 @@ model Doctor {
   prescriptionsPrinted Prescription[]  @relation("PrescriptionPrintedBy")
   payments             PatientPayment[]
   escrowFulfillments   EscrowFulfillment[]
+  modifiedPlanItems    TreatmentPlanItem[] @relation("ModifiedPlanItems")
 
   @@map("doctors")
 }
@@ -453,6 +454,10 @@ model TreatmentPlanItem {
   visit            Visit?         @relation(fields: [visitId], references: [id])
   completedAt      DateTime?
   notes            String?
+  modifiedStatus   String?        // "CHANGED" | "NOT_APPLICABLE"
+  modifiedReason   String?
+  modifiedById     Int?
+  modifiedBy       Doctor?        @relation("ModifiedPlanItems", fields: [modifiedById], references: [id])
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   appointments     Appointment[]

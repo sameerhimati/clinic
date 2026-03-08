@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CheckoutForm } from "./checkout-form";
 import { EscrowCheckout } from "./escrow-checkout";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
-import { toTitleCase, getVisitLabel } from "@/lib/format";
+import { toTitleCase, getVisitLabel, formatDate } from "@/lib/format";
 import { getEscrowSummary } from "@/lib/escrow";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Wrench, CalendarDays, ArrowRight, AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +31,7 @@ export default async function CheckoutPage({
   const patient = await prisma.patient.findUnique({
     where: { id: patientId },
     include: {
+      diseases: { include: { disease: { select: { name: true } } } },
       visits: {
         include: {
           operation: { select: { name: true, doctorFee: true, labCostEstimate: true } },
@@ -61,7 +66,6 @@ export default async function CheckoutPage({
 
   // Get escrow summary
   const escrow = await getEscrowSummary(patientId);
-  const hasEscrow = escrow.deposits > 0 || escrow.fulfilled > 0;
 
   // Calculate outstanding visits (legacy mode)
   const outstandingVisits = patient.visits
@@ -107,6 +111,82 @@ export default async function CheckoutPage({
   }
 
   const totalOutstanding = outstandingVisits.reduce((s, v) => s + v.balance, 0);
+
+  // Today's work done — most recent visit with WorkDone entries
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const todayWorkDone = await prisma.workDone.findMany({
+    where: {
+      visit: { patientId: patientId, visitDate: { gte: today, lt: tomorrow } },
+    },
+    include: {
+      operation: { select: { name: true } },
+      performedBy: { select: { name: true } },
+      visit: { select: { id: true, caseNo: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Active treatment plan with next steps
+  const activePlans = await prisma.treatmentPlan.findMany({
+    where: { patientId, status: "ACTIVE" },
+    include: {
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          label: true,
+          sortOrder: true,
+          visitId: true,
+          completedAt: true,
+          estimatedDayGap: true,
+          operation: { select: { name: true, defaultMaxFee: true, doctorFee: true, labCostEstimate: true } },
+        },
+      },
+    },
+  });
+
+  // Find next uncompleted step across all active plans
+  const nextSteps: { planTitle: string; planId: number; stepLabel: string; estimatedDayGap: number; lastCompletedDate: Date | null; operationName: string | null; estimatedCost: number | null; doctorFee: number | null; labCost: number | null }[] = [];
+  let totalRemainingCost = 0;
+  for (const plan of activePlans) {
+    const items = plan.items.sort((a, b) => a.sortOrder - b.sortOrder);
+    let lastCompleted: Date | null = null;
+    let nextItem: typeof items[0] | null = null;
+    for (const item of items) {
+      if (item.completedAt) {
+        lastCompleted = item.completedAt;
+      } else {
+        if (!nextItem) nextItem = item;
+        // Sum up remaining cost estimates
+        if (item.operation?.defaultMaxFee) totalRemainingCost += item.operation.defaultMaxFee;
+      }
+    }
+    if (nextItem) {
+      const op = nextItem.operation;
+      const doctorFee = op?.doctorFee || null;
+      const labCost = op?.labCostEstimate || null;
+      const estimatedCost = op?.defaultMaxFee || null;
+      nextSteps.push({
+        planTitle: plan.title,
+        planId: plan.id,
+        stepLabel: nextItem.label,
+        estimatedDayGap: nextItem.estimatedDayGap,
+        lastCompletedDate: lastCompleted,
+        operationName: op?.name || null,
+        estimatedCost,
+        doctorFee,
+        labCost,
+      });
+    }
+  }
+
+  // Smart minimum calculation
+  const nextProcedureCost = nextSteps.reduce((sum, s) => sum + (s.doctorFee || 0) + (s.labCost || 0), 0);
+  const shortfall = nextProcedureCost > 0 ? Math.max(0, nextProcedureCost - escrow.balance) : 0;
 
   // Serialize escrow data for client
   const escrowData = {
@@ -154,15 +234,153 @@ export default async function CheckoutPage({
               {toTitleCase(patient.name)}
             </h2>
             <p className="text-muted-foreground">
-              Escrow Balance: {"\u20B9"}
+              Account Balance: {"\u20B9"}
               {escrowData.balance.toLocaleString("en-IN")}
-              {totalOutstanding > 0 && !hasEscrow && (
-                <> · Legacy Outstanding: {"\u20B9"}{totalOutstanding.toLocaleString("en-IN")}</>
-              )}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Medical alerts */}
+      {patient.diseases.length > 0 && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <span className="text-sm font-semibold text-red-800">Medical Alert</span>
+            <div className="flex flex-wrap gap-1.5 ml-1">
+              {patient.diseases.map((d) => (
+                <span key={d.diseaseId} className="inline-flex items-center rounded-full bg-red-100 border border-red-200 px-2 py-0.5 text-xs font-medium text-red-800">
+                  {d.disease.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* What was done today */}
+      {todayWorkDone.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              Done Today
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {todayWorkDone.map((wd) => (
+                <div key={wd.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="font-medium text-sm">{wd.operation.name}</span>
+                    {wd.toothNumber && (
+                      <span className="text-xs text-muted-foreground ml-1.5">Tooth #{wd.toothNumber}</span>
+                    )}
+                    <div className="text-xs text-muted-foreground">
+                      Dr. {toTitleCase(wd.performedBy.name)}
+                      {wd.visit.caseNo && (
+                        <Link href={`/visits/${wd.visit.id}`} className="text-primary hover:underline ml-1.5">
+                          Case #{wd.visit.caseNo}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  {wd.resultingStatus && (
+                    <Badge variant="outline" className="text-xs">
+                      {"\u2192"} {wd.resultingStatus}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Next Steps — active treatment plans with cost estimates */}
+      {nextSteps.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ArrowRight className="h-4 w-4 text-blue-600" />
+              Next Steps
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-blue-100">
+              {nextSteps.map((step) => {
+                const estimatedDate = step.lastCompletedDate
+                  ? new Date(step.lastCompletedDate.getTime() + step.estimatedDayGap * 24 * 60 * 60 * 1000)
+                  : null;
+                return (
+                  <div key={step.planId} className="flex items-center justify-between py-2.5 gap-3">
+                    <div>
+                      <div className="font-medium text-sm">
+                        {step.stepLabel}
+                        {step.estimatedCost && (
+                          <span className="text-muted-foreground font-normal"> — ~{"\u20B9"}{step.estimatedCost.toLocaleString("en-IN")}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {step.planTitle}
+                        {estimatedDate && (
+                          <span> · Due ~{formatDate(estimatedDate)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/appointments/new?patientId=${patientId}`}>
+                        <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                        Schedule F/U
+                      </Link>
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            {totalRemainingCost > 0 && (
+              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-blue-100">
+                Estimated remaining treatment: {"\u20B9"}{totalRemainingCost.toLocaleString("en-IN")}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Smart minimum collection */}
+      {nextSteps.length > 0 && nextProcedureCost > 0 && (
+        shortfall > 0 ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="text-sm text-amber-800">
+              <span className="font-medium">Next procedure minimum:</span>{" "}
+              {nextSteps.map((s) => s.stepLabel).join(", ")}
+              {nextSteps[0].doctorFee && (
+                <span> — Doctor fee {"\u20B9"}{nextSteps[0].doctorFee.toLocaleString("en-IN")}</span>
+              )}
+              {nextSteps[0].labCost ? ` + Lab est. \u20B9${nextSteps[0].labCost.toLocaleString("en-IN")}` : ""}
+              {" = "}<span className="font-bold">{"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")} needed</span>
+            </div>
+            <div className="text-sm text-amber-700 mt-1">
+              Current balance: {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} → <span className="font-semibold">Collect at least {"\u20B9"}{shortfall.toLocaleString("en-IN")} more</span>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="text-sm font-medium text-green-800">
+              Sufficient balance for next procedure ({"\u20B9"}{nextProcedureCost.toLocaleString("en-IN")} needed, {"\u20B9"}{escrow.balance.toLocaleString("en-IN")} available)
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Balance warning */}
+      {escrowData.balance < 0 && nextSteps.length === 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <div className="text-sm font-medium text-red-800">
+            Patient owes {"\u20B9"}{Math.abs(escrowData.balance).toLocaleString("en-IN")} — collect before scheduling follow-up
+          </div>
+        </div>
+      )}
 
       {/* Minimum collection warnings */}
       {chainWarnings.length > 0 && (
@@ -176,26 +394,18 @@ export default async function CheckoutPage({
         </div>
       )}
 
-      {/* Escrow Deposit (primary) */}
+      {/* Collect Payment (primary) */}
       <EscrowCheckout
         patientId={patient.id}
         escrow={escrowData}
+        suggestedAmount={shortfall > 0 ? shortfall : undefined}
       />
 
-      {/* Legacy outstanding section — only if patient has old outstanding visits and no escrow payments yet */}
-      {outstandingVisits.length > 0 && !hasEscrow && (
-        <>
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4">Legacy Per-Visit Payments</h3>
-          </div>
-          <CheckoutForm
-            patientId={patient.id}
-            patientCode={patient.code}
-            patientName={toTitleCase(patient.name)}
-            outstandingVisits={outstandingVisits}
-            recentReceipts={[]}
-          />
-        </>
+      {/* Legacy outstanding info — included in escrow balance */}
+      {outstandingVisits.length > 0 && totalOutstanding > 0 && (
+        <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
+          This patient has {"\u20B9"}{totalOutstanding.toLocaleString("en-IN")} in legacy outstanding balances from {outstandingVisits.length} visit{outstandingVisits.length !== 1 ? "s" : ""}. These are reflected in the account balance above.
+        </div>
       )}
     </div>
   );

@@ -55,7 +55,7 @@ const navSections: NavSection[] = [
     visible: (level) => level <= 2,
     items: [
       { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 2 },
-      { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
+      { href: "/receipts", label: "Payments", icon: Receipt, minPermission: 2 },
     ],
   },
   {

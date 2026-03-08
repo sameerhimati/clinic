@@ -76,13 +76,13 @@ export function getStatusColor(status: string): string {
 
 /** Visual indicator symbols for tooth statuses on the chart */
 export const TOOTH_STATUS_INDICATORS: Record<string, string> = {
-  CARIES: "\u25CF",
-  FILLED: "\u25CF",
-  CROWNED: "\u265B",
-  MISSING: "\u2715",
+  CARIES: "C",
+  FILLED: "F",
+  CROWNED: "Cr",
+  MISSING: "M",
   RCT: "R",
-  IMPLANT: "\u2699",
-  EXTRACTED: "\u2715",
+  IMPLANT: "I",
+  EXTRACTED: "Ex",
 };
 
 export function isValidToothNumber(n: number): boolean {
@@ -97,8 +97,8 @@ export function inferToothStatus(operationName: string): ToothStatusKey | null {
   const name = operationName.toUpperCase();
   if (name.includes("RCT") || name.includes("ROOT CANAL")) return "RCT";
   if (name.includes("EXTRACT")) return "EXTRACTED";
-  if (name.includes("CROWN") || name.includes("CAP")) return "CROWNED";
   if (name.includes("IMPLANT")) return "IMPLANT";
+  if (name.includes("CROWN") || name.includes("CAP")) return "CROWNED";
   if (name.includes("FILLING") || name.includes("RESTORATION") || name.includes("COMPOSITE") || name.includes("CONS.")) return "FILLED";
   return null;
 }

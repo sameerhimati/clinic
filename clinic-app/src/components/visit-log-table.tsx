@@ -19,9 +19,11 @@ function TeethDisplay({ teethJson }: { teethJson: string | null }) {
 export function VisitLogTable({
   visits,
   showInternalCosts,
+  onSelectVisit,
 }: {
   visits: VisitWithRelations[];
   showInternalCosts: boolean;
+  onSelectVisit?: (visit: VisitWithRelations) => void;
 }) {
   // Flatten all visits (root + follow-ups), sorted newest first
   const allVisits: VisitWithRelations[] = [];
@@ -73,9 +75,13 @@ export function VisitLogTable({
               const displayNotes = truncatedNotes.length > 60 ? truncatedNotes.slice(0, 60) + "..." : truncatedNotes;
 
               return (
-                <tr key={visit.id} className="hover:bg-accent/50 transition-colors">
+                <tr
+                  key={visit.id}
+                  className={`hover:bg-accent/50 transition-colors ${onSelectVisit ? "cursor-pointer" : ""}`}
+                  onClick={onSelectVisit ? () => onSelectVisit(visit) : undefined}
+                >
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <Link href={`/visits/${visit.id}`} className="text-primary hover:underline">
+                    <Link href={`/visits/${visit.id}`} className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
                       {formatDate(visit.visitDate)}
                     </Link>
                   </td>

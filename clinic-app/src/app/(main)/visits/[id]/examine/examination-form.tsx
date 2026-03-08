@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
-import { saveExamination, finalizeReport, unlockReport, addAddendum, createPlansFromConsultation, getNextArrivedAppointment } from "./actions";
+import { saveExamination, finalizeReport, unlockReport, addAddendum, getNextArrivedAppointment } from "./actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
@@ -22,14 +22,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ClipboardList, Search, Lightbulb, CalendarPlus, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download, Pill } from "lucide-react";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download, Pill, StickyNote } from "lucide-react";
 import { PrescriptionSheet } from "@/components/prescription-sheet";
 import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
 import { ToothDetailPanel, type ToothUpdate, type ToothFindingOption } from "@/components/tooth-detail-panel";
 import { TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, getStatusColor, type ToothStatusKey } from "@/lib/dental";
-import { TreatmentPlanEditor, type PlanItemDraft } from "@/components/treatment-plan-editor";
 import { WorkDoneCard, type WorkDoneEntry } from "@/components/work-done-card";
-import { createTreatmentPlan, completePlanItems, getOperationSteps } from "@/app/(main)/patients/[id]/plan/actions";
+import { completePlanItems } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
 import { toTitleCase, formatDateTime } from "@/lib/format";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -38,6 +37,7 @@ type PreviousReport = {
   visitId: number;
   caseNo: number | null;
   stepLabel: string | null;
+  operationName: string | null;
   doctorName: string;
   reportDate: string;
   complaint: string | null;
@@ -307,10 +307,14 @@ function PreviousNoteCard({ report }: { report: PreviousReport }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <span className="font-medium text-sm">
-            {report.stepLabel || "Initial Assessment"}
+            {report.operationName || report.stepLabel || "Visit"}
+            {report.operationName && report.stepLabel && (
+              <span className="text-muted-foreground font-normal"> — {report.stepLabel}</span>
+            )}
           </span>
           <div className="text-muted-foreground">
             Dr. {report.doctorName} · {report.reportDate}
+            {report.caseNo && <span> · Case #{report.caseNo}</span>}
           </div>
         </div>
         <button
@@ -390,7 +394,7 @@ function PreviousNotesPanel({
       >
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold text-sm">{operationName} — Previous Notes</h3>
+          <h3 className="font-semibold text-sm">Patient History</h3>
           <span className="text-xs text-muted-foreground">({reports.length} visit{reports.length !== 1 ? "s" : ""})</span>
         </div>
         {onToggle && (
@@ -471,11 +475,13 @@ function ToothApplyBar({
   onApply,
   onClear,
   onDetails,
+  onRecordWorkDone,
 }: {
   selected: number[];
   onApply: (status: string) => void;
   onClear: () => void;
   onDetails: () => void;
+  onRecordWorkDone?: () => void;
 }) {
   if (selected.length === 0) return null;
 
@@ -513,6 +519,15 @@ function ToothApplyBar({
         Healthy
       </button>
       <div className="flex-1" />
+      {onRecordWorkDone && (
+        <button
+          type="button"
+          onClick={onRecordWorkDone}
+          className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 cursor-pointer"
+        >
+          Record Work Done
+        </button>
+      )}
       <button
         type="button"
         onClick={onDetails}
@@ -625,9 +640,15 @@ export function ExaminationForm({
 
   // Work Done state
   const [workDoneEntries, setWorkDoneEntries] = useState<WorkDoneEntry[]>([]);
+  const [workDoneNotes, setWorkDoneNotes] = useState("");
+  const workDoneRef = useRef<HTMLDivElement>(null);
 
   // Prescription sheet state
   const [rxSheetOpen, setRxSheetOpen] = useState(false);
+
+  // Quick note state
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  const [quickNote, setQuickNote] = useState("");
 
   // Tooth detail panel state
   const [toothUpdates, setToothUpdates] = useState<Map<number, ToothUpdate>>(new Map());
@@ -735,6 +756,13 @@ export function ExaminationForm({
     setWorkDoneEntries((prev) => prev.filter((e) => e.id !== id));
   }
 
+  // Tooth → Work Done shortcut: scroll to work done card and pre-fill teeth
+  function handleToothToWorkDone() {
+    if (workDoneRef.current) {
+      workDoneRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
   // Build plan items available for Work Done auto-matching
   const activePlanItemsForWorkDone = (() => {
     if (!matchingPlanItem) return undefined;
@@ -747,9 +775,11 @@ export function ExaminationForm({
       }));
   })();
 
-  // Quick mode = default for new reports. Detailed = default when existing report has examination or diagnosis.
-  const hasDetailedFields = !!(existingReport?.examination || existingReport?.diagnosis);
-  const [isQuickMode, setIsQuickMode] = useState(!hasDetailedFields);
+  // Express mode for follow-ups without existing reports, Full mode otherwise
+  // Express renders: plan progress + compact chart + work done + brief note
+  const isExpressCandidate = isFollowUp && !existingReport;
+  const [viewMode, setViewMode] = useState<"express" | "full">(isExpressCandidate ? "express" : "full");
+  const isQuickMode = viewMode === "full"; // "full" = current quick layout (backwards compat)
 
   // Autosave drafts to localStorage
   const draftKey = `exam-draft-${visitId}`;
@@ -823,8 +853,8 @@ export function ExaminationForm({
       diagnosis !== s.diagnosis || treatmentNotes !== s.treatmentNotes ||
       estimate !== s.estimate ||
       JSON.stringify(teethSelected) !== s.teethSelected ||
-      workDoneEntries.length > 0;
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, workDoneEntries]);
+      workDoneEntries.length > 0 || workDoneNotes !== "";
+  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, workDoneEntries, workDoneNotes]);
 
   // Debounced autosave to localStorage
   useEffect(() => {
@@ -887,138 +917,9 @@ export function ExaminationForm({
   const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
   const [filesCollapsed, setFilesCollapsed] = useState(true);
 
-  // Treatment plan state
-  const hasTemplateSteps = treatmentSteps && treatmentSteps.length > 0;
-  const hasExistingPlans = existingActivePlans && existingActivePlans.length > 0;
-  const [showPlanEditor, setShowPlanEditor] = useState(false);
-  const [planTitle, setPlanTitle] = useState(operationName || "");
-  const [planItems, setPlanItems] = useState<PlanItemDraft[]>([]);
 
-  // Multi-treatment selection state (consultation flow — no operation yet)
-  const [treatmentSearch, setTreatmentSearch] = useState("");
-  const [selectedTreatments, setSelectedTreatments] = useState<
-    { id: number; name: string; category: string | null; stepCount: number }[]
-  >([]);
-
-  // Auto-suggest state
-  const [pendingSuggestion, setPendingSuggestion] = useState<{
-    sourceOpName: string;
-    suggestedOp: { id: number; name: string; category: string | null; stepCount: number };
-  } | null>(null);
-
-  // Inline scheduling state — keyed by operationId
-  const [treatmentSchedules, setTreatmentSchedules] = useState<
-    Record<number, { doctorId: number; date: string; timeSlot: string; stepName: string }>
-  >({});
-
-  const selectedIds = new Set(selectedTreatments.map((t) => t.id));
-  const filteredOperations = allOperations?.filter((op) => {
-    if (selectedIds.has(op.id)) return false;
-    if (!treatmentSearch) return true;
-    const q = treatmentSearch.toLowerCase();
-    return op.name.toLowerCase().includes(q) || (op.category?.toLowerCase().includes(q) ?? false);
-  }) ?? [];
-
-  // Helper to add a treatment and set up scheduling + suggestions
-  function addTreatment(op: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }) {
-    const stepCount = op.stepCount ?? 0;
-    setSelectedTreatments((prev) => [
-      ...prev,
-      { id: op.id, name: op.name, category: op.category, stepCount },
-    ]);
-    setTreatmentSearch("");
-
-    // Auto-initialize schedule for multi-step treatments
-    if (stepCount > 1) {
-      getOperationSteps(op.id).then((steps) => {
-        if (steps.length >= 2) {
-          const step2 = steps[1]; // Second step
-          // Find next available date based on doctor availability + defaultDayGap
-          let schedDate = new Date();
-          schedDate.setDate(schedDate.getDate() + step2.defaultDayGap);
-          const docSlots = doctorAvailability?.filter((a) => a.doctorId === doctorId) || [];
-          if (docSlots.length > 0) {
-            // Shift to next available day if needed
-            for (let i = 0; i < 7; i++) {
-              const testDay = new Date(schedDate);
-              testDay.setDate(testDay.getDate() + i);
-              if (docSlots.some((s) => s.dayOfWeek === testDay.getDay())) {
-                schedDate = testDay;
-                break;
-              }
-            }
-          }
-          setTreatmentSchedules((prev) => ({
-            ...prev,
-            [op.id]: {
-              doctorId: doctorId,
-              date: format(schedDate, "yyyy-MM-dd"),
-              timeSlot: docSlots.find((s) => s.dayOfWeek === schedDate.getDay())?.startTime
-                ? formatTime24to12Short(docSlots.find((s) => s.dayOfWeek === schedDate.getDay())!.startTime)
-                : "10:00 AM",
-              stepName: step2.name,
-            },
-          }));
-        }
-      });
-    }
-
-    // Check for auto-suggest
-    if (op.suggestsOperationId) {
-      const suggested = allOperations?.find((o) => o.id === op.suggestsOperationId);
-      if (suggested && !selectedIds.has(suggested.id) && suggested.id !== op.id) {
-        setPendingSuggestion({
-          sourceOpName: op.name,
-          suggestedOp: { id: suggested.id, name: suggested.name, category: suggested.category, stepCount: suggested.stepCount ?? 0 },
-        });
-      }
-    }
-  }
-
-  function removeTreatment(opId: number) {
-    setSelectedTreatments((prev) => prev.filter((s) => s.id !== opId));
-    setTreatmentSchedules((prev) => {
-      const next = { ...prev };
-      delete next[opId];
-      return next;
-    });
-  }
-
-  // Time slot options for scheduling
-  const TIME_SLOTS = [
-    "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-    "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
-    "2:00 PM", "2:30 PM", "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM",
-  ];
-
-  // Initialize plan items from template steps when opening the editor
-  function initPlanFromTemplate() {
-    if (!treatmentSteps || treatmentSteps.length === 0) return;
-    const items: PlanItemDraft[] = treatmentSteps.map((step, index) => ({
-      id: crypto.randomUUID(),
-      label: step.name,
-      operationId: null, // same operation for all template steps
-      assignedDoctorId: doctorId,
-      estimatedDayGap: step.defaultDayGap,
-      notes: step.description,
-      isCompleted: index === 0, // first step = this visit
-    }));
-    setPlanItems(items);
-    setPlanTitle(operationName || "Treatment Plan");
-    setShowPlanEditor(true);
-  }
-
-  async function loadTemplateSteps(operationId: number) {
-    const steps = await getOperationSteps(operationId);
-    return steps.map((s) => ({
-      name: s.name,
-      defaultDayGap: s.defaultDayGap,
-      description: s.description,
-    }));
-  }
 
   async function handleSave(redirectTarget: "detail" | "print" | "next") {
-    const initialSelectedCount = selectedTreatments.length;
     startTransition(async () => {
       try {
         clearDraft();
@@ -1028,7 +929,7 @@ export function ExaminationForm({
           complaint: complaint || null,
           examination: examination || null,
           diagnosis: diagnosis || null,
-          treatmentNotes: treatmentNotes || null,
+          treatmentNotes: [treatmentNotes, workDoneNotes].filter(Boolean).join("\n\n") || null,
           estimate: estimate || null,
           medication: null,
           teethSelected: teethSelected.length > 0 ? JSON.stringify(teethSelected) : null,
@@ -1065,62 +966,10 @@ export function ExaminationForm({
             toast.error("Exam saved but plan step completion failed");
           }
         }
-        // Create treatment plan if editor is active with items (new visits only)
-        else if (showPlanEditor && planItems.length > 0 && patientId) {
-          const validItems = planItems.filter((i) => !i.isCompleted && i.label.trim());
-          if (validItems.length > 0) {
-            try {
-              await createTreatmentPlan(
-                patientId,
-                planTitle || operationName || "Treatment Plan",
-                validItems.map((i) => ({
-                  label: i.label,
-                  operationId: i.operationId,
-                  assignedDoctorId: i.assignedDoctorId,
-                  estimatedDayGap: i.estimatedDayGap,
-                  notes: i.notes,
-                })),
-                null,
-                visitId, // link first item to this visit
-              );
-              toast.success("Treatment plan created");
-            } catch {
-              toast.error("Exam saved but plan creation failed");
-            }
-          }
-        }
-        // Create treatment plans from multi-select consultation flow
-        else if (selectedTreatments.length > 0 && patientId) {
-          try {
-            // Build schedules from inline scheduling state
-            const schedulesToSend = Object.entries(treatmentSchedules).map(
-              ([opId, sched]) => ({
-                operationId: Number(opId),
-                doctorId: sched.doctorId,
-                date: sched.date,
-                timeSlot: sched.timeSlot,
-              })
-            );
-            const planResult = await createPlansFromConsultation(
-              patientId,
-              visitId,
-              doctorId,
-              selectedTreatments.map((t) => t.id),
-              schedulesToSend.length > 0 ? schedulesToSend : undefined
-            );
-            if (planResult.alreadyExisted) {
-              // Plans already created for this visit — skip toast
-            } else {
-              const parts: string[] = [];
-              if (planResult.count > 0) parts.push(`${planResult.count} plan${planResult.count !== 1 ? "s" : ""} created`);
-              if (planResult.scheduledCount > 0) parts.push(`${planResult.scheduledCount} appointment${planResult.scheduledCount !== 1 ? "s" : ""} scheduled`);
-              if (parts.length > 0) toast.success(parts.join(", "));
-            }
-            setSelectedTreatments([]);
-            setTreatmentSchedules({});
-          } catch {
-            toast.error("Exam saved but plan creation failed");
-          }
+
+        // Escrow deficit warning
+        if (result?.escrowDeficitWarning) {
+          toast.warning(`Patient escrow is now -₹${Math.abs(result.escrowNewBalance).toLocaleString("en-IN")}. Inform reception to collect.`, { duration: 10000 });
         }
 
         if (result?.appointmentAutoCompleted && result.completedAppointmentId) {
@@ -1136,7 +985,7 @@ export function ExaminationForm({
             },
             duration: 8000,
           });
-        } else if (!showPlanEditor && !matchingPlanItem && initialSelectedCount === 0) {
+        } else if (!matchingPlanItem) {
           toast.success("Examination saved");
         }
         if (redirectTarget === "print") {
@@ -1358,9 +1207,44 @@ export function ExaminationForm({
     );
   }
 
+  // BDS Recommendation — most recent report for consultants
+  const lastBdsReport = (permissionLevel === 4 && previousReports && previousReports.length > 0) ? previousReports[0] : null;
+
   // Editable form — polished cards matching patient/visit form patterns
   const editableContent = (
     <div className="space-y-6 pb-24">
+      {/* BDS Recommendation Banner — for consultants */}
+      {lastBdsReport && (
+        <Card className="border-blue-300 bg-blue-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-blue-800">
+              <FileText className="h-4 w-4" />
+              BDS Recommendation — Dr. {lastBdsReport.doctorName}, {lastBdsReport.reportDate}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {lastBdsReport.diagnosis && (
+              <div>
+                <span className="text-blue-700 font-medium">Diagnosis: </span>
+                <span className="whitespace-pre-wrap">{lastBdsReport.diagnosis}</span>
+              </div>
+            )}
+            {lastBdsReport.treatmentNotes && (
+              <div>
+                <span className="text-blue-700 font-medium">Treatment Notes: </span>
+                <span className="whitespace-pre-wrap">{lastBdsReport.treatmentNotes}</span>
+              </div>
+            )}
+            {lastBdsReport.complaint && !lastBdsReport.diagnosis && !lastBdsReport.treatmentNotes && (
+              <div>
+                <span className="text-blue-700 font-medium">Complaint: </span>
+                <span className="whitespace-pre-wrap">{lastBdsReport.complaint}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Medical alerts — patient safety */}
       {patientDiseases && patientDiseases.length > 0 && (
         <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
@@ -1435,18 +1319,58 @@ export function ExaminationForm({
         <span className="text-xs text-muted-foreground">
           Dr. {doctorName} {"\u00b7"} {reportDate}
         </span>
-        <button
-          type="button"
-          onClick={() => setIsQuickMode(!isQuickMode)}
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {isQuickMode ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
-          {isQuickMode ? "Quick Mode" : "Detailed Mode"}
-        </button>
+        <div className="inline-flex items-center rounded-md border text-xs">
+          <button
+            type="button"
+            onClick={() => setViewMode("express")}
+            className={`px-2.5 py-1 rounded-l-md transition-colors ${viewMode === "express" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+          >
+            Express
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("full")}
+            className={`px-2.5 py-1 rounded-r-md transition-colors ${viewMode === "full" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+          >
+            Full
+          </button>
+        </div>
       </div>
 
-      {isQuickMode ? (
-        /* Quick Mode: Complaint pills → Tooth chart → Single notes → Medication */
+      {viewMode === "express" ? (
+        /* Express Mode: Compact chart + Work Done + Brief note */
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Follow-up Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Teeth</Label>
+              <ToothChart
+                selected={teethSelected}
+                onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
+                toothStatuses={mergedToothStatuses}
+                onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
+                readOnly={readOnly || isLocked}
+                size="sm"
+              />
+              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} onRecordWorkDone={isDoctor ? handleToothToWorkDone : undefined} />}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Brief Follow-up Note</Label>
+              <Textarea
+                placeholder="Quick follow-up note..."
+                value={treatmentNotes}
+                onChange={(e) => setTreatmentNotes(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Full Mode: Complaint pills → Tooth chart → Single notes */
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Clinical Notes</CardTitle>
@@ -1463,7 +1387,7 @@ export function ExaminationForm({
                 onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
                 readOnly={readOnly || isLocked}
               />
-              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} />}
+              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} onRecordWorkDone={isDoctor ? handleToothToWorkDone : undefined} />}
             </div>
 
             <div className="space-y-1.5">
@@ -1491,104 +1415,23 @@ export function ExaminationForm({
 
           </CardContent>
         </Card>
-      ) : (
-        /* Detailed Mode: Original 2-card layout */
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Clinical Assessment</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
-
-              <div className="space-y-1.5">
-                <Label>Teeth {toothUpdates.size > 0 && <span className="text-xs text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</Label>
-                <ToothChart
-                  selected={teethSelected}
-                  onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
-                  toothStatuses={mergedToothStatuses}
-                  onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
-                  readOnly={readOnly || isLocked}
-                />
-                {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} />}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Examination Findings</Label>
-                <Textarea
-                  placeholder="Record examination findings..."
-                  value={examination}
-                  onChange={(e) => setExamination(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Diagnosis</Label>
-                <Textarea
-                  placeholder="Enter diagnosis..."
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Treatment & Prescription</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>Treatment Notes</Label>
-                  {currentStepTemplate && !treatmentNotes && (
-                    <button
-                      type="button"
-                      onClick={() => setTreatmentNotes(currentStepTemplate)}
-                      className="text-xs text-primary hover:underline flex items-center gap-1"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Use Template
-                    </button>
-                  )}
-                </div>
-                <Textarea
-                  placeholder="Treatment plan, recommendations, procedures performed..."
-                  value={treatmentNotes}
-                  onChange={(e) => setTreatmentNotes(e.target.value)}
-                  rows={4}
-                />
-              </div>
-
-              {(!permissionLevel || permissionLevel <= 2) && (
-                <div className="space-y-1.5">
-                  <Label>Estimate</Label>
-                  <Textarea
-                    placeholder="Cost estimate..."
-                    value={estimate}
-                    onChange={(e) => setEstimate(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-              )}
-
-            </CardContent>
-          </Card>
-        </>
       )}
 
       {/* Work Done — between notes and treatment plan */}
       {isDoctor && (
+        <div ref={workDoneRef}>
         <WorkDoneCard
           entries={workDoneEntries}
           onAdd={handleAddWorkDone}
           onRemove={handleRemoveWorkDone}
+          onEditTeeth={(teeth) => setTeethSelected(teeth)}
           selectedTeeth={teethSelected}
           allOperations={allOperations || []}
           activePlanItems={activePlanItemsForWorkDone}
+          freeNotes={workDoneNotes}
+          onFreeNotesChange={setWorkDoneNotes}
         />
+        </div>
       )}
 
       {/* Treatment Plan — context-aware section */}
@@ -1636,251 +1479,8 @@ export function ExaminationForm({
         </Card>
       )}
 
-      {/* Case B: First visit, operation has templates, no existing plan → collapsed prompt */}
-      {isDoctor && !existingReport && !isFollowUp && !matchingPlanItem && hasTemplateSteps && allDoctors && allOperations && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Treatment Plan</CardTitle>
-              {hasExistingPlans && (
-                <span className="text-xs text-muted-foreground">
-                  {existingActivePlans!.length} active plan{existingActivePlans!.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!showPlanEditor ? (
-              <div className="space-y-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={initPlanFromTemplate}
-                >
-                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
-                  Create {operationName} plan ({treatmentSteps!.length} steps)
-                </Button>
-                {hasExistingPlans && (
-                  <p className="text-xs text-muted-foreground">
-                    Active: {existingActivePlans!.map((p) => p.title).join(", ")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Plan Title</Label>
-                  <input
-                    type="text"
-                    value={planTitle}
-                    onChange={(e) => setPlanTitle(e.target.value)}
-                    placeholder="e.g. RCT + Crown tooth 36"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-                <TreatmentPlanEditor
-                  items={planItems}
-                  onChange={setPlanItems}
-                  operations={allOperations}
-                  doctors={allDoctors}
-                  defaultDoctorId={doctorId}
-                  onLoadTemplateSteps={loadTemplateSteps}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowPlanEditor(false);
-                    setPlanItems([]);
-                  }}
-                  className="text-muted-foreground"
-                >
-                  Remove plan
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-      {/* Case D: Consultation — no operation assigned yet → multi-treatment picker */}
-      {isDoctor && !existingReport && !(hasOperation ?? false) && !matchingPlanItem && allOperations && allOperations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Treatment Plans
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Selected treatments as removable chips + inline scheduling */}
-            {selectedTreatments.length > 0 ? (
-              <div className="space-y-2">
-                {selectedTreatments.map((t) => (
-                  <div key={t.id} className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20">
-                      {t.name}
-                      {t.stepCount > 1 && (
-                        <span className="text-[10px] opacity-70">{t.stepCount} steps</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeTreatment(t.id)}
-                        className="ml-0.5 hover:text-destructive transition-colors"
-                      >
-                        ×
-                      </button>
-                    </span>
-                    {/* Inline scheduling row for multi-step treatments */}
-                    {treatmentSchedules[t.id] && (
-                      <div className="ml-2 pl-3 border-l-2 border-primary/20 space-y-1.5">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <CalendarPlus className="h-3 w-3" />
-                          <span>Next: <span className="font-medium text-foreground">{treatmentSchedules[t.id].stepName}</span></span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <select
-                            value={treatmentSchedules[t.id].doctorId}
-                            onChange={(e) => setTreatmentSchedules((prev) => ({
-                              ...prev,
-                              [t.id]: { ...prev[t.id], doctorId: Number(e.target.value) },
-                            }))}
-                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          >
-                            {allDoctors?.map((d) => (
-                              <option key={d.id} value={d.id}>Dr. {toTitleCase(d.name)}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="date"
-                            value={treatmentSchedules[t.id].date}
-                            min={format(new Date(), "yyyy-MM-dd")}
-                            onChange={(e) => setTreatmentSchedules((prev) => ({
-                              ...prev,
-                              [t.id]: { ...prev[t.id], date: e.target.value },
-                            }))}
-                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          />
-                          <select
-                            value={treatmentSchedules[t.id].timeSlot}
-                            onChange={(e) => setTreatmentSchedules((prev) => ({
-                              ...prev,
-                              [t.id]: { ...prev[t.id], timeSlot: e.target.value },
-                            }))}
-                            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          >
-                            {TIME_SLOTS.map((slot) => (
-                              <option key={slot} value={slot}>{slot}</option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setTreatmentSchedules((prev) => {
-                              const next = { ...prev };
-                              delete next[t.id];
-                              return next;
-                            })}
-                            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        {/* Availability helper text */}
-                        {(() => {
-                          const docSlots = doctorAvailability?.filter((a) => a.doctorId === treatmentSchedules[t.id].doctorId) || [];
-                          if (docSlots.length === 0) return null;
-                          const schedDate = treatmentSchedules[t.id].date ? new Date(treatmentSchedules[t.id].date + "T12:00:00") : null;
-                          const isUnavailable = schedDate && !docSlots.some((s) => s.dayOfWeek === schedDate.getDay());
-                          return (
-                            <div className="text-[11px] text-muted-foreground">
-                              Available: {formatDoctorAvailability(docSlots)}
-                              {isUnavailable && (
-                                <span className="ml-1.5 text-amber-600 font-medium">
-                                  ⚠ {DAY_NAMES_SHORT[schedDate!.getDay()]} not scheduled
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Select treatments the patient needs
-              </p>
-            )}
-
-            {/* Auto-suggest banner */}
-            {pendingSuggestion && !selectedIds.has(pendingSuggestion.suggestedOp.id) && (
-              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm">
-                <Lightbulb className="h-4 w-4 text-blue-600 shrink-0" />
-                <span className="text-blue-800 flex-1">
-                  <span className="font-medium">{pendingSuggestion.suggestedOp.name}</span> is typically needed after {pendingSuggestion.sourceOpName}
-                </span>
-                <div className="flex gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setPendingSuggestion(null)}
-                    className="px-2 py-0.5 text-xs rounded border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const op = allOperations?.find((o) => o.id === pendingSuggestion.suggestedOp.id);
-                      if (op) addTreatment(op);
-                      setPendingSuggestion(null);
-                    }}
-                    className="px-2 py-0.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                  >
-                    Add {pendingSuggestion.suggestedOp.name}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={treatmentSearch}
-                onChange={(e) => setTreatmentSearch(e.target.value)}
-                placeholder="Search treatments..."
-                className="flex h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-            <div className="max-h-48 overflow-y-auto rounded-md border divide-y">
-              {filteredOperations.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  {treatmentSearch ? "No treatments found" : "All treatments selected"}
-                </div>
-              ) : (
-                filteredOperations.slice(0, 20).map((op) => (
-                  <button
-                    key={op.id}
-                    type="button"
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors"
-                    onClick={() => addTreatment(op)}
-                  >
-                    <span className="font-medium">{op.name}</span>
-                    {op.category && (
-                      <span className="ml-2 text-xs text-muted-foreground">{op.category}</span>
-                    )}
-                    {(op.stepCount ?? 0) > 1 && (
-                      <span className="ml-2 text-xs text-muted-foreground">{op.stepCount} steps</span>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Case B removed — treatment plans are created on the patient page, not during exam */}
+      {/* Case D removed — consultation plans are created on the patient page */}
 
       {/* Case C: No templates, or follow-up without plan → section hidden entirely */}
 
@@ -1904,9 +1504,48 @@ export function ExaminationForm({
       )}
 
       {/* Sticky bottom save bar */}
-      <div className="sticky bottom-0 z-20 -mx-4 px-4 md:-mx-6 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-        <div className="flex gap-2 justify-between items-center">
-          <div>
+      <div className="sticky bottom-0 z-20 -mx-4 px-4 md:-mx-6 md:px-6 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+        {quickNoteOpen && (
+          <div className="pt-3 pb-1 border-b">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Quick note... (auto-timestamped)"
+                value={quickNote}
+                onChange={(e) => setQuickNote(e.target.value)}
+                rows={2}
+                className="text-sm resize-none flex-1"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && quickNote.trim()) {
+                    const time = format(new Date(), "HH:mm");
+                    const stamped = `[${time}] ${quickNote.trim()}`;
+                    setTreatmentNotes((prev) => prev ? `${prev}\n${stamped}` : stamped);
+                    setQuickNote("");
+                    setQuickNoteOpen(false);
+                    toast.success("Note added");
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                disabled={!quickNote.trim()}
+                onClick={() => {
+                  const time = format(new Date(), "HH:mm");
+                  const stamped = `[${time}] ${quickNote.trim()}`;
+                  setTreatmentNotes((prev) => prev ? `${prev}\n${stamped}` : stamped);
+                  setQuickNote("");
+                  setQuickNoteOpen(false);
+                  toast.success("Note added");
+                }}
+              >
+                Add
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Press ⌘+Enter to add · Appends to treatment notes</p>
+          </div>
+        )}
+        <div className="py-3 flex gap-2 justify-between items-center">
+          <div className="flex gap-2">
             {existingReport && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1935,6 +1574,17 @@ export function ExaminationForm({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            )}
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickNoteOpen((v) => !v)}
+                className={quickNoteOpen ? "bg-accent" : ""}
+              >
+                <StickyNote className="mr-1 h-3.5 w-3.5" />
+                Note
+              </Button>
             )}
           </div>
           <div className="flex gap-2">

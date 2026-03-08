@@ -39,11 +39,20 @@ export default async function NewAppointmentPage({
   ]);
 
   let defaultPatient = null;
+  let patientEscrowBalance: number | undefined;
   if (params.patientId) {
+    const patientId = parseInt(params.patientId);
     defaultPatient = await prisma.patient.findUnique({
-      where: { id: parseInt(params.patientId) },
-      select: { id: true, code: true, name: true, salutation: true },
+      where: { id: patientId },
+      select: { id: true, code: true, name: true, salutation: true, diseases: { include: { disease: { select: { name: true } } } } },
     });
+    if (defaultPatient) {
+      const [deposits, fulfilled] = await Promise.all([
+        prisma.patientPayment.aggregate({ where: { patientId }, _sum: { amount: true } }),
+        prisma.escrowFulfillment.aggregate({ where: { patientId }, _sum: { amount: true } }),
+      ]);
+      patientEscrowBalance = (deposits._sum.amount || 0) - (fulfilled._sum.amount || 0);
+    }
   }
 
   const doctors = doctorsRaw.map(({ defaultRoomId, ...d }) => d);
@@ -73,7 +82,8 @@ export default async function NewAppointmentPage({
       <AppointmentForm
         doctors={doctors}
         rooms={rooms}
-        defaultPatient={defaultPatient}
+        defaultPatient={defaultPatient ? { id: defaultPatient.id, code: defaultPatient.code, name: defaultPatient.name, salutation: defaultPatient.salutation } : null}
+        defaultMedicalAlerts={defaultPatient?.diseases?.map((d) => d.disease.name) || []}
         defaultDoctorId={params.doctorId ? parseInt(params.doctorId) : currentUser.permissionLevel >= 3 ? currentUser.id : undefined}
         defaultDate={params.date}
         defaultReason={defaultReason}
@@ -82,6 +92,7 @@ export default async function NewAppointmentPage({
         doctorAvailability={availability}
         doctorDefaultRooms={doctorDefaultRooms}
         planItemId={params.planItemId ? parseInt(params.planItemId) : undefined}
+        patientEscrowBalance={patientEscrowBalance}
       />
     </div>
   );

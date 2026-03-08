@@ -7,9 +7,24 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { ChevronsUpDown, Check } from "lucide-react";
 import { getToothName, TOOTH_STATUSES, getStatusColor, TOOTH_STATUS_INDICATORS, type ToothStatusKey } from "@/lib/dental";
 
 export type ToothFindingOption = {
@@ -61,6 +76,7 @@ export function ToothDetailPanel({
   const [status, setStatus] = useState(currentData?.status || "HEALTHY");
   const [findingId, setFindingId] = useState<number | undefined>(currentData?.findingId);
   const [notes, setNotes] = useState(currentData?.notes || "");
+  const [findingOpen, setFindingOpen] = useState(false);
 
   // Reset state when tooth changes
   const [prevTooth, setPrevTooth] = useState<number | null>(null);
@@ -81,6 +97,10 @@ export function ToothDetailPanel({
     groupedFindings.get(cat)!.push(f);
   }
 
+  const selectedFinding = findings.find((f) => f.id === findingId);
+  const toothName = getToothName(toothNumber);
+  const statusColor = getStatusColor(status);
+
   function handleSave() {
     if (!toothNumber) return;
     onSave({
@@ -94,71 +114,122 @@ export function ToothDetailPanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            Tooth #{toothNumber}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            {getToothName(toothNumber)}
-          </p>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold font-mono text-sm"
+              style={{ backgroundColor: statusColor }}
+            >
+              {toothNumber}
+            </div>
+            <div>
+              <DialogTitle className="text-lg">Tooth #{toothNumber}</DialogTitle>
+              <p className="text-sm text-muted-foreground">{toothName}</p>
+            </div>
+          </div>
+          <DialogDescription className="sr-only">
+            Edit status and findings for tooth {toothNumber} — {toothName}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 mt-6">
-          {/* Status selector */}
+        <div className="space-y-5 mt-4">
+          {/* Status selector — grid layout */}
           <div className="space-y-2">
             <Label>Status</Label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {Object.entries(TOOTH_STATUSES).map(([key, { label, color }]) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setStatus(key)}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     status === key
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-input bg-background hover:bg-accent cursor-pointer"
                   }`}
                 >
                   <div
-                    className="w-2 h-2 rounded-full"
+                    className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: status === key ? "#fff" : color }}
                   />
                   {label}
                 </button>
               ))}
             </div>
-            {/* Current status color indicator */}
-            <div className="flex items-center gap-2 mt-1">
-              <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: getStatusColor(status) }}
-              />
-              <span className="text-xs text-muted-foreground">
-                {TOOTH_STATUSES[status as ToothStatusKey]?.label || status}
-              </span>
-            </div>
           </div>
 
-          {/* Finding selector */}
+          {/* Finding selector — Combobox */}
           <div className="space-y-2">
             <Label>Finding (optional)</Label>
-            <select
-              value={findingId || ""}
-              onChange={(e) => setFindingId(e.target.value ? parseInt(e.target.value) : undefined)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              <option value="">No specific finding</option>
-              {Array.from(groupedFindings.entries()).map(([cat, items]) => (
-                <optgroup key={cat} label={cat}>
-                  {items.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <Popover open={findingOpen} onOpenChange={setFindingOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={findingOpen}
+                  className="w-full justify-between font-normal"
+                >
+                  {selectedFinding ? (
+                    <span className="flex items-center gap-2">
+                      {selectedFinding.color && (
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: selectedFinding.color }}
+                        />
+                      )}
+                      {selectedFinding.name}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">No specific finding</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search findings..." />
+                  <CommandList>
+                    <CommandEmpty>No findings found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="none"
+                        onSelect={() => {
+                          setFindingId(undefined);
+                          setFindingOpen(false);
+                        }}
+                      >
+                        <Check className={`mr-2 h-4 w-4 ${findingId === undefined ? "opacity-100" : "opacity-0"}`} />
+                        No specific finding
+                      </CommandItem>
+                    </CommandGroup>
+                    {Array.from(groupedFindings.entries()).map(([cat, items]) => (
+                      <CommandGroup key={cat} heading={cat}>
+                        {items.map((f) => (
+                          <CommandItem
+                            key={f.id}
+                            value={f.name}
+                            onSelect={() => {
+                              setFindingId(f.id);
+                              setFindingOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${findingId === f.id ? "opacity-100" : "opacity-0"}`} />
+                            {f.color && (
+                              <div
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: f.color }}
+                              />
+                            )}
+                            {f.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Notes */}
@@ -184,28 +255,30 @@ export function ToothDetailPanel({
 
           {/* History timeline */}
           {history && history.length > 0 && (
-            <div className="space-y-2 pt-2 border-t">
+            <div className="space-y-3 pt-2 border-t">
               <Label className="text-muted-foreground">History</Label>
-              <div className="space-y-1.5">
+              <div className="relative pl-6 space-y-3">
+                <div className="absolute left-[7px] top-1 bottom-1 w-px bg-border" />
                 {history.map((entry, i) => {
-                  const indicator = TOOTH_STATUS_INDICATORS[entry.status] || "";
                   const color = getStatusColor(entry.status);
                   const statusLabel = TOOTH_STATUSES[entry.status as ToothStatusKey]?.label || entry.status;
                   return (
-                    <div key={i} className="flex items-start gap-2 text-xs">
+                    <div key={i} className="relative">
                       <div
-                        className="w-2 h-2 rounded-full mt-1 shrink-0"
+                        className="absolute -left-6 top-1 w-3.5 h-3.5 rounded-full border-2 border-background"
                         style={{ backgroundColor: color }}
                       />
-                      <div className="text-muted-foreground">
+                      <div className="text-xs">
                         <span className="font-medium text-foreground">
                           {entry.date}
                         </span>
-                        {" — "}
-                        {statusLabel} {indicator}
-                        {entry.findingName && ` (${entry.findingName})`}
-                        {" · "}
-                        {entry.doctorName}
+                        <span className="text-muted-foreground">
+                          {" — "}
+                          {statusLabel}
+                          {entry.findingName && ` (${entry.findingName})`}
+                          {" · "}
+                          {entry.doctorName}
+                        </span>
                         {entry.visitCaseNo != null && (
                           <span className="text-muted-foreground/70"> (Case #{entry.visitCaseNo})</span>
                         )}

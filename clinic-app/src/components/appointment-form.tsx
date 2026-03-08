@@ -86,6 +86,8 @@ export function AppointmentForm({
   doctorAvailability,
   doctorDefaultRooms,
   planItemId,
+  patientEscrowBalance,
+  defaultMedicalAlerts,
 }: {
   doctors: Doctor[];
   rooms?: RoomOption[];
@@ -103,6 +105,8 @@ export function AppointmentForm({
   doctorAvailability?: AvailabilitySlot[];
   doctorDefaultRooms?: Record<number, number>;
   planItemId?: number;
+  patientEscrowBalance?: number;
+  defaultMedicalAlerts?: string[];
 }) {
   const isDoctor = (permissionLevel ?? 0) >= 3;
   const isReschedule = mode === "reschedule";
@@ -117,6 +121,8 @@ export function AppointmentForm({
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | undefined>(defaultDoctorId);
   const [selectedRoomId, setSelectedRoomId] = useState<number | undefined>(defaultRoomId || (defaultDoctorId && doctorDefaultRooms?.[defaultDoctorId]) || undefined);
   const [selectedDate, setSelectedDate] = useState(defaultDate || todayString());
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(defaultTimeSlot || "");
+  const [reason, setReason] = useState(defaultReason || "");
   const [conflicts, setConflicts] = useState<{ id: number; patientName: string; timeSlot: string | null; status: string }[]>([]);
   const conflictTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -252,6 +258,38 @@ export function AppointmentForm({
             )}
           </div>
 
+          {/* Medical alerts */}
+          {selectedPatient && defaultMedicalAlerts && defaultMedicalAlerts.length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="text-sm font-semibold text-amber-800">Medical Alert</span>
+                <div className="flex flex-wrap gap-1.5 ml-1">
+                  {defaultMedicalAlerts.map((d) => (
+                    <span key={d} className="inline-flex items-center rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Escrow warning */}
+          {selectedPatient && patientEscrowBalance !== undefined && patientEscrowBalance < 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                <span className="text-sm text-red-800">
+                  Patient owes <span className="font-semibold">{"\u20B9"}{Math.abs(patientEscrowBalance).toLocaleString("en-IN")}</span> — consider collecting before scheduling
+                </span>
+              </div>
+              <Link href={`/patients/${selectedPatient.id}/checkout`} className="text-sm font-medium text-red-700 hover:text-red-900 whitespace-nowrap">
+                Collect Payment →
+              </Link>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Doctor */}
             {isDoctor ? (
@@ -328,7 +366,10 @@ export function AppointmentForm({
                   onChange={(e) => {
                     if (e.target.value === "__other__") {
                       setTimeSlotMode("custom");
+                      setSelectedTimeSlot("");
                       e.target.value = "";
+                    } else {
+                      setSelectedTimeSlot(e.target.value);
                     }
                   }}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
@@ -345,7 +386,7 @@ export function AppointmentForm({
                     name="timeSlot"
                     placeholder="e.g. 1:15 PM"
                     value={customTimeSlot}
-                    onChange={(e) => setCustomTimeSlot(e.target.value)}
+                    onChange={(e) => { setCustomTimeSlot(e.target.value); setSelectedTimeSlot(e.target.value); }}
                     autoFocus
                   />
                   {!isWalkIn && (
@@ -427,7 +468,8 @@ export function AppointmentForm({
               <Input
                 name="reason"
                 placeholder="e.g. RCT follow-up, Scaling"
-                defaultValue={defaultReason || ""}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
               />
             </div>
           </div>
@@ -457,12 +499,31 @@ export function AppointmentForm({
         </CardContent>
       </Card>
 
+      {/* Review Summary */}
+      {selectedPatient && selectedDate && (selectedDoctorId || isDoctor) && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="pt-4 pb-4">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-semibold">Review</div>
+            <div className="text-sm space-y-1">
+              <div><span className="text-muted-foreground">Patient:</span> <span className="font-mono">#{selectedPatient.code}</span> {toTitleCase(selectedPatient.name)}</div>
+              <div><span className="text-muted-foreground">Doctor:</span> {isDoctor ? `Dr. ${toTitleCase(currentDoctorName || "")}` : (selectedDoctorId ? `Dr. ${toTitleCase(doctors.find((d) => d.id === selectedDoctorId)?.name || "")}` : "Unassigned")}</div>
+              <div>
+                <span className="text-muted-foreground">Date:</span>{" "}
+                {(() => { try { const d = new Date(selectedDate + "T12:00:00"); return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" }); } catch { return selectedDate; } })()}
+                {selectedTimeSlot && ` at ${selectedTimeSlot}`}
+              </div>
+              {reason && <div><span className="text-muted-foreground">Reason:</span> {reason}</div>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" asChild>
           <Link href={defaultPatient ? `/patients/${defaultPatient.id}` : "/appointments"}>Cancel</Link>
         </Button>
         <Button type="submit" disabled={!selectedPatient || isPending}>
-          {isPending ? "Saving..." : isReschedule ? "Reschedule" : isWalkIn ? "Register Walk-in" : "Schedule Appointment"}
+          {isPending ? "Saving..." : isReschedule ? "Reschedule" : isWalkIn ? "Register Walk-in" : "Confirm & Schedule"}
         </Button>
       </div>
     </form>

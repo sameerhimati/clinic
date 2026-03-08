@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, CheckCircle2, ChevronRight, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronRight, Users } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
@@ -22,7 +22,24 @@ type ScheduleAppointment = {
   timeSlot: string | null;
   status: string;
   reason: string | null;
+  medicalAlerts?: string[];
+  chiefComplaint?: string | null;
+  planStep?: string | null;
 };
+
+function MedicalAlertPills({ alerts }: { alerts: string[] }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />
+      {alerts.map((a) => (
+        <span key={a} className="text-[10px] bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
+          {a}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function DoctorScheduleWidget({
   appointments,
@@ -109,10 +126,25 @@ export function DoctorScheduleWidget({
                   {toTitleCase(nowSeeing.patientName)}
                 </span>
               </div>
+              {nowSeeing.medicalAlerts && nowSeeing.medicalAlerts.length > 0 && (
+                <div className="mt-1">
+                  <MedicalAlertPills alerts={nowSeeing.medicalAlerts} />
+                </div>
+              )}
               <div className="text-sm text-muted-foreground mt-0.5">
                 {nowSeeing.timeSlot && <span>{nowSeeing.timeSlot} · </span>}
                 {nowSeeing.reason || "Appointment"}
               </div>
+              {(nowSeeing.chiefComplaint || nowSeeing.planStep) && (
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {nowSeeing.chiefComplaint && (
+                    <span className="text-xs text-muted-foreground italic truncate max-w-[200px]">{nowSeeing.chiefComplaint}</span>
+                  )}
+                  {nowSeeing.planStep && (
+                    <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{nowSeeing.planStep}</Badge>
+                  )}
+                </div>
+              )}
             </div>
             <div className="shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
               {nowSeeing.visitId && (
@@ -159,10 +191,25 @@ export function DoctorScheduleWidget({
                       {toTitleCase(appt.patientName)}
                     </span>
                   </div>
+                  {appt.medicalAlerts && appt.medicalAlerts.length > 0 && (
+                    <div className="mt-0.5">
+                      <MedicalAlertPills alerts={appt.medicalAlerts} />
+                    </div>
+                  )}
                   <div className="text-xs text-muted-foreground">
                     {appt.timeSlot && <span>{appt.timeSlot} · </span>}
                     {appt.reason || "Appointment"}
                   </div>
+                  {(appt.chiefComplaint || appt.planStep) && (
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {appt.chiefComplaint && (
+                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[180px]">{appt.chiefComplaint}</span>
+                      )}
+                      {appt.planStep && (
+                        <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Button
@@ -229,8 +276,23 @@ export function DoctorScheduleWidget({
                             {toTitleCase(appt.patientName)}
                           </span>
                         </div>
+                        {appt.medicalAlerts && appt.medicalAlerts.length > 0 && (
+                          <div className="mt-0.5">
+                            <MedicalAlertPills alerts={appt.medicalAlerts} />
+                          </div>
+                        )}
                         {appt.reason && (
                           <div className="text-xs text-muted-foreground truncate mt-0.5">{appt.reason}</div>
+                        )}
+                        {(appt.chiefComplaint || appt.planStep) && (
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {appt.chiefComplaint && (
+                              <span className="text-[10px] text-muted-foreground italic truncate max-w-[160px]">{appt.chiefComplaint}</span>
+                            )}
+                            {appt.planStep && (
+                              <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
+                            )}
+                          </div>
                         )}
                       </div>
                       <div className="shrink-0" onClick={(e) => e.stopPropagation()}>

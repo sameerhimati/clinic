@@ -12,7 +12,7 @@ import { recordEscrowDeposit } from "./actions";
 import { format } from "date-fns";
 import { todayString } from "@/lib/validations";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 type EscrowPayment = {
   id: number;
@@ -44,16 +44,19 @@ type EscrowData = {
 export function EscrowCheckout({
   patientId,
   escrow,
+  suggestedAmount,
 }: {
   patientId: number;
   escrow: EscrowData;
+  suggestedAmount?: number;
 }) {
   const router = useRouter();
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : "");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [paymentDate, setPaymentDate] = useState(todayString());
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [showHelp, setShowHelp] = useState(false);
 
   const payAmount = parseFloat(amount) || 0;
 
@@ -68,7 +71,7 @@ export function EscrowCheckout({
           paymentDate,
           notes: notes || undefined,
         });
-        toast.success(`Deposited \u20B9${payAmount.toLocaleString("en-IN")} to escrow`);
+        toast.success(`Collected \u20B9${payAmount.toLocaleString("en-IN")} successfully`);
         setAmount("");
         setNotes("");
         router.refresh();
@@ -92,20 +95,57 @@ export function EscrowCheckout({
       type: "fulfillment" as const,
       date: f.fulfilledAt,
       amount: f.amount,
-      label: f.operationName,
-      detail: f.caseNo ? `Case #${f.caseNo}` : (f.doctorName || ""),
+      label: `Procedure: ${f.operationName}`,
+      detail: [
+        f.doctorName ? `Dr. ${f.doctorName}` : null,
+        f.caseNo ? `Case #${f.caseNo}` : null,
+      ].filter(Boolean).join(" · "),
       receiptNo: null as number | null,
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="space-y-6">
-      {/* Escrow Balance Card */}
+      {/* How does this work? — collapsible explainer */}
+      <button
+        type="button"
+        onClick={() => setShowHelp(!showHelp)}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <HelpCircle className="h-4 w-4" />
+        <span>How does this work?</span>
+        {showHelp ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+      {showHelp && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardContent className="pt-4 pb-4">
+            <div className="grid gap-4 sm:grid-cols-3 text-center text-sm">
+              <div className="space-y-1.5">
+                <div className="mx-auto w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">1</div>
+                <div className="font-medium">Patient Pays</div>
+                <div className="text-xs text-muted-foreground">Any amount collected goes into the patient&apos;s account balance</div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="mx-auto w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">2</div>
+                <div className="font-medium">Balance Holds</div>
+                <div className="text-xs text-muted-foreground">Money stays in the account until a procedure is completed</div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="mx-auto w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold">3</div>
+                <div className="font-medium">Auto-Deducted</div>
+                <div className="text-xs text-muted-foreground">When a doctor marks &quot;Work Done&quot;, the fee is automatically deducted</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account Balance Card */}
       <Card className={escrow.balance >= 0 ? "border-green-200" : "border-red-200"}>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-muted-foreground">Escrow Balance</div>
+              <div className="text-sm text-muted-foreground">Account Balance</div>
               <div className={`text-3xl font-bold font-mono ${escrow.balance >= 0 ? "text-green-700" : "text-red-700"}`}>
                 {"\u20B9"}{Math.abs(escrow.balance).toLocaleString("en-IN")}
               </div>
@@ -114,8 +154,8 @@ export function EscrowCheckout({
               )}
             </div>
             <div className="text-right text-sm text-muted-foreground space-y-1">
-              <div>Deposits: {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}</div>
-              <div>Fulfilled: {"\u20B9"}{escrow.fulfilled.toLocaleString("en-IN")}</div>
+              <div>Collected: {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}</div>
+              <div>Deducted: {"\u20B9"}{escrow.fulfilled.toLocaleString("en-IN")}</div>
             </div>
           </div>
         </CardContent>
@@ -175,22 +215,26 @@ export function EscrowCheckout({
             />
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            Payment goes into the patient&apos;s account. Automatically deducted when procedures are completed.
+          </p>
+
           <Button
             onClick={handleSubmit}
             disabled={isPending || payAmount <= 0}
             className="w-full"
             size="lg"
           >
-            {isPending ? "Processing..." : payAmount > 0 ? `Deposit \u20B9${payAmount.toLocaleString("en-IN")}` : "Enter Amount"}
+            {isPending ? "Processing..." : payAmount > 0 ? `Collect \u20B9${payAmount.toLocaleString("en-IN")}` : "Enter Amount"}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Transaction Timeline */}
+      {/* Payment History */}
       {timeline.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Transaction History</CardTitle>
+            <CardTitle>Payment History</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">

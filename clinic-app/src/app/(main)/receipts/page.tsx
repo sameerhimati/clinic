@@ -12,7 +12,20 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReceiptsPage({
+type UnifiedPayment = {
+  id: string;
+  type: "Receipt" | "Deposit";
+  date: Date;
+  amount: number;
+  paymentMode: string;
+  patientName: string;
+  patientCode: number | null;
+  patientId: number;
+  detail: string;
+  linkHref: string | null;
+};
+
+export default async function PaymentsPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string; page?: string }>;
@@ -25,38 +38,93 @@ export default async function ReceiptsPage({
   const page = parseInt(params.page || "1");
   const pageSize = 25;
 
-  const where: Record<string, unknown> = {};
-  if (params.from || params.to) {
-    where.receiptDate = {};
-    if (params.from) (where.receiptDate as Record<string, unknown>).gte = new Date(params.from);
-    if (params.to) (where.receiptDate as Record<string, unknown>).lte = new Date(params.to + "T23:59:59");
+  // Date filter
+  const dateFrom = params.from ? new Date(params.from) : undefined;
+  const dateTo = params.to ? new Date(params.to + "T23:59:59") : undefined;
+
+  const receiptWhere: Record<string, unknown> = {};
+  const depositWhere: Record<string, unknown> = {};
+  if (dateFrom || dateTo) {
+    receiptWhere.receiptDate = {};
+    depositWhere.paymentDate = {};
+    if (dateFrom) {
+      (receiptWhere.receiptDate as Record<string, unknown>).gte = dateFrom;
+      (depositWhere.paymentDate as Record<string, unknown>).gte = dateFrom;
+    }
+    if (dateTo) {
+      (receiptWhere.receiptDate as Record<string, unknown>).lte = dateTo;
+      (depositWhere.paymentDate as Record<string, unknown>).lte = dateTo;
+    }
   }
 
-  const [receipts, total, aggregate] = await Promise.all([
+  const [receipts, deposits, receiptTotal, depositTotal, receiptAgg, depositAgg] = await Promise.all([
     prisma.receipt.findMany({
-      where,
+      where: receiptWhere,
       orderBy: { receiptDate: "desc" },
-      take: pageSize,
-      skip: (page - 1) * pageSize,
       include: {
         visit: {
           include: {
-            patient: { select: { name: true, code: true } },
+            patient: { select: { id: true, name: true, code: true } },
             operation: { select: { name: true } },
           },
         },
       },
     }),
-    prisma.receipt.count({ where }),
-    prisma.receipt.aggregate({ where, _sum: { amount: true } }),
+    prisma.patientPayment.findMany({
+      where: depositWhere,
+      orderBy: { paymentDate: "desc" },
+      include: {
+        patient: { select: { id: true, name: true, code: true } },
+      },
+    }),
+    prisma.receipt.count({ where: receiptWhere }),
+    prisma.patientPayment.count({ where: depositWhere }),
+    prisma.receipt.aggregate({ where: receiptWhere, _sum: { amount: true } }),
+    prisma.patientPayment.aggregate({ where: depositWhere, _sum: { amount: true } }),
   ]);
 
-  const totalPages = Math.ceil(total / pageSize);
+  // Merge into unified list
+  const unified: UnifiedPayment[] = [
+    ...receipts.map((r) => ({
+      id: `receipt-${r.id}`,
+      type: "Receipt" as const,
+      date: r.receiptDate,
+      amount: r.amount,
+      paymentMode: r.paymentMode,
+      patientName: toTitleCase(r.visit.patient.name),
+      patientCode: r.visit.patient.code,
+      patientId: r.visit.patient.id,
+      detail: r.visit.operation?.name || "Visit",
+      linkHref: `/receipts/${r.id}/print`,
+    })),
+    ...deposits.map((d) => ({
+      id: `deposit-${d.id}`,
+      type: "Deposit" as const,
+      date: d.paymentDate,
+      amount: d.amount,
+      paymentMode: d.paymentMode,
+      patientName: toTitleCase(d.patient.name),
+      patientCode: d.patient.code,
+      patientId: d.patient.id,
+      detail: d.notes || "Escrow Deposit",
+      linkHref: null,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const total = receiptTotal + depositTotal;
+  const totalAmount = (receiptAgg._sum.amount || 0) + (depositAgg._sum.amount || 0);
+  const totalPages = Math.ceil(unified.length / pageSize);
+  const paged = unified.slice((page - 1) * pageSize, page * pageSize);
+
+  const typeBadge = {
+    Receipt: { className: "bg-green-50 text-green-700 border-green-200" },
+    Deposit: { className: "bg-blue-50 text-blue-700 border-blue-200" },
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Receipts</h2>
+        <h2 className="text-2xl font-bold">Payments</h2>
         {canCollect && (
           <Button asChild>
             <Link href="/receipts/new">
@@ -85,49 +153,62 @@ export default async function ReceiptsPage({
         )}
       </form>
 
-      <div className="flex gap-4 text-sm">
-        <span className="text-muted-foreground">{total} {total === 1 ? "receipt" : "receipts"}</span>
+      <div className="flex gap-4 text-sm flex-wrap">
+        <span className="text-muted-foreground">{total} {total === 1 ? "payment" : "payments"}</span>
         <span className="font-medium">
-          Total: {"\u20B9"}{(aggregate._sum.amount || 0).toLocaleString("en-IN")}
+          Total: {"\u20B9"}{totalAmount.toLocaleString("en-IN")}
+        </span>
+        <span className="text-green-700 text-xs">
+          {receiptTotal} receipts ({"\u20B9"}{(receiptAgg._sum.amount || 0).toLocaleString("en-IN")})
+        </span>
+        <span className="text-blue-700 text-xs">
+          {depositTotal} deposits ({"\u20B9"}{(depositAgg._sum.amount || 0).toLocaleString("en-IN")})
         </span>
       </div>
 
       <Card>
         <CardContent className="p-0">
           <div className="divide-y">
-            {receipts.map((receipt) => (
-              <Link
-                key={receipt.id}
-                href={`/receipts/${receipt.id}/print`}
-                className="flex items-center justify-between p-4 hover:bg-accent transition-colors"
-              >
-                <div>
-                  <div className="font-medium flex items-center gap-2">
-                    {receipt.receiptNo && (
-                      <span className="font-mono text-sm text-muted-foreground">
-                        R#{receipt.receiptNo}
-                      </span>
-                    )}
-                    <span className="font-mono text-sm text-muted-foreground">
-                      #{receipt.visit.patient.code}
+            {paged.map((payment) => {
+              const inner = (
+                <div className="flex items-center justify-between p-4 hover:bg-accent transition-colors">
+                  <div>
+                    <div className="font-medium flex items-center gap-2">
+                      <Badge variant="outline" className={typeBadge[payment.type].className + " text-[10px] px-1.5 py-0"}>
+                        {payment.type}
+                      </Badge>
+                      {payment.patientCode && (
+                        <span className="font-mono text-sm text-muted-foreground">
+                          #{payment.patientCode}
+                        </span>
+                      )}
+                      {payment.patientName}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {payment.detail} · {formatDate(payment.date)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary">{payment.paymentMode}</Badge>
+                    <span className="font-medium">
+                      {"\u20B9"}{payment.amount.toLocaleString("en-IN")}
                     </span>
-                    {toTitleCase(receipt.visit.patient.name)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {receipt.visit.operation?.name || "Visit"} ·{" "}
-                    {formatDate(receipt.receiptDate)}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary">{receipt.paymentMode}</Badge>
-                  <span className="font-medium">
-                    {"\u20B9"}{receipt.amount.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </Link>
-            ))}
-            {receipts.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground">No receipts found</div>
+              );
+
+              return payment.linkHref ? (
+                <Link key={payment.id} href={payment.linkHref}>
+                  {inner}
+                </Link>
+              ) : (
+                <Link key={payment.id} href={`/patients/${payment.patientId}`}>
+                  {inner}
+                </Link>
+              );
+            })}
+            {paged.length === 0 && (
+              <div className="p-8 text-center text-muted-foreground">No payments found</div>
             )}
           </div>
         </CardContent>

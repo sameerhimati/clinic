@@ -34,6 +34,15 @@
 
 ## UI Design Standards
 - **Target quality**: Apple, Notion, Linear, Vercel — smart, elegant, intentional
+- **Phase 7 quality is the MINIMUM bar** for all UI work:
+  - Colored identity badges in dialog/panel headers (e.g. tooth number + status color)
+  - `DialogDescription` (sr-only) on every dialog for a11y
+  - Grid layouts for button groups — never let buttons wrap awkwardly
+  - Combobox (Popover + Command) for any searchable select with 10+ options
+  - Timeline components: vertical line + colored circles + structured entries with links
+  - Clickable cross-references (case #, visit links) wherever data exists
+  - Proper empty states: centered icon + title + subtitle
+  - Status indicators: styled cards with color blocks, not just small dots
 - **Use Playwright MCP** to screenshot and visually verify every UI change
 - **Playwright cleanup**: After each Playwright session, delete all screenshot PNGs from the repo root and remove `.playwright-mcp/` dir. Never commit screenshots.
 - **Form pattern**: `Card` + `grid gap-4 sm:grid-cols-N` + `space-y-2` per field

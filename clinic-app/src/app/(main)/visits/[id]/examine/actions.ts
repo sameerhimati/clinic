@@ -138,6 +138,10 @@ export async function saveExamination(
     }
   }
 
+  // Escrow warning flag — set during WorkDone processing
+  let escrowDeficitWarning = false;
+  let escrowNewBalance = 0;
+
   // Process WorkDone entries
   if (data.workDone && data.workDone.length > 0) {
     const visit = await prisma.visit.findUnique({
@@ -145,11 +149,39 @@ export async function saveExamination(
       select: { patientId: true, operationRate: true, discount: true, quantity: true },
     });
     if (visit) {
-      // Calculate fulfillment amount per WorkDone: split visit cost evenly across work done entries
       const visitBilled = Math.max(0, ((visit.operationRate || 0) - (visit.discount || 0)) * (visit.quantity ?? 1));
-      const fulfillmentAmountPerEntry = data.workDone.length > 0 ? visitBilled / data.workDone.length : 0;
 
-      for (const wd of data.workDone) {
+      // Per-operation rate-based fulfillment: look up each operation's fee
+      const opIds = [...new Set(data.workDone.map((wd) => wd.operationId))];
+      const operations = await prisma.operation.findMany({
+        where: { id: { in: opIds } },
+        select: { id: true, defaultMinFee: true, defaultMaxFee: true },
+      });
+      const opFeeMap = new Map(operations.map((o) => [o.id, o.defaultMinFee || o.defaultMaxFee || 0]));
+
+      // Calculate proportional fulfillment amounts
+      const entryRates = data.workDone.map((wd) => opFeeMap.get(wd.operationId) || 0);
+      const totalRates = entryRates.reduce((sum, r) => sum + r, 0);
+      const fulfillmentAmounts = totalRates > 0
+        ? entryRates.map((rate) => (rate / totalRates) * visitBilled)
+        : entryRates.map(() => visitBilled / data.workDone!.length); // fallback: equal split
+
+      // Check current escrow balance for warning
+      const [depositAgg, fulfillAgg] = await Promise.all([
+        prisma.patientPayment.aggregate({ where: { patientId: visit.patientId }, _sum: { amount: true } }),
+        prisma.escrowFulfillment.aggregate({ where: { patientId: visit.patientId }, _sum: { amount: true } }),
+      ]);
+      const currentEscrow = (depositAgg._sum.amount || 0) - (fulfillAgg._sum.amount || 0);
+      const totalFulfillment = fulfillmentAmounts.reduce((s, a) => s + a, 0);
+      if ((currentEscrow - totalFulfillment) < 0) {
+        escrowDeficitWarning = true;
+        escrowNewBalance = currentEscrow - totalFulfillment;
+      }
+
+      for (let i = 0; i < data.workDone.length; i++) {
+        const wd = data.workDone[i];
+        const fulfillmentAmountForEntry = fulfillmentAmounts[i];
+
         // Create WorkDone record
         const workDoneRecord = await prisma.workDone.create({
           data: {
@@ -164,13 +196,13 @@ export async function saveExamination(
         });
 
         // Auto-create EscrowFulfillment
-        if (fulfillmentAmountPerEntry > 0) {
+        if (fulfillmentAmountForEntry > 0) {
           await prisma.escrowFulfillment.create({
             data: {
               patientId: visit.patientId,
               workDoneId: workDoneRecord.id,
               visitId,
-              amount: fulfillmentAmountPerEntry,
+              amount: fulfillmentAmountForEntry,
               doctorId: data.doctorId,
             },
           });
@@ -257,7 +289,7 @@ export async function saveExamination(
   }
 
   revalidateVisitPaths(visitId);
-  return { appointmentAutoCompleted, completedAppointmentId };
+  return { appointmentAutoCompleted, completedAppointmentId, escrowDeficitWarning, escrowNewBalance };
 }
 
 export async function finalizeReport(reportId: number) {

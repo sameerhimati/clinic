@@ -28,10 +28,17 @@ import {
   XCircle,
   CalendarCheck,
   RefreshCw,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format, addDays } from "date-fns";
 import { formatDate, toTitleCase } from "@/lib/format";
-import { completePlan, cancelPlan } from "@/app/(main)/patients/[id]/plan/actions";
+import { completePlan, cancelPlan, modifyPlanItem } from "@/app/(main)/patients/[id]/plan/actions";
 import { markStepDoneInSitting } from "@/app/(main)/patients/[id]/plan/actions";
 import { toast } from "sonner";
 
@@ -49,6 +56,9 @@ export type PlanItem = {
   visitDoctorName: string | null;
   completedAt: Date | null;
   notes: string | null;
+  modifiedStatus: string | null;
+  modifiedReason: string | null;
+  modifiedByName: string | null;
   appointment?: {
     id: number;
     date: Date;
@@ -99,14 +109,20 @@ export function TreatmentPlanCard({
   plan,
   isDoctor,
   compact,
+  permissionLevel,
 }: {
   plan: TreatmentPlanData;
   isDoctor?: boolean;
   compact?: boolean;
+  permissionLevel?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [cancelReason, setCancelReason] = useState("");
+  const [modifyingItemId, setModifyingItemId] = useState<number | null>(null);
+  const [modifyStatus, setModifyStatus] = useState<"CHANGED" | "NOT_APPLICABLE">("CHANGED");
+  const [modifyReason, setModifyReason] = useState("");
+  const canModify = (permissionLevel ?? 0) >= 3;
   const items = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const completedCount = items.filter((i) => i.visitId !== null).length;
   const totalCount = items.length;
@@ -154,6 +170,21 @@ export function TreatmentPlanCard({
         router.refresh();
       } catch {
         toast.error("Failed to cancel plan");
+      }
+    });
+  }
+
+  async function handleModifyItem() {
+    if (!modifyingItemId || !modifyReason.trim()) return;
+    startTransition(async () => {
+      try {
+        await modifyPlanItem(modifyingItemId, modifyStatus, modifyReason);
+        toast.success(`Step marked as ${modifyStatus === "CHANGED" ? "Changed" : "N/A"}`);
+        setModifyingItemId(null);
+        setModifyReason("");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to modify step");
       }
     });
   }
@@ -266,18 +297,55 @@ export function TreatmentPlanCard({
                       </Badge>
                     </span>
                   )}
-                  {/* Future unscheduled: show estimated date + assigned doctor */}
+                  {/* Future unscheduled: show estimated date + due date badges */}
                   {!isItemCompleted && !hasAppointment && (
                     <span className="text-xs text-muted-foreground ml-2">
-                      {estimated && (
-                        <>
-                          ~{formatDate(estimated)}
-                          <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-muted-foreground">
-                            Tentative
-                          </Badge>
-                        </>
-                      )}
+                      {estimated && (() => {
+                        const now = new Date();
+                        const daysUntil = Math.floor((estimated.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        const isOverdue = daysUntil < 0;
+                        const isUpcoming = daysUntil >= 0 && daysUntil <= 3;
+                        return (
+                          <>
+                            {isOverdue ? (
+                              <>
+                                Due: {formatDate(estimated)}
+                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-red-600 border-red-200 bg-red-50">
+                                  {Math.abs(daysUntil)}d overdue
+                                </Badge>
+                              </>
+                            ) : isUpcoming ? (
+                              <>
+                                Due: {formatDate(estimated)}
+                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-amber-600 border-amber-200 bg-amber-50">
+                                  {daysUntil === 0 ? "Due today" : `In ${daysUntil}d`}
+                                </Badge>
+                              </>
+                            ) : (
+                              <>
+                                ~{formatDate(estimated)}
+                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-muted-foreground">
+                                  Tentative
+                                </Badge>
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
                       {doctorDisplay ? ` · Dr. ${toTitleCase(doctorDisplay)}` : " · Any doctor"}
+                    </span>
+                  )}
+                  {/* Modified status badge */}
+                  {item.modifiedStatus && (
+                    <span className="ml-2">
+                      <Badge variant="outline" className={`text-[10px] py-0 px-1 ${item.modifiedStatus === "CHANGED" ? "text-amber-600 border-amber-200 bg-amber-50" : "text-muted-foreground border-muted bg-muted/50"}`}>
+                        {item.modifiedStatus === "CHANGED" ? "Changed" : "N/A"}
+                      </Badge>
+                      {item.modifiedReason && (
+                        <span className="text-xs text-muted-foreground ml-1" title={item.modifiedReason}>
+                          — {item.modifiedReason.length > 30 ? item.modifiedReason.slice(0, 30) + "..." : item.modifiedReason}
+                        </span>
+                      )}
                     </span>
                   )}
                   {/* Done in same sitting button */}
@@ -292,10 +360,50 @@ export function TreatmentPlanCard({
                     </button>
                   )}
                 </div>
+                {/* Modify dropdown for uncompleted items */}
+                {canModify && isActive && !isItemCompleted && !item.modifiedStatus && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setModifyingItemId(item.id); setModifyStatus("CHANGED"); }}>
+                        Mark Changed
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setModifyingItemId(item.id); setModifyStatus("NOT_APPLICABLE"); }}>
+                        Not Applicable
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             );
           })}
         </div>
+
+        {/* Inline modification dialog */}
+        {modifyingItemId && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+            <div className="text-sm font-medium text-amber-800">
+              Mark step as {modifyStatus === "CHANGED" ? "Changed" : "Not Applicable"}
+            </div>
+            <Textarea
+              value={modifyReason}
+              onChange={(e) => setModifyReason(e.target.value)}
+              placeholder="Reason (required)..."
+              rows={2}
+              className="text-sm"
+            />
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="outline" onClick={() => { setModifyingItemId(null); setModifyReason(""); }}>Cancel</Button>
+              <Button size="sm" onClick={handleModifyItem} disabled={!modifyReason.trim() || isPending}>
+                {isPending ? "Saving..." : "Confirm"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         {isActive && (

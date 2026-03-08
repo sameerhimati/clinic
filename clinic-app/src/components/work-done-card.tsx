@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Wrench, CheckCircle2 } from "lucide-react";
+import { Plus, X, Pencil, Wrench, CheckCircle2 } from "lucide-react";
 import { TOOTH_STATUSES, type ToothStatusKey, inferToothStatus, getStatusLabel } from "@/lib/dental";
 
 export type WorkDoneEntry = {
@@ -30,16 +30,22 @@ export function WorkDoneCard({
   entries,
   onAdd,
   onRemove,
+  onEditTeeth,
   selectedTeeth,
   allOperations,
   activePlanItems,
+  freeNotes,
+  onFreeNotesChange,
 }: {
   entries: WorkDoneEntry[];
   onAdd: (entry: WorkDoneEntry) => void;
   onRemove: (id: string) => void;
+  onEditTeeth?: (teeth: number[]) => void;
   selectedTeeth: number[];
   allOperations: { id: number; name: string; category: string | null }[];
   activePlanItems?: MatchingPlanItem[];
+  freeNotes?: string;
+  onFreeNotesChange?: (notes: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [opSearch, setOpSearch] = useState("");
@@ -55,6 +61,21 @@ export function WorkDoneCard({
     setNotes("");
     setShowForm(false);
     setShowStatusOverride(false);
+  }
+
+  function handleEdit(groupEntries: WorkDoneEntry[]) {
+    const first = groupEntries[0];
+    // Remove entries from list
+    groupEntries.forEach((e) => onRemove(e.id));
+    // Pre-fill the add form with entry's data
+    setSelectedOp({ id: first.operationId, name: first.operationName });
+    setStatus(first.resultingStatus);
+    setNotes(first.notes);
+    setShowForm(true);
+    setShowStatusOverride(false);
+    // Update parent's selected teeth to match the entry being edited
+    const allTeeth = groupEntries.flatMap((e) => e.toothNumbers);
+    onEditTeeth?.(allTeeth);
   }
 
   function handleSelectOp(op: { id: number; name: string }) {
@@ -147,12 +168,12 @@ export function WorkDoneCard({
       <CardContent className="space-y-3">
         {/* Existing entries */}
         {entries.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {Array.from(groupedEntries.entries()).map(([groupKey, groupEntries]) => {
               const first = groupEntries[0];
               const allTeeth = groupEntries.flatMap((e) => e.toothNumbers);
               return (
-                <div key={groupKey} className="flex items-start justify-between gap-2 rounded-md border p-2.5 text-sm">
+                <div key={groupKey} className="flex items-start justify-between gap-2 rounded-md border p-3 text-sm">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{first.operationName}</span>
@@ -162,28 +183,39 @@ export function WorkDoneCard({
                         </span>
                       )}
                       {first.resultingStatus && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        <Badge variant="outline" className="text-xs px-1.5 py-0.5">
                           → {getStatusLabel(first.resultingStatus)}
                         </Badge>
                       )}
                       {first.planItemLabel && (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0">
+                        <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
                           <CheckCircle2 className="h-3 w-3" />
                           {first.planItemLabel}
                         </span>
                       )}
                     </div>
                     {first.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">{first.notes}</p>
+                      <p className="text-xs text-muted-foreground mt-1.5">{first.notes}</p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => groupEntries.forEach((e) => onRemove(e.id))}
-                    className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(groupEntries)}
+                      className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => groupEntries.forEach((e) => onRemove(e.id))}
+                      className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Remove"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -218,7 +250,7 @@ export function WorkDoneCard({
                     autoFocus
                   />
                   {filteredOps.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
                       {filteredOps.map((op) => (
                         <button
                           key={op.id}
@@ -330,6 +362,20 @@ export function WorkDoneCard({
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* Free-text notes — visible once work is recorded */}
+        {onFreeNotesChange && entries.length > 0 && (
+          <div className="space-y-1.5 pt-1 border-t">
+            <Label className="text-xs text-muted-foreground">Additional Notes</Label>
+            <Textarea
+              placeholder="General notes about today's procedures..."
+              value={freeNotes || ""}
+              onChange={(e) => onFreeNotesChange(e.target.value)}
+              rows={2}
+              className="text-sm"
+            />
           </div>
         )}
 

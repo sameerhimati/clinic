@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -42,14 +42,15 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
-import { TOOTH_STATUSES, getStatusColor, type ToothStatusKey } from "@/lib/dental";
+import { TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, getStatusColor, getToothName, getToothShortName, type ToothStatusKey } from "@/lib/dental";
 import { toTitleCase, formatDate } from "@/lib/format";
 import { ToastOnParam } from "@/components/toast-on-param";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ChevronDown } from "lucide-react";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { toast } from "sonner";
@@ -174,6 +175,7 @@ export type PatientPageData = {
     findingName: string | null;
     doctorName: string;
     caseNo: number | null;
+    visitId: number | null;
     recordedAt: string;
   }[];
   patientWorkDone: {
@@ -181,10 +183,93 @@ export type PatientPageData = {
     operationName: string;
     doctorName: string;
     caseNo: number | null;
+    visitId: number;
     visitDate: string;
     notes: string | null;
   }[];
 };
+
+function TreatmentPlansSection({ plans, patientId, isDoctor, permissionLevel }: { plans: TreatmentPlanData[]; patientId: number; isDoctor: boolean; permissionLevel: number }) {
+  const [showCompleted, setShowCompleted] = useState(false);
+  const activePlans = plans.filter((p) => p.status === "ACTIVE");
+  const completedPlans = plans.filter((p) => p.status !== "ACTIVE");
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Active Treatment Plans</h3>
+        <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+          <Link href={`/patients/${patientId}/plan/new`}>
+            <ClipboardList className="h-3.5 w-3.5 mr-1" />
+            New Plan
+          </Link>
+        </Button>
+      </div>
+      {activePlans.length > 0 ? (
+        <div className="space-y-4">
+          {activePlans.map((plan) => (
+            <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} permissionLevel={permissionLevel} />
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            No active treatment plans
+          </CardContent>
+        </Card>
+      )}
+      {completedPlans.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="text-xs text-muted-foreground hover:text-foreground mt-3 transition-colors"
+          >
+            {showCompleted ? "Hide" : "Show"} completed ({completedPlans.length})
+          </button>
+          {showCompleted && (
+            <div className="space-y-4 mt-3 opacity-60">
+              {completedPlans.map((plan) => (
+                <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} permissionLevel={permissionLevel} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function ScheduleNowBanner({ patientId }: { patientId: number }) {
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("created");
+  });
+
+  if (!visible) return null;
+
+  return (
+    <Card className="border-blue-300 bg-blue-50/50">
+      <CardContent className="pt-4 pb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-blue-800">
+          <UserCheck className="h-4 w-4 shrink-0 text-blue-600" />
+          <span className="font-medium">Patient registered successfully</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" asChild>
+            <Link href={`/appointments/new?patientId=${patientId}`}>
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />
+              Schedule Appointment
+            </Link>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setVisible(false)} className="h-7 w-7 p-0">
+            <XCircle className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function PatientPageClient({ data }: { data: PatientPageData }) {
   const router = useRouter();
@@ -193,10 +278,16 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   const isDoctor = currentUser.permissionLevel >= 3;
 
   // Treatment history view mode
-  const [viewMode, setViewMode] = useState<"timeline" | "log">("timeline");
+  const [viewMode, setViewMode] = useState<"timeline" | "log">("log");
 
   // Tooth history modal
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
+
+  // Dental chart collapsible
+  // chartOpen state removed — dental chart is now always visible as hero
+
+  // Visit notes popup
+  const [selectedVisit, setSelectedVisit] = useState<VisitWithRelations | null>(null);
 
   // Build visitId → plan title mapping for timeline badges
   const visitPlanMap = new Map<number, string>();
@@ -207,6 +298,23 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       }
     }
   }
+
+  // Compute teeth referenced in active treatment plans for chart highlighting
+  const planTeethSet = new Set<number>();
+  for (const plan of data.treatmentPlans) {
+    if (plan.status !== "ACTIVE") continue;
+    // Parse tooth numbers from plan title
+    const matches = plan.title.matchAll(/tooth\s*#?(\d{2})/gi);
+    for (const m of matches) {
+      const num = parseInt(m[1]);
+      if (num >= 11 && num <= 48) planTeethSet.add(num);
+    }
+  }
+  // Also include teeth from patientWorkDone
+  for (const wd of data.patientWorkDone) {
+    if (wd.toothNumber) planTeethSet.add(wd.toothNumber);
+  }
+  const planTeeth = Array.from(planTeethSet);
 
   // Quick Visit Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -313,12 +421,16 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   if (!primaryCta) {
     const hasActiveAppointment = todayAppt && ["ARRIVED", "IN_PROGRESS"].includes(todayAppt.status);
     if (data.canCollect && (data.totalBalance > 0 || data.escrowBalance < 0)) {
-      const displayAmount = data.escrowBalance < 0 ? Math.abs(data.escrowBalance) : data.totalBalance;
+      // Escrow deficit is the primary "owed" amount; fall back to legacy balance
+      const displayAmount = data.escrowBalance < 0
+        ? Math.abs(data.escrowBalance)
+        : data.totalBalance;
+      const collectAmount = Math.max(data.totalBalance, data.escrowBalance < 0 ? Math.abs(data.escrowBalance) : 0);
       primaryCta = (
         <Button size="sm" asChild>
           <Link href={`/patients/${patient.id}/checkout`}>
             <IndianRupee className="mr-1 h-3.5 w-3.5" />
-            Collect {"\u20B9"}{displayAmount.toLocaleString("en-IN")}
+            Collect {"\u20B9"}{(collectAmount || displayAmount).toLocaleString("en-IN")}
           </Link>
         </Button>
       );
@@ -396,33 +508,35 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           </div>
           <div className="flex gap-2 shrink-0 items-center">
             {primaryCta}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {appointmentActions}
-                {appointmentActions && <DropdownMenuSeparator />}
-                {data.canEdit && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/patients/${patient.id}/edit`}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Patient
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {data.canCollect && data.totalBalance > 0 && (
-                  <DropdownMenuItem asChild>
-                    <Link href={`/patients/${patient.id}/checkout`}>
-                      <IndianRupee className="mr-2 h-4 w-4" />
-                      Collect Payment
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!!(appointmentActions || data.canEdit || (data.canCollect && data.totalBalance > 0)) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {appointmentActions}
+                  {appointmentActions && <DropdownMenuSeparator />}
+                  {data.canEdit && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/patients/${patient.id}/edit`}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Patient
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {data.canCollect && data.totalBalance > 0 && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/patients/${patient.id}/checkout`}>
+                        <IndianRupee className="mr-2 h-4 w-4" />
+                        Collect Payment
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>
@@ -446,6 +560,291 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             </p>
           )}
         </div>
+      )}
+
+      {/* Post-Registration: Schedule Now banner */}
+      <ScheduleNowBanner patientId={patient.id} />
+
+      {/* Dental Chart — Hero */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Dental Chart</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {(() => {
+                const findingsCount = data.toothStatuses.filter((ts) => ts.status !== "HEALTHY").length;
+                return findingsCount > 0 ? `${findingsCount} teeth with findings` : "No findings recorded";
+              })()}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="flex justify-center pb-4">
+          <ToothChart
+            selected={[]}
+            size="lg"
+            toothStatuses={data.toothStatuses.map((ts) => ({
+              toothNumber: ts.toothNumber,
+              status: ts.status,
+              findingName: ts.findingName || undefined,
+              color: ts.findingColor || undefined,
+            }))}
+            onDoubleClick={(tooth) => setSelectedTooth(tooth)}
+            highlightTeeth={planTeeth.length > 0 ? planTeeth : undefined}
+            readOnly
+          />
+        </CardContent>
+      </Card>
+
+      {/* Tooth History Modal — Premium Design */}
+      <Dialog open={selectedTooth !== null} onOpenChange={(open) => { if (!open) setSelectedTooth(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto p-0">
+          {selectedTooth && (() => {
+            const currentStatus = data.toothStatuses.find((ts) => ts.toothNumber === selectedTooth);
+            const history = data.toothHistory.filter((th) => th.toothNumber === selectedTooth);
+            const workDone = data.patientWorkDone.filter((wd) => wd.toothNumber === selectedTooth);
+            const statusKey = (currentStatus?.status || "HEALTHY") as ToothStatusKey;
+            const statusColor = getStatusColor(statusKey);
+            const statusLabel = TOOTH_STATUSES[statusKey]?.label || statusKey;
+            const toothName = getToothName(selectedTooth);
+            // Check if tooth is in active treatment plan
+            const activePlanForTooth = data.treatmentPlans.find(
+              (p) => p.status === "ACTIVE" && p.title.toLowerCase().includes(`tooth`) && p.title.includes(String(selectedTooth))
+            );
+            // Find pending plan items for "what's next"
+            const pendingPlanItems = data.treatmentPlans
+              .filter((p) => p.status === "ACTIVE")
+              .flatMap((p) => p.items.filter((item) => !item.completedAt))
+              .filter((item) => {
+                // Check if plan title references this tooth
+                const plan = data.treatmentPlans.find((p) => p.items.some((i) => i.id === item.id));
+                return plan && plan.title.includes(String(selectedTooth));
+              });
+
+            return (
+              <>
+                {/* Full-width colored header */}
+                <div className="px-6 pt-6 pb-5 rounded-t-lg" style={{ backgroundColor: statusColor + "12" }}>
+                  <DialogHeader className="space-y-0">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold font-mono text-lg shadow-sm"
+                        style={{ backgroundColor: statusColor }}
+                      >
+                        {selectedTooth}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <DialogTitle className="text-xl font-bold">Tooth #{selectedTooth}</DialogTitle>
+                        <p className="text-sm text-muted-foreground mt-1">{toothName}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <div
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white"
+                            style={{ backgroundColor: statusColor }}
+                          >
+                            <span>{TOOTH_STATUS_INDICATORS[statusKey] || "H"}</span>
+                            {statusLabel}
+                          </div>
+                          {currentStatus?.findingName && (
+                            <span className="text-xs text-muted-foreground">{currentStatus.findingName}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <DialogDescription className="sr-only">
+                      Clinical history for tooth {selectedTooth} — {toothName}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <div className="px-6 pb-6 space-y-6">
+                  {/* Active treatment plan banner */}
+                  {activePlanForTooth && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                      <div className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Active Treatment Plan</div>
+                      <div className="text-sm font-medium text-amber-900 mt-0.5">{activePlanForTooth.title}</div>
+                    </div>
+                  )}
+
+                  {/* What's Next — pending plan items */}
+                  {pendingPlanItems.length > 0 && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <div className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-1">Next Steps</div>
+                      {pendingPlanItems.map((item) => (
+                        <div key={item.id} className="text-sm text-blue-900 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                          {item.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Procedures — card-style entries */}
+                  {workDone.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-4">Procedures</div>
+                      <div className="space-y-3">
+                        {workDone.map((wd, i) => (
+                          <div key={i} className="rounded-xl border bg-card p-4 shadow-xs">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="font-semibold text-sm">{wd.operationName}</div>
+                              {wd.caseNo && (
+                                <Link href={`/visits/${wd.visitId}`} className="text-xs text-primary hover:underline shrink-0">
+                                  Case #{wd.caseNo}
+                                </Link>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1.5">
+                              <span>{formatDate(wd.visitDate)}</span>
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                              <span>Dr. {toTitleCase(wd.doctorName)}</span>
+                            </div>
+                            {wd.notes && (
+                              <div className="text-xs text-muted-foreground mt-2 bg-muted/50 rounded-lg px-2.5 py-1.5">
+                                {wd.notes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* History Timeline */}
+                  {history.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-4">Status History</div>
+                      <div className="relative pl-7 space-y-5">
+                        {/* Vertical line — thicker */}
+                        <div className="absolute left-[9px] top-1 bottom-1 w-0.5 bg-border rounded-full" />
+                        {history.map((entry, i) => {
+                          const entryColor = getStatusColor(entry.status);
+                          const entryLabel = TOOTH_STATUSES[entry.status as ToothStatusKey]?.label || entry.status;
+                          return (
+                            <div key={i} className="relative">
+                              <div
+                                className="absolute -left-6 top-0.5 w-[18px] h-[18px] rounded-full border-[3px] border-background shadow-xs"
+                                style={{ backgroundColor: entryColor }}
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">{entryLabel}</span>
+                                  {entry.findingName && (
+                                    <span className="text-xs text-muted-foreground">— {entry.findingName}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <span>{formatDate(entry.recordedAt)}</span>
+                                  <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                                  <span>Dr. {toTitleCase(entry.doctorName)}</span>
+                                  {entry.caseNo && entry.visitId ? (
+                                    <Link href={`/visits/${entry.visitId}`} className="text-primary hover:underline">
+                                      Case #{entry.caseNo}
+                                    </Link>
+                                  ) : entry.caseNo ? (
+                                    <span>Case #{entry.caseNo}</span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Empty state */}
+                  {!currentStatus && history.length === 0 && workDone.length === 0 && (
+                    <div className="text-center py-8">
+                      <div className="text-muted-foreground/30 text-4xl mb-3">&#129463;</div>
+                      <div className="font-semibold text-sm">No clinical history</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        This tooth has no recorded findings or procedures
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Visit Notes Popup */}
+      <Dialog open={selectedVisit !== null} onOpenChange={(open) => { if (!open) setSelectedVisit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          {selectedVisit && (() => {
+            const report = selectedVisit.clinicalReports[0] || null;
+            const operationName = selectedVisit.stepLabel || selectedVisit.operation?.name || selectedVisit.customLabel || "Visit";
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary text-primary-foreground rounded-lg px-2.5 py-1.5 text-center shrink-0">
+                      <div className="text-sm font-bold font-mono">#{selectedVisit.caseNo}</div>
+                    </div>
+                    <div>
+                      <DialogTitle className="text-base">{operationName}</DialogTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(selectedVisit.visitDate)}
+                        {selectedVisit.doctor && ` · Dr. ${toTitleCase(selectedVisit.doctor.name)}`}
+                      </p>
+                    </div>
+                  </div>
+                  <DialogDescription className="sr-only">
+                    Clinical notes for case #{selectedVisit.caseNo}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  {report ? (
+                    <>
+                      {report.complaint && (
+                        <div>
+                          <div className="text-xs text-muted-foreground font-medium mb-0.5">Complaint</div>
+                          <p className="text-sm">{report.complaint}</p>
+                        </div>
+                      )}
+                      {report.diagnosis && (
+                        <div>
+                          <div className="text-xs text-muted-foreground font-medium mb-0.5">Diagnosis</div>
+                          <p className="text-sm">{report.diagnosis}</p>
+                        </div>
+                      )}
+                      {report.treatmentNotes && (
+                        <div>
+                          <div className="text-xs text-muted-foreground font-medium mb-0.5">Treatment</div>
+                          <p className="text-sm">{report.treatmentNotes}</p>
+                        </div>
+                      )}
+                      {!report.complaint && !report.diagnosis && !report.treatmentNotes && (
+                        <div className="text-center py-4 text-sm text-muted-foreground">
+                          No notes recorded
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No notes recorded
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/visits/${selectedVisit.id}`}>View Details</Link>
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Active Treatment Plans */}
+      {(data.treatmentPlans.length > 0 || isDoctor) && (
+        <TreatmentPlansSection
+          plans={data.treatmentPlans}
+          patientId={patient.id}
+          isDoctor={isDoctor}
+          permissionLevel={currentUser.permissionLevel}
+        />
       )}
 
       {/* Appointments */}
@@ -538,136 +937,6 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </Card>
       </section>
 
-      {/* Dental Chart (read-only) */}
-      {data.toothStatuses.length > 0 && (
-        <section>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Dental Chart</h3>
-          <Card>
-            <CardContent className="pt-4">
-              <ToothChart
-                selected={[]}
-                toothStatuses={data.toothStatuses.map((ts) => ({
-                  toothNumber: ts.toothNumber,
-                  status: ts.status,
-                  findingName: ts.findingName || undefined,
-                  color: ts.findingColor || undefined,
-                }))}
-                onDoubleClick={(tooth) => setSelectedTooth(tooth)}
-                readOnly
-              />
-              <p className="text-xs text-muted-foreground mt-2 text-center">Click any tooth to see history</p>
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {/* Tooth History Modal */}
-      <Dialog open={selectedTooth !== null} onOpenChange={(open) => { if (!open) setSelectedTooth(null); }}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Tooth #{selectedTooth}</DialogTitle>
-          </DialogHeader>
-          {selectedTooth && (() => {
-            const currentStatus = data.toothStatuses.find((ts) => ts.toothNumber === selectedTooth);
-            const history = data.toothHistory.filter((th) => th.toothNumber === selectedTooth);
-            const workDone = data.patientWorkDone.filter((wd) => wd.toothNumber === selectedTooth);
-            return (
-              <div className="space-y-4">
-                {/* Current Status */}
-                <div>
-                  <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Current Status</div>
-                  {currentStatus ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getStatusColor(currentStatus.status) }} />
-                      <span className="font-medium">
-                        {TOOTH_STATUSES[currentStatus.status as ToothStatusKey]?.label || currentStatus.status}
-                      </span>
-                      {currentStatus.findingName && (
-                        <Badge variant="outline" className="text-xs">{currentStatus.findingName}</Badge>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No records</span>
-                  )}
-                </div>
-
-                {/* History Timeline */}
-                {history.length > 0 && (
-                  <div>
-                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">History</div>
-                    <div className="space-y-1.5">
-                      {history.map((entry, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm">
-                          <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: getStatusColor(entry.status) }} />
-                          <div>
-                            <span className="font-medium">{formatDate(entry.recordedAt)}</span>
-                            <span className="text-muted-foreground"> — {TOOTH_STATUSES[entry.status as ToothStatusKey]?.label || entry.status}</span>
-                            {entry.findingName && <span className="text-muted-foreground"> ({entry.findingName})</span>}
-                            <span className="text-muted-foreground"> · Dr. {toTitleCase(entry.doctorName)}</span>
-                            {entry.caseNo && <span className="text-muted-foreground/70"> (Case #{entry.caseNo})</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Work Done */}
-                {workDone.length > 0 && (
-                  <div>
-                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1">Procedures</div>
-                    <div className="space-y-1.5">
-                      {workDone.map((wd, i) => (
-                        <div key={i} className="text-sm border rounded-md p-2">
-                          <div className="font-medium">{wd.operationName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(wd.visitDate)} · Dr. {toTitleCase(wd.doctorName)}
-                            {wd.caseNo && ` · Case #${wd.caseNo}`}
-                          </div>
-                          {wd.notes && <div className="text-xs text-muted-foreground mt-0.5">{wd.notes}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {history.length === 0 && workDone.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No history for this tooth</p>
-                )}
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* Treatment Plans */}
-      {(data.treatmentPlans.length > 0 || isDoctor) && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Plans</h3>
-            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-              <Link href={`/patients/${patient.id}/plan/new`}>
-                <ClipboardList className="h-3.5 w-3.5 mr-1" />
-                New Plan
-              </Link>
-            </Button>
-          </div>
-          {data.treatmentPlans.length > 0 ? (
-            <div className="space-y-4">
-              {data.treatmentPlans.map((plan) => (
-                <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                No treatment plans yet
-              </CardContent>
-            </Card>
-          )}
-        </section>
-      )}
-
       {/* Treatment History */}
       <section>
         <div className="flex items-center justify-between mb-2">
@@ -704,6 +973,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           <VisitLogTable
             visits={data.topLevelVisits}
             showInternalCosts={data.showInternalCosts}
+            onSelectVisit={setSelectedVisit}
           />
         )}
       </section>

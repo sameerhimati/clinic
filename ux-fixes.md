@@ -239,7 +239,8 @@ Long scrollable page with sections. Information not prioritized. Confusing.
 > Add items as discovered during testing. Check off when fixed.
 
 ## Reception Dashboard
-- [ ] P1: Today's schedule has no clear ordering — should be by appointment time, then by status (arrived first). Needs visual grouping.
+- [ ] P1: Today's schedule has no clear ordering — should be by appointment time, then by status (arrived first). Needs visual grouping. 
+- [ ] P0: Complete overhaul of Dashboard, think about what we need here
 
 ## Patient Registration
 - [ ] P2: Entering Age should auto-compute approximate DoB (Jan 1 of birth year). Defaulting to today's date is wrong.

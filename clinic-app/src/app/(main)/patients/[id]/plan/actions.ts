@@ -273,6 +273,52 @@ export async function markStepDoneInSitting(planItemId: number, visitId: number)
   return { success: true };
 }
 
+export async function modifyPlanItem(
+  itemId: number,
+  status: "CHANGED" | "NOT_APPLICABLE",
+  reason: string,
+) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 4) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!reason.trim()) throw new Error("Reason is required");
+
+  const item = await prisma.treatmentPlanItem.findUnique({
+    where: { id: itemId },
+    include: { plan: { select: { patientId: true, title: true } } },
+  });
+  if (!item) throw new Error("Plan item not found");
+  if (item.visitId) throw new Error("Cannot modify a completed step");
+
+  await prisma.treatmentPlanItem.update({
+    where: { id: itemId },
+    data: {
+      modifiedStatus: status,
+      modifiedReason: reason.trim(),
+      modifiedById: currentUser.id,
+    },
+  });
+
+  logFlaggedAction({
+    action: "PLAN_MODIFIED",
+    actorId: currentUser.id,
+    patientId: item.plan.patientId,
+    entityType: "TreatmentPlanItem",
+    entityId: itemId,
+    reason: reason.trim(),
+    details: {
+      planTitle: item.plan.title,
+      itemLabel: item.label,
+      modifiedStatus: status,
+    },
+  });
+
+  revalidatePath(`/patients/${item.plan.patientId}`);
+  return { success: true };
+}
+
 // Get treatment steps for an operation (used by plan editor)
 export async function getOperationSteps(operationId: number) {
   return prisma.treatmentStep.findMany({

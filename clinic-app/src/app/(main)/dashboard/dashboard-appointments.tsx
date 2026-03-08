@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays } from "lucide-react";
+import { AlertTriangle, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { StatusBadge } from "@/components/status-badge";
@@ -22,6 +22,7 @@ type DashboardAppointment = {
   timeSlot: string | null;
   status: string;
   reason: string | null;
+  medicalAlerts?: string[];
 };
 
 const STATUS_BORDER_COLOR: Record<string, string> = {
@@ -106,6 +107,16 @@ export function DashboardAppointmentList({
                       <span className="font-mono text-sm text-muted-foreground">#{appt.patientCode}</span>
                       {appt.patientName}
                     </div>
+                    {appt.medicalAlerts && appt.medicalAlerts.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />
+                        {appt.medicalAlerts.map((a) => (
+                          <span key={a} className="text-[10px] bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="text-sm text-muted-foreground">
                       {appt.timeSlot && <span>{appt.timeSlot} · </span>}
                       {appt.doctorName && <span>Dr. {appt.doctorName} · </span>}

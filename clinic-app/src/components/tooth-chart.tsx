@@ -15,10 +15,11 @@
  *   - Click-and-drag to select ranges within an arch
  *   - Double-click to open detail panel
  *   - Visual status indicators (symbols + colors)
+ *   - Size variants: sm, md, lg
  */
 
 import { useState, useCallback, useRef } from "react";
-import { getStatusColor, TOOTH_STATUS_INDICATORS } from "@/lib/dental";
+import { getToothName, getStatusColor, TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, type ToothStatusKey } from "@/lib/dental";
 
 const Q1 = [18, 17, 16, 15, 14, 13, 12, 11]; // Upper Right
 const Q2 = [21, 22, 23, 24, 25, 26, 27, 28]; // Upper Left
@@ -35,11 +36,20 @@ export type ToothStatusData = {
   color?: string;
 };
 
+type ChartSize = "sm" | "md" | "lg";
+
+const SIZE_CONFIG: Record<ChartSize, { cell: string; gap: string; indicator: string; dividerH: string }> = {
+  sm: { cell: "w-7 h-7 text-[11px]", gap: "gap-1", indicator: "", dividerH: "h-5" },
+  md: { cell: "w-8 h-8 text-xs", gap: "gap-1.5", indicator: "text-[8px]", dividerH: "h-6" },
+  lg: { cell: "w-9 h-9 text-xs sm:w-10 sm:h-10 sm:text-sm", gap: "gap-1", indicator: "text-[10px] font-semibold", dividerH: "h-7 sm:h-8" },
+};
+
 export function ToothChart({
   selected = [],
   onChange,
   readOnly = false,
   compact = false,
+  size,
   toothStatuses,
   onDoubleClick,
   highlightTeeth,
@@ -48,10 +58,13 @@ export function ToothChart({
   onChange?: (teeth: number[]) => void;
   readOnly?: boolean;
   compact?: boolean;
+  size?: ChartSize;
   toothStatuses?: ToothStatusData[];
   onDoubleClick?: (tooth: number) => void;
   highlightTeeth?: number[];
 }) {
+  const resolvedSize: ChartSize = compact ? "sm" : size || "md";
+  const config = SIZE_CONFIG[resolvedSize];
   const selectedSet = new Set(selected);
   const highlightSet = highlightTeeth ? new Set(highlightTeeth) : null;
 
@@ -67,14 +80,11 @@ export function ToothChart({
   const isDragging = useRef(false);
   const dragStartTooth = useRef<number | null>(null);
   const dragMoved = useRef(false);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingClick = useRef<number | null>(null);
 
   const handleMouseDown = useCallback(
     (tooth: number, e: React.MouseEvent) => {
       if (readOnly && !onDoubleClick) return;
       if (readOnly) {
-        // readOnly with onDoubleClick — just track for mouseUp
         isDragging.current = true;
         dragMoved.current = false;
         return;
@@ -92,13 +102,12 @@ export function ToothChart({
     (tooth: number) => {
       if (!isDragging.current || readOnly || !onChange) return;
       dragMoved.current = true;
-      // Range select within same arch as start tooth
       const start = dragStartTooth.current;
       if (start === null) return;
 
       const isStartUpper = UPPER.includes(start);
       const isToothUpper = UPPER.includes(tooth);
-      if (isStartUpper !== isToothUpper) return; // cross-arch: ignore
+      if (isStartUpper !== isToothUpper) return;
 
       const arch = isStartUpper ? UPPER : LOWER;
       const idx1 = arch.indexOf(start);
@@ -109,7 +118,6 @@ export function ToothChart({
       const hi = Math.max(idx1, idx2);
       const rangeTeeth = arch.slice(lo, hi + 1);
 
-      // Build new selection: keep any teeth not in this arch, plus the range
       const newSet = new Set(selected.filter((t) => !arch.includes(t)));
       for (const t of rangeTeeth) newSet.add(t);
       onChange(Array.from(newSet));
@@ -123,34 +131,13 @@ export function ToothChart({
       isDragging.current = false;
 
       if (!dragMoved.current) {
-        // ReadOnly with onDoubleClick — treat single click as action
         if (readOnly && onDoubleClick) {
           onDoubleClick(tooth);
-          return;
-        }
-
-        if (onChange && !readOnly) {
-          // No drag happened — this is a single click toggle
-          // Delay to distinguish from double-click
-          if (clickTimer.current) {
-            clearTimeout(clickTimer.current);
-            clickTimer.current = null;
-            // This is the second click (double-click)
-            pendingClick.current = null;
-            if (onDoubleClick) onDoubleClick(tooth);
-            return;
-          }
-
-          pendingClick.current = tooth;
-          clickTimer.current = setTimeout(() => {
-            clickTimer.current = null;
-            // Single click — toggle selection
-            const next = selectedSet.has(tooth)
-              ? selected.filter((t) => t !== tooth)
-              : [...selected, tooth];
-            onChange(next);
-            pendingClick.current = null;
-          }, 200);
+        } else if (onChange && !readOnly) {
+          const next = selectedSet.has(tooth)
+            ? selected.filter((t) => t !== tooth)
+            : [...selected, tooth];
+          onChange(next);
         }
       }
 
@@ -160,13 +147,22 @@ export function ToothChart({
     [readOnly, onChange, selected, selectedSet, onDoubleClick]
   );
 
+  const handleDoubleClick = useCallback(
+    (tooth: number) => {
+      if (!readOnly && onDoubleClick) {
+        onDoubleClick(tooth);
+      }
+    },
+    [readOnly, onDoubleClick]
+  );
+
   const handleGlobalMouseUp = useCallback(() => {
     isDragging.current = false;
     dragStartTooth.current = null;
     dragMoved.current = false;
   }, []);
 
-  // Touch support for mobile drag
+  // Touch support
   const touchStartTooth = useRef<number | null>(null);
   const handleTouchStart = useCallback(
     (tooth: number) => {
@@ -180,7 +176,6 @@ export function ToothChart({
     (tooth: number) => {
       if (readOnly || !onChange) return;
       if (touchStartTooth.current === tooth) {
-        // Simple tap — toggle
         const next = selectedSet.has(tooth)
           ? selected.filter((t) => t !== tooth)
           : [...selected, tooth];
@@ -215,9 +210,6 @@ export function ToothChart({
     }
   }
 
-  const cellSize = compact ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  const gap = compact ? "gap-0.5" : "gap-1";
-
   function ToothCell({ tooth }: { tooth: number }) {
     const isSelected = selectedSet.has(tooth);
     const isHighlighted = highlightSet?.has(tooth);
@@ -225,12 +217,10 @@ export function ToothChart({
     const statusKey = toothStatus?.status || "HEALTHY";
     const indicator = TOOTH_STATUS_INDICATORS[statusKey];
     const isMissing = statusKey === "MISSING" || statusKey === "EXTRACTED";
+    const showIndicator = resolvedSize !== "sm" && indicator && !isSelected;
 
-    // Determine background color
-    let bgClass = readOnly
-      ? "bg-muted text-muted-foreground"
-      : "bg-muted/50 text-muted-foreground hover:bg-accent cursor-pointer";
-
+    // Determine background
+    let bgClass: string;
     let bgStyle: React.CSSProperties | undefined;
 
     if (isSelected) {
@@ -239,7 +229,17 @@ export function ToothChart({
       const color = toothStatus.color || getStatusColor(statusKey);
       bgStyle = { backgroundColor: color, color: "#fff" };
       bgClass = readOnly ? "" : "hover:brightness-110 cursor-pointer";
+    } else {
+      // Healthy tooth — white outlined
+      bgClass = readOnly
+        ? `bg-background border ${isMissing ? "border-dashed" : ""} border-border/50 text-muted-foreground`
+        : `bg-background border ${isMissing ? "border-dashed" : ""} border-border/50 text-muted-foreground hover:bg-accent cursor-pointer`;
     }
+
+    const toothName = getToothName(tooth);
+    const tooltipText = toothStatus && statusKey !== "HEALTHY"
+      ? `${toothName} — ${toothStatus.findingName || TOOTH_STATUSES[statusKey as ToothStatusKey]?.label || statusKey}`
+      : toothName;
 
     return (
       <button
@@ -247,24 +247,21 @@ export function ToothChart({
         onMouseDown={(e) => handleMouseDown(tooth, e)}
         onMouseEnter={() => handleMouseEnter(tooth)}
         onMouseUp={() => handleMouseUp(tooth)}
+        onDoubleClick={() => handleDoubleClick(tooth)}
         onTouchStart={() => handleTouchStart(tooth)}
         onTouchEnd={() => handleTouchEnd(tooth)}
         disabled={readOnly && !onDoubleClick}
-        className={`${cellSize} rounded font-mono font-medium transition-colors relative select-none flex items-center justify-center ${bgClass} ${
+        className={`${config.cell} rounded font-mono font-medium transition-colors relative select-none flex items-center justify-center ${bgClass} ${
           isHighlighted && !isSelected ? "ring-2 ring-amber-400" : ""
         }`}
         style={!isSelected ? bgStyle : undefined}
-        title={
-          toothStatus
-            ? `Tooth ${tooth} — ${toothStatus.findingName || statusKey}`
-            : `Tooth ${tooth}`
-        }
+        title={tooltipText}
       >
         <span className={isMissing && !isSelected ? "line-through opacity-60" : ""}>
           {tooth}
         </span>
-        {indicator && !isSelected && !compact && (
-          <span className="absolute bottom-0 right-0.5 text-[7px] leading-none font-bold opacity-90">
+        {showIndicator && (
+          <span className={`absolute bottom-0 right-0.5 leading-none opacity-90 ${config.indicator}`}>
             {indicator}
           </span>
         )}
@@ -272,21 +269,20 @@ export function ToothChart({
     );
   }
 
-  // Collect unique statuses present in data for legend
-  const presentStatuses = new Map<string, string>();
+  // Collect unique statuses for legend
+  const presentStatuses = new Map<string, { color: string; indicator: string }>();
   if (toothStatuses) {
     for (const ts of toothStatuses) {
-      if (ts.status !== "HEALTHY") {
-        const label = ts.findingName || ts.status;
+      if (ts.status !== "HEALTHY" && !presentStatuses.has(ts.status)) {
         const color = ts.color || getStatusColor(ts.status);
-        if (!presentStatuses.has(label)) {
-          presentStatuses.set(label, color);
-        }
+        const ind = TOOTH_STATUS_INDICATORS[ts.status] || "";
+        presentStatuses.set(ts.status, { color, indicator: ind });
       }
     }
   }
 
-  const showQuadrantButtons = !readOnly && onChange && !compact;
+  const showQuadrantButtons = !readOnly && onChange && resolvedSize !== "sm";
+  const showLabels = resolvedSize !== "sm";
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -297,91 +293,64 @@ export function ToothChart({
       {/* Quadrant shortcuts */}
       {showQuadrantButtons && (
         <div className="flex gap-1 mb-2">
-          <button
-            type="button"
-            onClick={() => toggleQuadrant(Q1)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Q1
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleQuadrant(Q2)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Q2
-          </button>
+          <button type="button" onClick={() => toggleQuadrant(Q1)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Q1</button>
+          <button type="button" onClick={() => toggleQuadrant(Q2)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Q2</button>
           <div className="w-px bg-border mx-0.5" />
-          <button
-            type="button"
-            onClick={() => toggleArch(UPPER)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Upper
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleArch(LOWER)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Lower
-          </button>
+          <button type="button" onClick={() => toggleArch(UPPER)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Upper</button>
+          <button type="button" onClick={() => toggleArch(LOWER)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Lower</button>
           <div className="w-px bg-border mx-0.5" />
-          <button
-            type="button"
-            onClick={() => toggleQuadrant(Q4)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Q4
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleQuadrant(Q3)}
-            className="px-2 py-0.5 text-[10px] rounded border border-input hover:bg-accent transition-colors"
-          >
-            Q3
-          </button>
+          <button type="button" onClick={() => toggleQuadrant(Q4)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Q4</button>
+          <button type="button" onClick={() => toggleQuadrant(Q3)} className="px-2.5 py-1 text-xs rounded border border-input hover:bg-accent transition-colors">Q3</button>
         </div>
       )}
 
       {/* Labels */}
-      {!compact && (
-        <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5 px-1">
-          <span>Upper Right (Q1)</span>
-          <span>Upper Left (Q2)</span>
+      {showLabels && (
+        <div className="flex justify-between text-muted-foreground mb-0.5 px-1">
+          {resolvedSize === "lg" ? (
+            <>
+              <span className="text-xs font-medium">Right</span>
+              <span className="text-xs font-medium">Left</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px]">Upper Right (Q1)</span>
+              <span className="text-[10px]">Upper Left (Q2)</span>
+            </>
+          )}
         </div>
       )}
       {/* Upper row */}
       <div className="flex items-center">
-        <div className={`flex ${gap}`}>
+        <div className={`flex ${config.gap}`}>
           {Q1.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
-        <div className="w-px h-6 bg-border mx-1" />
-        <div className={`flex ${gap}`}>
+        <div className={`w-px ${config.dividerH} bg-border mx-1`} />
+        <div className={`flex ${config.gap}`}>
           {Q2.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
       </div>
       {/* Horizontal divider */}
-      <div className="h-px bg-border my-1" />
+      <div className="h-px bg-border my-1.5" />
       {/* Lower row */}
       <div className="flex items-center">
-        <div className={`flex ${gap}`}>
+        <div className={`flex ${config.gap}`}>
           {Q4.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
-        <div className="w-px h-6 bg-border mx-1" />
-        <div className={`flex ${gap}`}>
+        <div className={`w-px ${config.dividerH} bg-border mx-1`} />
+        <div className={`flex ${config.gap}`}>
           {Q3.map((t) => (
             <ToothCell key={t} tooth={t} />
           ))}
         </div>
       </div>
-      {!compact && (
+      {showLabels && resolvedSize !== "lg" && (
         <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5 px-1">
           <span>Lower Right (Q4)</span>
           <span>Lower Left (Q3)</span>
@@ -395,15 +364,16 @@ export function ToothChart({
         </div>
       )}
       {/* Status legend */}
-      {presentStatuses.size > 0 && !compact && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {Array.from(presentStatuses.entries()).map(([label, color]) => (
-            <div key={label} className="flex items-center gap-1">
+      {presentStatuses.size > 0 && resolvedSize !== "sm" && (
+        <div className="flex flex-wrap gap-3 mt-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+          {Array.from(presentStatuses.entries()).map(([statusKey, { color, indicator }]) => (
+            <div key={statusKey} className="flex items-center gap-1.5">
               <div
-                className="w-2.5 h-2.5 rounded-full"
+                className="w-3.5 h-3.5 rounded-full"
                 style={{ backgroundColor: color }}
               />
-              <span className="text-[10px] text-muted-foreground">{label}</span>
+              {indicator && <span className="text-[10px] font-mono font-semibold text-muted-foreground">{indicator}</span>}
+              <span className="text-xs text-muted-foreground">{TOOTH_STATUSES[statusKey as ToothStatusKey]?.label || statusKey}</span>
             </div>
           ))}
         </div>

@@ -6,6 +6,8 @@ import {
   UserPlus,
   Receipt,
   CalendarDays,
+  Phone,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { toTitleCase, formatDate, formatFullDate } from "@/lib/format";
@@ -13,6 +15,7 @@ import { requireAuth } from "@/lib/auth";
 import { canCollectPayments } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
+import { MultiDaySchedule } from "@/components/multi-day-schedule";
 import { DashboardAppointmentList } from "./dashboard-appointments";
 import { PrescriptionQueue } from "@/components/prescription-queue";
 
@@ -69,7 +72,7 @@ async function getAdminDashboardData() {
       },
       orderBy: { createdAt: "asc" },
       include: {
-        patient: { select: { id: true, name: true, code: true } },
+        patient: { select: { id: true, name: true, code: true, diseases: { include: { disease: { select: { name: true } } } } } },
         doctor: { select: { name: true } },
         visit: { select: { id: true } },
       },
@@ -118,6 +121,140 @@ async function getAdminDashboardData() {
     });
   }
 
+  // Follow-up queue: patients with active plans where next item has no appointment and is overdue
+  const activePlans = await prisma.treatmentPlan.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      patient: { select: { id: true, code: true, name: true, mobile: true, phone: true } },
+      items: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          appointments: { where: { status: { notIn: ["CANCELLED", "NO_SHOW"] } }, take: 1 },
+        },
+      },
+    },
+  });
+  const followUpQueue: {
+    patientId: number;
+    patientCode: number | null;
+    patientName: string;
+    phone: string | null;
+    treatmentTitle: string;
+    nextStep: string;
+    daysUntilDue: number; // negative = overdue, 0 = today, positive = upcoming
+    planId: number;
+  }[] = [];
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now);
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+  for (const plan of activePlans) {
+    // Find last completed item and next uncompleted item
+    const items = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    let lastCompletedDate: Date | null = null;
+    let nextItem: typeof items[0] | null = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].completedAt) {
+        lastCompletedDate = items[i].completedAt;
+      } else if (!nextItem) {
+        nextItem = items[i];
+      }
+    }
+    if (!nextItem || !lastCompletedDate) continue;
+    // Has appointment already? Skip
+    if (nextItem.appointments && nextItem.appointments.length > 0) continue;
+    // Calculate due date: lastCompleted + estimatedDayGap
+    const dueDate = new Date(lastCompletedDate);
+    dueDate.setDate(dueDate.getDate() + nextItem.estimatedDayGap);
+    // Include if overdue, due today, or due within 7 days
+    if (dueDate > sevenDaysFromNow) continue;
+    const daysUntilDue = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    followUpQueue.push({
+      patientId: plan.patient.id,
+      patientCode: plan.patient.code,
+      patientName: toTitleCase(plan.patient.name),
+      phone: plan.patient.mobile || plan.patient.phone || null,
+      treatmentTitle: plan.title,
+      nextStep: nextItem.label,
+      daysUntilDue,
+      planId: plan.id,
+    });
+  }
+  // Sort: overdue first (most overdue at top), then upcoming
+  followUpQueue.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+
+  // Ready for checkout — completed appointments today with clinical reports
+  const completedToday = await prisma.appointment.findMany({
+    where: {
+      date: { gte: today, lt: tomorrow },
+      status: "COMPLETED",
+    },
+    include: {
+      patient: { select: { id: true, code: true, name: true } },
+      doctor: { select: { name: true } },
+      visit: {
+        select: {
+          id: true,
+          operationRate: true,
+          discount: true,
+          operation: { select: { name: true } },
+          workDone: { select: { id: true, toothNumber: true, operation: { select: { name: true } } } },
+          clinicalReports: { select: { id: true }, take: 1 },
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  // Filter to only those with a clinical report (exam was actually done)
+  const readyForCheckout: {
+    appointmentId: number;
+    patientId: number;
+    patientCode: number | null;
+    patientName: string;
+    doctorName: string | null;
+    operationName: string | null;
+    visitId: number | null;
+    workDoneSummary: string;
+    escrowBalance: number;
+  }[] = [];
+
+  for (const appt of completedToday) {
+    if (!appt.visit || appt.visit.clinicalReports.length === 0) continue;
+
+    // Calculate escrow balance for this patient
+    const [deposits, fulfilled] = await Promise.all([
+      prisma.patientPayment.aggregate({
+        where: { patientId: appt.patientId },
+        _sum: { amount: true },
+      }),
+      prisma.escrowFulfillment.aggregate({
+        where: { patientId: appt.patientId },
+        _sum: { amount: true },
+      }),
+    ]);
+    const escrowBalance = (deposits._sum.amount || 0) - (fulfilled._sum.amount || 0);
+
+    const workDone = appt.visit.workDone;
+    const workSummary = workDone.length > 0
+      ? workDone.map((w) => {
+          const tooth = w.toothNumber ? ` (#${w.toothNumber})` : "";
+          return `${w.operation.name}${tooth}`;
+        }).join(", ")
+      : "";
+
+    readyForCheckout.push({
+      appointmentId: appt.id,
+      patientId: appt.patientId,
+      patientCode: appt.patient.code,
+      patientName: toTitleCase(appt.patient.name),
+      doctorName: appt.doctor?.name ? toTitleCase(appt.doctor.name) : null,
+      operationName: appt.visit.operation?.name || null,
+      visitId: appt.visit.id,
+      workDoneSummary: workSummary,
+      escrowBalance,
+    });
+  }
+
   // Pending prescriptions
   const pendingPrescriptions = await prisma.prescription.findMany({
     where: { isPrinted: false },
@@ -139,10 +276,12 @@ async function getAdminDashboardData() {
     todayAppointments,
     pendingPrescriptions,
     negativeEscrowPatients,
+    followUpQueue,
+    readyForCheckout,
   };
 }
 
-async function getDoctorDashboardData(doctorId: number) {
+async function getDoctorDashboardData(doctorId: number, isConsultant: boolean) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -156,13 +295,57 @@ async function getDoctorDashboardData(doctorId: number) {
     },
     orderBy: { createdAt: "asc" },
     include: {
-      patient: { select: { id: true, name: true, code: true } },
+      patient: { select: { id: true, name: true, code: true, diseases: { include: { disease: { select: { name: true } } } } } },
       doctor: { select: { name: true } },
-      visit: { select: { id: true } },
+      visit: {
+        select: {
+          id: true,
+          clinicalReports: {
+            select: { complaint: true },
+            orderBy: { reportDate: "desc" as const },
+            take: 1,
+          },
+        },
+      },
+      planItem: {
+        select: { label: true },
+      },
     },
   });
 
-  return { todayAppointments };
+  // For consultants: next 7 days of appointments
+  let futureAppointments: typeof todayAppointments = [];
+  if (isConsultant) {
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    futureAppointments = await prisma.appointment.findMany({
+      where: {
+        doctorId,
+        date: { gte: tomorrow, lt: weekFromNow },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      orderBy: { date: "asc" },
+      include: {
+        patient: { select: { id: true, name: true, code: true, diseases: { include: { disease: { select: { name: true } } } } } },
+        doctor: { select: { name: true } },
+        visit: {
+          select: {
+            id: true,
+            clinicalReports: {
+              select: { complaint: true },
+              orderBy: { reportDate: "desc" as const },
+              take: 1,
+            },
+          },
+        },
+        planItem: {
+          select: { label: true },
+        },
+      },
+    });
+  }
+
+  return { todayAppointments, futureAppointments };
 }
 
 
@@ -174,7 +357,7 @@ export default async function DashboardPage() {
   const greeting = getGreeting();
 
   if (isDoctor) {
-    const data = await getDoctorDashboardData(doctor.id);
+    const data = await getDoctorDashboardData(doctor.id, isConsultant);
     return (
       <div className="space-y-4">
         {/* Compact header row */}
@@ -196,8 +379,37 @@ export default async function DashboardPage() {
             timeSlot: appt.timeSlot,
             status: appt.status,
             reason: appt.reason,
+            medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
+            chiefComplaint: appt.visit?.clinicalReports?.[0]?.complaint?.slice(0, 40) || null,
+            planStep: appt.planItem?.label || null,
           }))}
         />
+
+        {/* Multi-day schedule for consultants */}
+        {isConsultant && data.futureAppointments.length > 0 && (() => {
+          const dayMap = new Map<string, { date: string; label: string; appointments: { id: number; patientId: number; patientCode: number | null; patientName: string; timeSlot: string | null; status: string; reason: string | null }[] }>();
+          for (const appt of data.futureAppointments) {
+            const d = new Date(appt.date);
+            const key = d.toISOString().split("T")[0];
+            if (!dayMap.has(key)) {
+              dayMap.set(key, {
+                date: key,
+                label: d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }),
+                appointments: [],
+              });
+            }
+            dayMap.get(key)!.appointments.push({
+              id: appt.id,
+              patientId: appt.patient.id,
+              patientCode: appt.patient.code,
+              patientName: toTitleCase(appt.patient.name),
+              timeSlot: appt.timeSlot,
+              status: appt.status,
+              reason: appt.reason,
+            });
+          }
+          return <MultiDaySchedule days={Array.from(dayMap.values())} />;
+        })()}
       </div>
     );
   }
@@ -243,6 +455,57 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Ready for Checkout — patients done today, need payment/scheduling */}
+      {data.readyForCheckout.length > 0 && (
+        <Card className="border-green-200 bg-green-50/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              Ready for Checkout
+              <Badge variant="secondary" className="text-xs">{data.readyForCheckout.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-green-100">
+              {data.readyForCheckout.map((item) => (
+                <div key={item.appointmentId} className="flex items-center justify-between py-2.5 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/patients/${item.patientId}`} className="font-medium hover:underline flex items-center gap-2">
+                      <span className="font-mono text-sm text-muted-foreground">#{item.patientCode}</span>
+                      <span className="truncate">{item.patientName}</span>
+                    </Link>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {item.operationName || "Visit"}
+                      {item.doctorName && ` · Dr. ${item.doctorName}`}
+                      {item.workDoneSummary && (
+                        <span className="text-foreground font-medium"> · {item.workDoneSummary}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {item.escrowBalance < 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {"\u20B9"}{Math.abs(item.escrowBalance).toLocaleString("en-IN")} due
+                      </Badge>
+                    )}
+                    {item.escrowBalance >= 0 && (
+                      <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">
+                        {"\u20B9"}{item.escrowBalance.toLocaleString("en-IN")} bal
+                      </Badge>
+                    )}
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/patients/${item.patientId}/checkout`}>
+                        Checkout {"\u2192"}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Today's Appointments — hero section with inline actions */}
       <DashboardAppointmentList
         appointments={data.todayAppointments.map((appt) => ({
@@ -255,33 +518,109 @@ export default async function DashboardPage() {
           timeSlot: appt.timeSlot,
           status: appt.status,
           reason: appt.reason,
+          medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
         }))}
       />
 
-      {/* Prescription Queue — pending for print */}
-      <PrescriptionQueue prescriptions={data.pendingPrescriptions} />
+      {/* Follow-up Queue */}
+      {data.followUpQueue.length > 0 && (() => {
+        const overdue = data.followUpQueue.filter((i) => i.daysUntilDue < 0);
+        const dueToday = data.followUpQueue.filter((i) => i.daysUntilDue === 0);
+        const upcoming = data.followUpQueue.filter((i) => i.daysUntilDue > 0);
+        const renderItem = (item: typeof data.followUpQueue[0]) => (
+          <div key={`${item.patientId}-${item.planId}`} className="flex items-center justify-between py-2.5 gap-3">
+            <div className="min-w-0 flex-1">
+              <Link href={`/patients/${item.patientId}`} className="font-medium hover:underline flex items-center gap-2">
+                <span className="font-mono text-sm text-muted-foreground">#{item.patientCode}</span>
+                <span className="truncate">{item.patientName}</span>
+              </Link>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {item.treatmentTitle} — <span className="font-medium text-foreground">{item.nextStep}</span>
+                {item.daysUntilDue < 0 && (
+                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-red-600 border-red-200 bg-red-50">
+                    {Math.abs(item.daysUntilDue)}d overdue
+                  </Badge>
+                )}
+                {item.daysUntilDue === 0 && (
+                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-amber-600 border-amber-200 bg-amber-50">
+                    Due today
+                  </Badge>
+                )}
+                {item.daysUntilDue > 0 && (
+                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-blue-600 border-blue-200 bg-blue-50">
+                    In {item.daysUntilDue}d
+                  </Badge>
+                )}
+              </div>
+              {item.phone && (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  <Phone className="inline h-3 w-3 mr-0.5" />{item.phone}
+                </div>
+              )}
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/appointments/new?patientId=${item.patientId}`}>
+                <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                Schedule
+              </Link>
+            </Button>
+          </div>
+        );
+        return (
+          <Card className="border-amber-200">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Phone className="h-4 w-4 text-amber-600" />
+                Follow-up Queue
+                <span className="text-xs font-normal text-muted-foreground">({data.followUpQueue.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-0">
+              {(overdue.length > 0 || dueToday.length > 0) && (
+                <div>
+                  {(overdue.length > 0 || dueToday.length > 0) && (
+                    <div className="text-xs font-semibold text-red-600 uppercase tracking-wider pb-1">Overdue</div>
+                  )}
+                  <div className="divide-y">
+                    {[...overdue, ...dueToday].slice(0, 5).map(renderItem)}
+                  </div>
+                </div>
+              )}
+              {upcoming.length > 0 && (
+                <div className={overdue.length > 0 || dueToday.length > 0 ? "pt-3 mt-3 border-t" : ""}>
+                  <div className="text-xs font-semibold text-blue-600 uppercase tracking-wider pb-1">Coming Up</div>
+                  <div className="divide-y">
+                    {upcoming.slice(0, 5).map(renderItem)}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
-      {/* Negative Escrow Patients */}
+      {/* Negative Escrow Patients — prominent warning */}
       {data.negativeEscrowPatients.length > 0 && (
-        <Card className="border-red-200">
+        <Card className="border-red-300 bg-red-50/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base font-medium text-red-700">
-              Escrow Deficit ({data.negativeEscrowPatients.length})
+            <CardTitle className="text-lg font-semibold text-red-700 flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-100 text-red-700 text-sm font-bold">{data.negativeEscrowPatients.length}</span>
+              Escrow Deficit
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="divide-y">
+            <div className="divide-y divide-red-100">
               {data.negativeEscrowPatients.map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2">
+                <div key={p.id} className="flex items-center justify-between py-2.5">
                   <Link href={`/patients/${p.id}`} className="font-medium hover:underline flex items-center gap-2">
                     <span className="font-mono text-sm text-muted-foreground">#{p.code}</span>
                     {p.name}
                   </Link>
                   <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="text-xs">
-                      {"\u20B9"}{Math.abs(p.balance).toLocaleString("en-IN")} owed
-                    </Badge>
-                    <Button size="sm" variant="outline" asChild>
+                    <span className="text-red-700 font-semibold text-sm tabular-nums">
+                      {"\u20B9"}{Math.abs(p.balance).toLocaleString("en-IN")}
+                    </span>
+                    <Button size="sm" variant="destructive" asChild>
                       <Link href={`/patients/${p.id}/checkout`}>Collect</Link>
                     </Button>
                   </div>
@@ -291,6 +630,9 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Prescription Queue — pending for print */}
+      <PrescriptionQueue prescriptions={data.pendingPrescriptions} />
 
       {/* Pending Payments — actionable for reception */}
       {data.pendingPayments.length > 0 && (

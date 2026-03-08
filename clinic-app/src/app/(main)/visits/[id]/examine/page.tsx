@@ -40,73 +40,49 @@ export default async function ExaminePage({
     redirect(`/visits/${visitId}`);
   }
 
-  // Fetch previous reports in the treatment chain (for follow-up visits)
-  let previousReports: {
-    visitId: number;
-    caseNo: number | null;
-    stepLabel: string | null;
-    doctorName: string;
-    reportDate: string;
-    complaint: string | null;
-    examination: string | null;
-    diagnosis: string | null;
-    treatmentNotes: string | null;
-    medication: string | null;
-    addendums: { content: string; doctorName: string; createdAt: string }[];
-  }[] = [];
-
-  if (visit.parentVisitId) {
-    // Find the root parent (flat chain — parentVisitId always points to root)
-    const rootId = visit.parentVisitId;
-
-    // Fetch all visits in the chain: the root + all siblings sharing the same parent
-    const chainVisits = await prisma.visit.findMany({
-      where: {
-        OR: [
-          { id: rootId },
-          { parentVisitId: rootId },
-        ],
-        id: { not: visitId }, // exclude the current visit
-      },
-      include: {
-        doctor: { select: { name: true } },
-        clinicalReports: {
-          include: {
-            doctor: { select: { name: true } },
-            addendums: {
-              include: { doctor: { select: { name: true } } },
-              orderBy: { createdAt: "asc" },
-            },
+  // Fetch ALL previous visits for this patient (full history, not just chain)
+  const allPatientVisits = await prisma.visit.findMany({
+    where: { patientId: visit.patientId, id: { not: visitId } },
+    include: {
+      doctor: { select: { name: true } },
+      operation: { select: { name: true } },
+      clinicalReports: {
+        include: {
+          doctor: { select: { name: true } },
+          addendums: {
+            include: { doctor: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
           },
-          take: 1,
         },
+        take: 1,
       },
-      orderBy: { visitDate: "asc" },
-    });
+    },
+    orderBy: { visitDate: "desc" },
+  });
 
-    previousReports = chainVisits
-      .filter((v) => v.clinicalReports.length > 0)
-      .map((v) => {
-        const r = v.clinicalReports[0];
-        return {
-          visitId: v.id,
-          caseNo: v.caseNo,
-          stepLabel: v.stepLabel,
-          doctorName: toTitleCase(r.doctor.name),
-          reportDate: formatDate(r.reportDate),
-          complaint: r.complaint,
-          examination: r.examination,
-          diagnosis: r.diagnosis,
-          treatmentNotes: r.treatmentNotes,
-          medication: r.medication,
-          addendums: r.addendums.map((a) => ({
-            content: a.content,
-            doctorName: toTitleCase(a.doctor.name),
-            createdAt: formatDate(a.createdAt),
-          })),
-        };
-      });
-  }
+  const previousReports = allPatientVisits
+    .filter((v) => v.clinicalReports.length > 0)
+    .map((v) => {
+      const r = v.clinicalReports[0];
+      return {
+        visitId: v.id,
+        caseNo: v.caseNo,
+        stepLabel: v.stepLabel,
+        operationName: v.operation?.name || null,
+        doctorName: toTitleCase(r.doctor.name),
+        reportDate: formatDate(r.reportDate),
+        complaint: r.complaint,
+        examination: r.examination,
+        diagnosis: r.diagnosis,
+        treatmentNotes: r.treatmentNotes,
+        medication: r.medication,
+        addendums: r.addendums.map((a) => ({
+          content: a.content,
+          doctorName: toTitleCase(a.doctor.name),
+          createdAt: formatDate(a.createdAt),
+        })),
+      };
+    });
 
   // Load existing clinical report if any
   const existingReport = await prisma.clinicalReport.findFirst({

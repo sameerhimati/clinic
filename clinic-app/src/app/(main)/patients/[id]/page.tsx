@@ -183,6 +183,7 @@ export default async function PatientDetailPage({
             operation: { select: { name: true } },
             assignedDoctor: { select: { name: true } },
             visit: { select: { id: true, visitDate: true, doctor: { select: { name: true } } } },
+            modifiedBy: { select: { name: true } },
             appointments: {
               where: { status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] } },
               select: { id: true, date: true, status: true, doctor: { select: { name: true } } },
@@ -370,6 +371,9 @@ export default async function PatientDetailPage({
           visitDoctorName: item.visit?.doctor?.name || null,
           completedAt: item.completedAt,
           notes: item.notes,
+          modifiedStatus: item.modifiedStatus || null,
+          modifiedReason: item.modifiedReason || null,
+          modifiedByName: item.modifiedBy?.name || null,
           appointment: appt ? {
             id: appt.id,
             date: appt.date,
@@ -391,6 +395,7 @@ export default async function PatientDetailPage({
       findingName: th.finding?.name || null,
       doctorName: th.recordedBy.name,
       caseNo: th.visit?.caseNo || null,
+      visitId: th.visitId || null,
       recordedAt: th.recordedAt.toISOString(),
     })),
     patientWorkDone: patientWorkDone.map((wd) => ({
@@ -398,6 +403,7 @@ export default async function PatientDetailPage({
       operationName: wd.operation.name,
       doctorName: wd.performedBy.name,
       caseNo: wd.visit.caseNo,
+      visitId: wd.visitId,
       visitDate: wd.visit.visitDate.toISOString(),
       notes: wd.notes,
     })),
