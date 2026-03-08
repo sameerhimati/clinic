@@ -224,23 +224,14 @@ export default async function CheckoutPage({
           { label: toTitleCase(patient.name), href: `/patients/${patient.id}` },
           { label: "Checkout" },
         ]} />
-        <div className="flex items-center gap-4">
-          <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-center">
-            <div className="text-xs uppercase tracking-wide opacity-80">
-              Payment
-            </div>
-            <div className="text-2xl font-bold font-mono">#{patient.code}</div>
+        <div className="flex items-center gap-3">
+          <div className="bg-primary text-primary-foreground rounded-lg w-12 h-12 flex items-center justify-center text-sm font-bold font-mono shrink-0">
+            {patient.code}
           </div>
-          <div>
-            <h2 className="text-2xl font-bold">
-              {patient.salutation && `${patient.salutation}. `}
-              {toTitleCase(patient.name)}
-            </h2>
-            <p className="text-muted-foreground">
-              Account Balance: {"\u20B9"}
-              {escrowData.balance.toLocaleString("en-IN")}
-            </p>
-          </div>
+          <h2 className="text-xl font-bold">
+            {patient.salutation && `${patient.salutation}. `}
+            {toTitleCase(patient.name)}
+          </h2>
         </div>
       </div>
 
@@ -405,14 +396,8 @@ export default async function CheckoutPage({
         patientId={patient.id}
         escrow={escrowData}
         suggestedAmount={shortfall > 0 ? shortfall : undefined}
+        legacyOutstanding={totalOutstanding}
       />
-
-      {/* Legacy outstanding info — included in escrow balance */}
-      {outstandingVisits.length > 0 && totalOutstanding > 0 && (
-        <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
-          This patient has {"\u20B9"}{totalOutstanding.toLocaleString("en-IN")} in legacy outstanding balances from {outstandingVisits.length} visit{outstandingVisits.length !== 1 ? "s" : ""}. These are reflected in the account balance above.
-        </div>
-      )}
     </div>
   );
 }

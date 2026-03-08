@@ -18,7 +18,7 @@ import { recordEscrowDeposit } from "./actions";
 import { format } from "date-fns";
 import { todayString } from "@/lib/validations";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, HelpCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 
 type EscrowPayment = {
   id: number;
@@ -51,10 +51,12 @@ export function EscrowCheckout({
   patientId,
   escrow,
   suggestedAmount,
+  legacyOutstanding = 0,
 }: {
   patientId: number;
   escrow: EscrowData;
   suggestedAmount?: number;
+  legacyOutstanding?: number;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(suggestedAmount ? suggestedAmount.toString() : "");
@@ -62,7 +64,7 @@ export function EscrowCheckout({
   const [paymentDate, setPaymentDate] = useState(todayString());
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const payAmount = parseFloat(amount) || 0;
 
@@ -93,7 +95,7 @@ export function EscrowCheckout({
       type: "deposit" as const,
       date: p.paymentDate,
       amount: p.amount,
-      label: `Deposit via ${p.paymentMode}`,
+      label: `${p.paymentMode}`,
       detail: p.notes || p.createdByName,
       receiptNo: p.receiptNo,
     })),
@@ -101,7 +103,7 @@ export function EscrowCheckout({
       type: "fulfillment" as const,
       date: f.fulfilledAt,
       amount: f.amount,
-      label: `Procedure: ${f.operationName}`,
+      label: f.operationName,
       detail: [
         f.doctorName ? `Dr. ${f.doctorName}` : null,
         f.caseNo ? `Case #${f.caseNo}` : null,
@@ -110,79 +112,44 @@ export function EscrowCheckout({
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const isPositiveBalance = escrow.balance >= 0;
-
   return (
-    <div className="space-y-6">
-      {/* How does this work? — styled info card trigger */}
-      <button
-        type="button"
-        onClick={() => setShowHelp(!showHelp)}
-        className="w-full flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-700 hover:bg-blue-100 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <HelpCircle className="h-4 w-4" />
-          <span className="font-medium">How does this work?</span>
-        </div>
-        {showHelp ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-      </button>
-      {showHelp && (
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardContent className="pt-4 pb-4">
-            <div className="grid gap-4 sm:grid-cols-3 text-center text-sm">
-              <div className="space-y-1.5">
-                <div className="mx-auto w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">1</div>
-                <div className="font-medium">Patient Pays</div>
-                <div className="text-xs text-muted-foreground">Any amount collected goes into the patient&apos;s account balance</div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="mx-auto w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">2</div>
-                <div className="font-medium">Balance Holds</div>
-                <div className="text-xs text-muted-foreground">Money stays in the account until a procedure is completed</div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="mx-auto w-8 h-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold">3</div>
-                <div className="font-medium">Auto-Deducted</div>
-                <div className="text-xs text-muted-foreground">When a doctor marks &quot;Work Done&quot;, the fee is automatically deducted</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Account Balance Hero Card */}
-      <Card className="overflow-hidden border-0 shadow-md">
-        <div className={`${isPositiveBalance ? "bg-green-600" : "bg-red-600"} px-6 py-5 text-center`}>
-          <div className="text-sm font-medium text-white/80 uppercase tracking-wide">
-            {isPositiveBalance ? "Account Balance" : "Patient Owes"}
-          </div>
-          <div className="text-4xl font-bold font-mono text-white mt-1">
-            {"\u20B9"}{Math.abs(escrow.balance).toLocaleString("en-IN")}
-          </div>
-        </div>
-        <CardContent className="pt-4 pb-4">
-          <div className="grid grid-cols-2 gap-4 text-center">
-            <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Collected</div>
-              <div className="text-lg font-semibold font-mono text-green-700 mt-0.5">
-                {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Deducted</div>
-              <div className="text-lg font-semibold font-mono text-blue-700 mt-0.5">
-                {"\u20B9"}{escrow.fulfilled.toLocaleString("en-IN")}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Deposit Form */}
+    <div className="space-y-4">
+      {/* Collect Payment — THE primary card */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Collect Payment</CardTitle>
+
+          {/* Balance summary — tells the money story clearly */}
+          {(() => {
+            const effectiveBalance = escrow.balance - legacyOutstanding;
+            const totalOwed = escrow.fulfilled + legacyOutstanding;
+            return (
+              <div className={`mt-3 rounded-lg border px-4 py-3 ${effectiveBalance < 0 ? "border-red-200 bg-red-50/50" : "bg-muted/30"}`}>
+                <div className={`grid gap-4 text-center ${legacyOutstanding > 0 ? "grid-cols-3" : "grid-cols-3"}`}>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Total Paid</div>
+                    <div className="text-base font-semibold font-mono text-green-700">
+                      {"\u20B9"}{escrow.deposits.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Total Billed</div>
+                    <div className="text-base font-semibold font-mono text-muted-foreground">
+                      {"\u20B9"}{totalOwed.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">{effectiveBalance >= 0 ? "Credit" : "Due"}</div>
+                    <div className={`text-lg font-bold font-mono ${effectiveBalance >= 0 ? "text-foreground" : "text-red-600"}`}>
+                      {effectiveBalance < 0 && "-"}{"\u20B9"}{Math.abs(effectiveBalance).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
@@ -232,8 +199,9 @@ export function EscrowCheckout({
                 variant="outline"
                 type="button"
                 onClick={() => setAmount(String(amt))}
+                className="h-7 text-xs"
               >
-                +{"\u20B9"}{amt.toLocaleString("en-IN")}
+                {"\u20B9"}{amt.toLocaleString("en-IN")}
               </Button>
             ))}
           </div>
@@ -248,62 +216,63 @@ export function EscrowCheckout({
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Payment goes into the patient&apos;s account. Automatically deducted when procedures are completed.
-          </p>
-
           <Button
             onClick={handleSubmit}
             disabled={isPending || payAmount <= 0}
-            className={`w-full ${payAmount > 0 ? "bg-green-600 hover:bg-green-700" : ""}`}
+            className="w-full"
             size="lg"
           >
             {isPending ? "Processing..." : payAmount > 0 ? `Collect \u20B9${payAmount.toLocaleString("en-IN")}` : "Enter Amount"}
           </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Goes into patient account. Auto-deducted when procedures are completed.
+          </p>
         </CardContent>
       </Card>
 
-      {/* Payment History */}
+      {/* Payment History — collapsible */}
       {timeline.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment History</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="relative">
-              {timeline.map((item, i) => (
-                <div key={i} className="flex items-start justify-between px-4 py-3 text-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="relative flex flex-col items-center">
-                      <div className={`rounded-full p-2 ${item.type === "deposit" ? "bg-green-100" : "bg-blue-100"}`}>
-                        {item.type === "deposit" ? (
-                          <ArrowDown className="h-4 w-4 text-green-700" />
-                        ) : (
-                          <ArrowUp className="h-4 w-4 text-blue-700" />
-                        )}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+          >
+            <span>Payment History ({timeline.length})</span>
+            {showHistory ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+          {showHistory && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {timeline.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`rounded-full p-1 ${item.type === "deposit" ? "bg-green-100" : "bg-blue-100"}`}>
+                          {item.type === "deposit" ? (
+                            <ArrowDown className="h-3 w-3 text-green-700" />
+                          ) : (
+                            <ArrowUp className="h-3 w-3 text-blue-700" />
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">{format(new Date(item.date), "dd MMM")} · </span>
+                          <span className="font-medium text-sm">{item.label}</span>
+                          {item.detail && <span className="text-xs text-muted-foreground"> · {item.detail}</span>}
+                          {item.receiptNo && <span className="text-xs text-muted-foreground"> · #{item.receiptNo}</span>}
+                        </div>
                       </div>
-                      {/* Connector line between entries */}
-                      {i < timeline.length - 1 && (
-                        <div className="w-px bg-border flex-1 min-h-[8px] mt-1" />
-                      )}
+                      <span className={`font-medium font-mono text-sm ${item.type === "deposit" ? "text-green-700" : "text-blue-700"}`}>
+                        {item.type === "deposit" ? "+" : "-"}{"\u20B9"}{item.amount.toLocaleString("en-IN")}
+                      </span>
                     </div>
-                    <div className="pt-0.5">
-                      <div className="font-medium">{format(new Date(item.date), "dd MMM yyyy")}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {item.label}
-                        {item.detail && ` · ${item.detail}`}
-                        {item.receiptNo && ` · Rcpt #${item.receiptNo}`}
-                      </div>
-                    </div>
-                  </div>
-                  <span className={`font-medium font-mono pt-0.5 ${item.type === "deposit" ? "text-green-700" : "text-blue-700"}`}>
-                    {item.type === "deposit" ? "+" : "-"}{"\u20B9"}{item.amount.toLocaleString("en-IN")}
-                  </span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
