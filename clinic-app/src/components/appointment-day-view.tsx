@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, ChevronLeft, ChevronRight, MoreVertical, Plus, UserRoundCog } from "lucide-react";
 import { toast } from "sonner";
 import { classifyTimeSlot, timeSlotSortKey, PERIOD_ORDER, type TimePeriod } from "@/lib/time-slots";
-import { updateAppointmentStatus, claimAppointment, reassignDoctor } from "@/app/(main)/appointments/actions";
+import { updateAppointmentStatus, claimAppointment, reassignDoctor, reassignRoom } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { AppointmentDetailPanel } from "@/components/appointment-detail-panel";
@@ -536,6 +536,19 @@ export function AppointmentDayView({
     });
   }
 
+  function handleReassignRoom(appointmentId: number, roomId: number | null) {
+    startTransition(async () => {
+      try {
+        await reassignRoom(appointmentId, roomId);
+        const room = roomId ? columnRooms.find(r => r.id === roomId) : null;
+        toast.success(room ? `Assigned to ${room.name}` : "Room unassigned");
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to assign room");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -902,6 +915,8 @@ export function AppointmentDayView({
         }}
         onExamine={isDoctor ? handleExamine : undefined}
         isDoctor={isDoctor}
+        rooms={!isDoctor ? columnRooms : undefined}
+        onRoomChange={!isDoctor ? handleReassignRoom : undefined}
       />
 
       {/* Loading indicator — thin top bar instead of full-screen overlay */}

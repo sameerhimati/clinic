@@ -670,15 +670,12 @@ export default async function VisitDetailPage({
       )}
 
       {/* Visit Details — only fields not in header */}
-      {(visit.stepLabel || visit.assistingDoctor || (showInternalCosts && visit.doctorCommissionPercent != null) || (!isDoctor && (visit.lab || visit.labRate)) || visit.notes) && (
+      {(visit.stepLabel || visit.assistingDoctor || (!isDoctor && (visit.lab || visit.labRate)) || visit.notes) && (
         <Card>
           <CardHeader><CardTitle>Details</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {visit.stepLabel && <DetailRow label="Step" value={visit.stepLabel} />}
             {visit.assistingDoctor && <DetailRow label="Assisting Doctor" value={visit.assistingDoctor.name} />}
-            {showInternalCosts && visit.doctorCommissionPercent != null && (
-              <DetailRow label="Commission %" value={`${visit.doctorCommissionPercent}%`} />
-            )}
             {!isDoctor && (visit.lab || visit.labRate) && (
               <>
                 <Separator />

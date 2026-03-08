@@ -28,7 +28,7 @@ type UnifiedPayment = {
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; page?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; page?: string; q?: string; mode?: string }>;
 }) {
   const currentUser = await requireAuth();
   const canCollect = canCollectPayments(currentUser.permissionLevel);
@@ -37,6 +37,8 @@ export default async function PaymentsPage({
   const params = await searchParams;
   const page = parseInt(params.page || "1");
   const pageSize = 25;
+  const searchQuery = params.q?.trim() || "";
+  const modeFilter = params.mode || "";
 
   // Date filter
   const dateFrom = params.from ? new Date(params.from) : undefined;
@@ -55,6 +57,24 @@ export default async function PaymentsPage({
       (receiptWhere.receiptDate as Record<string, unknown>).lte = dateTo;
       (depositWhere.paymentDate as Record<string, unknown>).lte = dateTo;
     }
+  }
+
+  // Patient search filter
+  if (searchQuery) {
+    const patientFilter = {
+      OR: [
+        { name: { contains: searchQuery } },
+        ...(isNaN(Number(searchQuery)) ? [] : [{ code: Number(searchQuery) }]),
+      ],
+    };
+    receiptWhere.visit = { patient: patientFilter };
+    depositWhere.patient = patientFilter;
+  }
+
+  // Payment mode filter
+  if (modeFilter) {
+    receiptWhere.paymentMode = modeFilter;
+    depositWhere.paymentMode = modeFilter;
   }
 
   const [receipts, deposits, receiptTotal, depositTotal, receiptAgg, depositAgg] = await Promise.all([
@@ -134,7 +154,26 @@ export default async function PaymentsPage({
         )}
       </div>
 
-      <form className="flex flex-wrap gap-2">
+      <form className="flex flex-wrap gap-2 items-end">
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Search</span>
+          <Input name="q" type="text" placeholder="Patient name or code..." defaultValue={searchQuery} className="w-48" />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Mode</span>
+          <select
+            name="mode"
+            defaultValue={modeFilter}
+            className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+          >
+            <option value="">All modes</option>
+            <option value="Cash">Cash</option>
+            <option value="Card">Card</option>
+            <option value="UPI">UPI</option>
+            <option value="NEFT">NEFT</option>
+            <option value="Cheque">Cheque</option>
+          </select>
+        </div>
         <div className="space-y-1">
           <span className="text-xs text-muted-foreground">From</span>
           <Input name="from" type="date" defaultValue={params.from || ""} className="w-auto" />
@@ -146,7 +185,7 @@ export default async function PaymentsPage({
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
-        {(params.from || params.to) && (
+        {(params.from || params.to || searchQuery || modeFilter) && (
           <Button variant="ghost" size="sm" asChild>
             <Link href="/receipts">Clear</Link>
           </Button>
@@ -214,21 +253,29 @@ export default async function PaymentsPage({
         </CardContent>
       </Card>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          {page > 1 && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/receipts?from=${params.from || ""}&to=${params.to || ""}&page=${page - 1}`}>Previous</Link>
-            </Button>
-          )}
-          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
-          {page < totalPages && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/receipts?from=${params.from || ""}&to=${params.to || ""}&page=${page + 1}`}>Next</Link>
-            </Button>
-          )}
-        </div>
-      )}
+      {totalPages > 1 && (() => {
+        const qp = new URLSearchParams();
+        if (params.from) qp.set("from", params.from);
+        if (params.to) qp.set("to", params.to);
+        if (searchQuery) qp.set("q", searchQuery);
+        if (modeFilter) qp.set("mode", modeFilter);
+        const base = qp.toString();
+        return (
+          <div className="flex items-center justify-center gap-2">
+            {page > 1 && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/receipts?${base}&page=${page - 1}`}>Previous</Link>
+              </Button>
+            )}
+            <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+            {page < totalPages && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/receipts?${base}&page=${page + 1}`}>Next</Link>
+              </Button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

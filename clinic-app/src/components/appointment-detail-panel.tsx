@@ -4,11 +4,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { toTitleCase } from "@/lib/format";
 import { User, MapPin, Clock, Stethoscope, ExternalLink } from "lucide-react";
@@ -23,6 +24,7 @@ type PanelAppointment = {
   doctorName: string | null;
   visitId: number | null;
   planItemId: number | null;
+  roomId: number | null;
   roomName: string | null;
   timeSlot: string | null;
   status: string;
@@ -34,6 +36,8 @@ type PanelAppointment = {
   previousDiagnosis: string | null;
 };
 
+type RoomOption = { id: number; name: string };
+
 export function AppointmentDetailPanel({
   appointment,
   open,
@@ -42,6 +46,8 @@ export function AppointmentDetailPanel({
   onExamine,
   isDoctor,
   canCollect,
+  rooms,
+  onRoomChange,
 }: {
   appointment: PanelAppointment | null;
   open: boolean;
@@ -50,15 +56,17 @@ export function AppointmentDetailPanel({
   onExamine?: (patientId: number, appointmentId: number, planItemId?: number | null) => void;
   isDoctor?: boolean;
   canCollect?: boolean;
+  rooms?: RoomOption[];
+  onRoomChange?: (appointmentId: number, roomId: number | null) => void;
 }) {
   if (!appointment) return null;
   const appt = appointment;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="text-left">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-left">
             <div className="text-xs font-mono text-muted-foreground">#{appt.patientCode}</div>
             <div className="text-lg font-semibold flex items-center gap-2 flex-wrap">
               <span>{appt.patientSalutation && `${appt.patientSalutation}. `}{toTitleCase(appt.patientName)}</span>
@@ -71,8 +79,9 @@ export function AppointmentDetailPanel({
                 );
               })}
             </div>
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">Appointment details and actions</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-6 mt-2">
           {/* Status row */}
@@ -100,12 +109,26 @@ export function AppointmentDetailPanel({
                 <div className="text-sm font-medium mt-0.5">{appt.timeSlot}</div>
               </div>
             )}
-            {appt.roomName && (
-              <div>
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Room</div>
-                <div className="text-sm font-medium mt-0.5">{appt.roomName}</div>
-              </div>
-            )}
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Room</div>
+              {!isDoctor && onRoomChange && rooms && rooms.length > 0 && !["COMPLETED", "CANCELLED", "NO_SHOW"].includes(appt.status) ? (
+                <select
+                  value={appt.roomId ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onRoomChange(appt.id, val ? parseInt(val) : null);
+                  }}
+                  className="mt-0.5 flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+                >
+                  <option value="">No room</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="text-sm font-medium mt-0.5">{appt.roomName || "—"}</div>
+              )}
+            </div>
             {appt.doctorName && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Doctor</div>
@@ -220,7 +243,7 @@ export function AppointmentDetailPanel({
             )}
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

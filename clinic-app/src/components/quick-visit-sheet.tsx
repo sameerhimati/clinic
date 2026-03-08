@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { OperationCombobox, type Operation, type Doctor, type Lab } from "@/components/visit-form";
@@ -159,13 +160,14 @@ export function QuickVisitSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
             {isFollowUp ? "Add Follow-up" : "New Visit"}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription className="sr-only">Create a new visit for this patient</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Patient badge */}
@@ -486,7 +488,7 @@ export function QuickVisitSheet({
             )}
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

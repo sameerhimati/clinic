@@ -210,6 +210,32 @@ export async function checkConflicts(
   }));
 }
 
+export async function reassignRoom(appointmentId: number, roomId: number | null) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 2) {
+    throw new Error("Only reception/admin can assign rooms");
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) throw new Error("Appointment not found");
+  if (["COMPLETED", "CANCELLED", "NO_SHOW"].includes(appointment.status)) {
+    throw new Error("Cannot change room on completed/cancelled appointments");
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { roomId },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+  if (appointment.patientId) {
+    revalidatePath(`/patients/${appointment.patientId}`);
+  }
+}
+
 export async function deleteAppointment(appointmentId: number) {
   const currentUser = await requireAuth();
   if (!isAdmin(currentUser.permissionLevel)) throw new Error("Admin only");
