@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Wrench, CalendarDays, ArrowRight, AlertTriangle } from "lucide-react";
+import { Wrench, CalendarDays, ArrowRight, AlertTriangle, Link2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -150,6 +150,72 @@ export default async function CheckoutPage({
     },
   });
 
+  // Treatment chains with totals
+  const activeChains = await prisma.treatmentChain.findMany({
+    where: { patientId, status: "ACTIVE" },
+    include: {
+      plans: {
+        orderBy: { chainOrder: "asc" },
+        include: {
+          items: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              label: true,
+              visitId: true,
+              completedAt: true,
+              estimatedCost: true,
+              estimatedLabCost: true,
+              labRate: { select: { itemName: true } },
+              assignedDoctorId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Build chain summaries for display
+  const chainSummaries = activeChains.map((chain) => {
+    const totalSteps = chain.plans.reduce((s, p) => s + p.items.length, 0);
+    const completedSteps = chain.plans.reduce(
+      (s, p) => s + p.items.filter((i) => i.visitId !== null).length,
+      0,
+    );
+    const chainTotal = chain.plans.reduce(
+      (s, p) =>
+        s +
+        p.items.reduce(
+          (is, i) => is + (i.estimatedCost || 0) + (i.estimatedLabCost || 0),
+          0,
+        ),
+      0,
+    );
+    // Find next step across all plans in chain
+    let nextStep: { label: string; planTitle: string; labItem: string | null; cost: number; assignedDoctorId: number | null } | null = null;
+    for (const plan of chain.plans) {
+      const next = plan.items.find((i) => i.visitId === null);
+      if (next && !nextStep) {
+        nextStep = {
+          label: next.label,
+          planTitle: plan.title,
+          labItem: next.labRate?.itemName || null,
+          cost: (next.estimatedCost || 0) + (next.estimatedLabCost || 0),
+          assignedDoctorId: next.assignedDoctorId,
+        };
+      }
+    }
+    return {
+      id: chain.id,
+      title: chain.title,
+      toothNumbers: chain.toothNumbers,
+      totalSteps,
+      completedSteps,
+      chainTotal,
+      nextStep,
+    };
+  });
+
   // Find next uncompleted step across all active plans
   const nextSteps: { planTitle: string; planId: number; stepLabel: string; estimatedDayGap: number; lastCompletedDate: Date | null; operationName: string | null; estimatedCost: number | null; doctorFee: number | null; labCost: number | null; planItemId: number; assignedDoctorId: number | null }[] = [];
   let totalRemainingCost = 0;
@@ -283,6 +349,60 @@ export default async function CheckoutPage({
                     <Badge variant="outline" className="text-xs">
                       {"\u2192"} {wd.resultingStatus}
                     </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Treatment Chain Progress */}
+      {chainSummaries.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-muted-foreground" />
+              Treatment Chains
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {chainSummaries.map((chain) => (
+                <div key={chain.id} className="py-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{chain.title}</span>
+                      {chain.toothNumbers && (
+                        <Badge variant="outline" className="text-xs">#{chain.toothNumbers}</Badge>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {"\u20B9"}{chain.chainTotal.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{ width: `${chain.totalSteps > 0 ? (chain.completedSteps / chain.totalSteps) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {chain.completedSteps}/{chain.totalSteps} steps
+                    </span>
+                  </div>
+                  {chain.nextStep && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <ArrowRight className="h-3 w-3 text-primary" />
+                      <span>Next: <span className="font-medium text-foreground">{chain.nextStep.label}</span></span>
+                      {chain.nextStep.labItem && (
+                        <span className="text-muted-foreground"> · Lab: {chain.nextStep.labItem}</span>
+                      )}
+                      {chain.nextStep.cost > 0 && (
+                        <span className="text-muted-foreground"> · {"\u20B9"}{chain.nextStep.cost.toLocaleString("en-IN")}</span>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

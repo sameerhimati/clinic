@@ -140,6 +140,15 @@ export async function addPlanToChain(
     },
   });
 
+  logAudit({
+    action: "PLAN_ADDED_TO_CHAIN",
+    actorId: currentUser.id,
+    patientId: chain.patientId,
+    entityType: "TreatmentChain",
+    entityId: chain.id,
+    details: { chainTitle: chain.title, planTitle: plan.title, itemCount: plan.items.length },
+  });
+
   revalidatePath(`/patients/${chain.patientId}`);
   return { success: true };
 }
