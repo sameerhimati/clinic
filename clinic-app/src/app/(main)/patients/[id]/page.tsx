@@ -30,7 +30,7 @@ export default async function PatientDetailPage({
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, toothStatuses, toothHistory, patientWorkDone, treatmentPlans] = await Promise.all([
+  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, toothStatuses, toothHistory, patientWorkDone, treatmentPlans, treatmentChains, clinicalNotes] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -184,6 +184,7 @@ export default async function PatientDetailPage({
             assignedDoctor: { select: { name: true } },
             visit: { select: { id: true, visitDate: true, doctor: { select: { name: true } } } },
             modifiedBy: { select: { name: true } },
+            labRate: { select: { itemName: true } },
             appointments: {
               where: { status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] } },
               select: { id: true, date: true, status: true, doctor: { select: { name: true } } },
@@ -192,6 +193,45 @@ export default async function PatientDetailPage({
             },
           },
         },
+      },
+    }),
+    // Treatment chains
+    prisma.treatmentChain.findMany({
+      where: { patientId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        createdBy: { select: { name: true } },
+        plans: {
+          orderBy: { chainOrder: "asc" },
+          include: {
+            createdBy: { select: { name: true } },
+            items: {
+              orderBy: { sortOrder: "asc" },
+              include: {
+                operation: { select: { name: true } },
+                assignedDoctor: { select: { name: true } },
+                visit: { select: { id: true, visitDate: true, doctor: { select: { name: true } } } },
+                modifiedBy: { select: { name: true } },
+                labRate: { select: { itemName: true } },
+                appointments: {
+                  where: { status: { in: ["SCHEDULED", "ARRIVED", "IN_PROGRESS"] } },
+                  select: { id: true, date: true, status: true, doctor: { select: { name: true } } },
+                  orderBy: { date: "asc" },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    // Clinical notes
+    prisma.clinicalNote.findMany({
+      where: { patientId },
+      orderBy: { noteDate: "asc" },
+      include: {
+        doctor: { select: { name: true } },
+        chain: { select: { id: true, title: true } },
       },
     }),
   ]);
@@ -347,7 +387,7 @@ export default async function PatientDetailPage({
     showInternalCosts,
     canEdit,
     isAdmin: userIsAdmin,
-    treatmentPlans: treatmentPlans.map((plan) => ({
+    treatmentPlans: treatmentPlans.filter(p => !p.chainId).map((plan) => ({
       id: plan.id,
       title: plan.title,
       status: plan.status,
@@ -355,6 +395,7 @@ export default async function PatientDetailPage({
       createdAt: plan.createdAt,
       createdByName: plan.createdBy.name,
       patientId: plan.patientId,
+      estimatedTotal: plan.estimatedTotal,
       items: plan.items.map((item) => {
         const appt = item.appointments[0] || null;
         return {
@@ -366,6 +407,10 @@ export default async function PatientDetailPage({
           assignedDoctorId: item.assignedDoctorId,
           assignedDoctorName: item.assignedDoctor?.name || null,
           estimatedDayGap: item.estimatedDayGap,
+          estimatedCost: item.estimatedCost,
+          estimatedLabCost: item.estimatedLabCost,
+          labRateName: item.labRate?.itemName || null,
+          scheduledDate: item.scheduledDate,
           visitId: item.visitId,
           visitDate: item.visit?.visitDate || null,
           visitDoctorName: item.visit?.doctor?.name || null,
@@ -382,6 +427,64 @@ export default async function PatientDetailPage({
           } : null,
         };
       }),
+    })),
+    treatmentChains: treatmentChains.map((chain) => ({
+      id: chain.id,
+      title: chain.title,
+      toothNumbers: chain.toothNumbers,
+      status: chain.status,
+      createdByName: chain.createdBy.name,
+      patientId: chain.patientId,
+      plans: chain.plans.map((plan) => ({
+        id: plan.id,
+        title: plan.title,
+        status: plan.status,
+        notes: plan.notes,
+        createdAt: plan.createdAt,
+        createdByName: plan.createdBy.name,
+        patientId: plan.patientId,
+        chainOrder: plan.chainOrder,
+        estimatedTotal: plan.estimatedTotal,
+        items: plan.items.map((item) => {
+          const appt = item.appointments[0] || null;
+          return {
+            id: item.id,
+            sortOrder: item.sortOrder,
+            label: item.label,
+            operationId: item.operationId,
+            operationName: item.operation?.name || null,
+            assignedDoctorId: item.assignedDoctorId,
+            assignedDoctorName: item.assignedDoctor?.name || null,
+            estimatedDayGap: item.estimatedDayGap,
+            estimatedCost: item.estimatedCost,
+            estimatedLabCost: item.estimatedLabCost,
+            labRateName: item.labRate?.itemName || null,
+            scheduledDate: item.scheduledDate,
+            visitId: item.visitId,
+            visitDate: item.visit?.visitDate || null,
+            visitDoctorName: item.visit?.doctor?.name || null,
+            completedAt: item.completedAt,
+            notes: item.notes,
+            modifiedStatus: item.modifiedStatus || null,
+            modifiedReason: item.modifiedReason || null,
+            modifiedByName: item.modifiedBy?.name || null,
+            appointment: appt ? {
+              id: appt.id,
+              date: appt.date,
+              status: appt.status,
+              doctorName: appt.doctor?.name || null,
+            } : null,
+          };
+        }),
+      })),
+    })),
+    clinicalNotes: clinicalNotes.map((n) => ({
+      id: n.id,
+      content: n.content,
+      noteDate: n.noteDate.toISOString(),
+      doctorName: n.doctor.name,
+      chainId: n.chainId,
+      chainTitle: n.chain?.title || null,
     })),
     toothStatuses: toothStatuses.map((ts) => ({
       toothNumber: ts.toothNumber,

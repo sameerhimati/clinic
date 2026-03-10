@@ -38,6 +38,8 @@ import { FileUpload } from "@/components/file-upload";
 import { FileGallery } from "@/components/file-gallery";
 import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
+import { TreatmentChainCard, type TreatmentChainData } from "@/components/treatment-chain-card";
+import { ClinicalNotepad, type NoteEntry, type ChainOption } from "@/components/clinical-notepad";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   Dialog,
@@ -163,6 +165,8 @@ export type PatientPageData = {
   canEdit: boolean;
   isAdmin: boolean;
   treatmentPlans: TreatmentPlanData[];
+  treatmentChains: TreatmentChainData[];
+  clinicalNotes: NoteEntry[];
   toothStatuses: {
     toothNumber: number;
     status: string;
@@ -197,13 +201,23 @@ function TreatmentPlansSection({ plans, patientId, isDoctor, permissionLevel }: 
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Active Treatment Plans</h3>
-        <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-          <Link href={`/patients/${patientId}/plan/new`}>
-            <ClipboardList className="h-3.5 w-3.5 mr-1" />
-            New Plan
-          </Link>
-        </Button>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Plans</h3>
+        <div className="flex gap-2">
+          {!isDoctor && (
+            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+              <Link href={`/patients/${patientId}/chain/new`}>
+                <ClipboardList className="h-3.5 w-3.5 mr-1" />
+                New Chain
+              </Link>
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+            <Link href={`/patients/${patientId}/plan/new`}>
+              <ClipboardList className="h-3.5 w-3.5 mr-1" />
+              New Plan
+            </Link>
+          </Button>
+        </div>
       </div>
       {activePlans.length > 0 ? (
         <div className="space-y-4">
@@ -855,8 +869,36 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </DialogContent>
       </Dialog>
 
-      {/* Active Treatment Plans */}
-      {(data.treatmentPlans.length > 0 || isDoctor) && (
+      {/* Clinical Notepad */}
+      {(data.clinicalNotes.length > 0 || currentUser.permissionLevel >= 3) && (
+        <section>
+          <ClinicalNotepad
+            patientId={patient.id}
+            notes={data.clinicalNotes}
+            chains={data.treatmentChains.map(c => ({ id: c.id, title: c.title }))}
+            canAddNotes={currentUser.permissionLevel >= 3}
+            currentDoctorName={currentUser.name}
+          />
+        </section>
+      )}
+
+      {/* Treatment Chains */}
+      {data.treatmentChains.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Chains</h3>
+          {data.treatmentChains.map((chain) => (
+            <TreatmentChainCard
+              key={chain.id}
+              chain={chain}
+              isDoctor={isDoctor}
+              permissionLevel={currentUser.permissionLevel}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* Standalone Treatment Plans */}
+      {(data.treatmentPlans.length > 0 || !isDoctor) && (
         <TreatmentPlansSection
           plans={data.treatmentPlans}
           patientId={patient.id}

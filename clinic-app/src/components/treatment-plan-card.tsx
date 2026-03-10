@@ -51,6 +51,10 @@ export type PlanItem = {
   assignedDoctorId: number | null;
   assignedDoctorName: string | null;
   estimatedDayGap: number;
+  estimatedCost?: number | null;
+  estimatedLabCost?: number | null;
+  labRateName?: string | null;
+  scheduledDate?: Date | null;
   visitId: number | null;
   visitDate: Date | null;
   visitDoctorName: string | null;
@@ -76,6 +80,7 @@ export type TreatmentPlanData = {
   createdByName: string;
   items: PlanItem[];
   patientId: number;
+  estimatedTotal?: number | null;
 };
 
 function estimateDate(items: PlanItem[], targetIndex: number): Date | null {
@@ -215,6 +220,11 @@ export function TreatmentPlanCard({
             <CardTitle className="text-base">{plan.title}</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               {completedCount} of {totalCount} steps
+              {plan.estimatedTotal ? (
+                <span className="ml-2 font-semibold text-primary">
+                  ₹{plan.estimatedTotal.toLocaleString("en-IN")}
+                </span>
+              ) : null}
               {nextItem && !nextItemHasAppointment && nextEstimatedDate && (
                 <> · Next: {nextItem.label} (~{formatDate(nextEstimatedDate)})</>
               )}
@@ -274,6 +284,19 @@ export function TreatmentPlanCard({
                   >
                     {item.label}
                   </span>
+                  {/* Cost inline */}
+                  {item.estimatedCost ? (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ₹{item.estimatedCost.toLocaleString("en-IN")}
+                    </span>
+                  ) : null}
+                  {/* Lab badge */}
+                  {item.labRateName && (
+                    <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1.5 text-muted-foreground">
+                      Lab: {item.labRateName}
+                      {item.estimatedLabCost ? ` ₹${item.estimatedLabCost.toLocaleString("en-IN")}` : ""}
+                    </Badge>
+                  )}
                   {/* Completed: show visit date + actual doctor */}
                   {isItemCompleted && item.visitDate && (
                     <span className="text-xs text-muted-foreground ml-2">
