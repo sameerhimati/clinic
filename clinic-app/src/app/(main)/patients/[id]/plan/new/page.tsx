@@ -24,7 +24,7 @@ export default async function NewPlanPage({
     prisma.operation.findMany({
       where: { isActive: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, category: true },
+      select: { id: true, name: true, category: true, defaultMinFee: true, defaultMaxFee: true, labCostEstimate: true },
     }),
     prisma.doctor.findMany({
       where: { permissionLevel: 3, isActive: true },

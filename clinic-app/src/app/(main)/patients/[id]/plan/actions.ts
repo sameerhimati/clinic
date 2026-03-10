@@ -10,6 +10,10 @@ type PlanItemInput = {
   operationId?: number | null;
   assignedDoctorId?: number | null;
   estimatedDayGap?: number;
+  estimatedCost?: number | null;
+  estimatedLabCost?: number | null;
+  labRateId?: number | null;
+  scheduledDate?: string | null;
   notes?: string | null;
 };
 
@@ -28,12 +32,17 @@ export async function createTreatmentPlan(
   if (!title.trim()) throw new Error("Plan title is required");
   if (items.length === 0) throw new Error("Plan must have at least one item");
 
+  const estimatedTotal = items.reduce((sum, item) => {
+    return sum + (item.estimatedCost || 0) + (item.estimatedLabCost || 0);
+  }, 0);
+
   const plan = await prisma.treatmentPlan.create({
     data: {
       patientId,
       title: title.trim(),
       createdById: currentUser.id,
       notes: notes || null,
+      estimatedTotal: estimatedTotal || null,
       items: {
         create: items.map((item, index) => ({
           sortOrder: index + 1,
@@ -41,6 +50,10 @@ export async function createTreatmentPlan(
           operationId: item.operationId || null,
           assignedDoctorId: item.assignedDoctorId || null,
           estimatedDayGap: item.estimatedDayGap ?? 7,
+          estimatedCost: item.estimatedCost || null,
+          estimatedLabCost: item.estimatedLabCost || null,
+          labRateId: item.labRateId || null,
+          scheduledDate: item.scheduledDate ? new Date(item.scheduledDate) : null,
           notes: item.notes || null,
           // If first item and a visit is provided, mark it completed
           ...(index === 0 && firstItemVisitId
@@ -111,9 +124,20 @@ export async function updateTreatmentPlan(
         operationId: item.operationId || null,
         assignedDoctorId: item.assignedDoctorId || null,
         estimatedDayGap: item.estimatedDayGap ?? 7,
+        estimatedCost: item.estimatedCost || null,
+        estimatedLabCost: item.estimatedLabCost || null,
+        labRateId: item.labRateId || null,
+        scheduledDate: item.scheduledDate ? new Date(item.scheduledDate) : null,
         notes: item.notes || null,
       })),
     });
+
+    // Update estimated total
+    const allCosts = [
+      ...plan.items.filter(i => i.visitId !== null).map(i => (i.estimatedCost || 0) + (i.estimatedLabCost || 0)),
+      ...data.items.map(i => (i.estimatedCost || 0) + (i.estimatedLabCost || 0)),
+    ];
+    updateData.estimatedTotal = allCosts.reduce((s, c) => s + c, 0) || null;
   }
 
   await prisma.treatmentPlan.update({

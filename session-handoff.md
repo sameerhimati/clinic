@@ -1,38 +1,35 @@
 # Session Handoff
-> Last updated: 2026-03-08 (Session 45 — UX Fix Sprint)
+> Last updated: 2026-03-08 (Session 46 — UX Round 2)
 
 ## Completed This Session
-- [x] **Sprint 1: Plan Edit Route** — Created `/patients/[id]/plan/[planId]/edit` route; `new-plan-form.tsx` now accepts `existingPlan` prop for edit mode with completed steps struck-through
-- [x] **Sprint 2: Safari CSS** — Added `shrink-0`, `appearance-none`, `flex-nowrap` to tooth chart to prevent Safari compression
-- [x] **Sprint 3: Schedule Pre-fill** — Smart schedule URL from active treatment plans on patient page + checkout; passes `doctorId`, `reason`, `planItemId`
-- [x] **Sprint 4: Checkout Visual Refactor** — Hero balance card with colored band, shadcn Select, quick-amount buttons, styled help trigger, timeline payment history, green submit button, consolidated financial alerts inside Next Steps card
+- [x] **Sheet → Dialog** — Converted `quick-visit-sheet.tsx` and `appointment-detail-panel.tsx` from side-sliding Sheet to centered Dialog modals with `DialogDescription` for a11y
+- [x] **Room Assignment in Dialog** — Added `reassignRoom` server action + room dropdown in appointment detail dialog (reception only, active appointments)
+- [x] **Patient Financial Summary** — Replaced plain Receipts section with 3-column grid (Total Paid / Total Billed / Balance), escrow indicator, Collect Payment button, and cleaner receipt list with payment mode badges
+- [x] **Payments Search & Filters** — Added patient name/code search (`q` param) and payment mode filter (`mode` param) to `/receipts` page; both Receipt and PatientPayment queries filtered
+- [x] **Commission % Removed** — Removed commission percentage from visit detail page (internal detail, belongs in commission report only)
 
 ## Current State
 - **Branch:** main
+- **Last commit:** 39bd997 Session 46: UX Round 2 — Sheet→Dialog, Financial Summary, Payments Search, Room Assignment
 - **Build:** Passing (49 routes)
-- **All changes committed and pushed**
+- **Uncommitted changes:** yes — `session-handoff.md` only
+- **Blockers:** none
 
-## What's Ready for Next Session
-User wants to go through the app and make another round of UI/UX changes. Expect:
-- Visual review of all pages with Playwright MCP screenshots
-- More refinements to existing pages based on real usage
-- Possible new UX issues discovered during walkthrough
-
-## Key Files Changed This Session
-| File | Change |
-|------|--------|
-| `src/app/(main)/patients/[id]/plan/[planId]/edit/page.tsx` | **NEW** — Edit plan route |
-| `src/app/(main)/patients/[id]/plan/new/new-plan-form.tsx` | Edit mode with `existingPlan` prop |
-| `src/components/tooth-chart.tsx` | Safari CSS fixes |
-| `src/app/(main)/patients/[id]/patient-page-client.tsx` | Smart schedule URL helper |
-| `src/app/(main)/patients/[id]/checkout/page.tsx` | Schedule pre-fill + consolidated alerts |
-| `src/app/(main)/patients/[id]/checkout/escrow-checkout.tsx` | Full visual refactor |
+## Next Session Should
+1. Start dev server (`bun dev`) — user will do full UI/UX walkthrough
+2. Test all 8 core workflows end-to-end with user feedback
+3. Fix any UX issues discovered during the walkthrough
+4. Potential visual refinements based on real usage patterns
 
 ## Context to Remember
-- 49 routes total, all building cleanly
-- Treatment plan edit was a 404 — now fixed
-- Checkout page had raw `<select>`, faint borders, no quick-amount buttons — all fixed
-- Patient page + checkout schedule links now auto-detect next plan step
+- Appointment detail panel is now a centered Dialog (not side Sheet) with inline room selector dropdown for reception
+- `reassignRoom` action in `appointments/actions.ts` — only reception/admin (L1/L2), blocked on completed/cancelled/no-show
+- "Paid" badge in visit log table = `visit.receipts.sum(amount) >= billed` — per-visit receipt matching, not escrow-based
+- Commission % removed from visit detail page — only shows in `/reports/commission` now
+- Patient financial summary (Paid/Billed/Balance grid) guarded by `canCollect` (L1/L2 only)
+- Payments page search uses Prisma `contains` on patient name + exact match on patient code (if numeric)
+- Payment mode filter is case-sensitive (`Cash`, `Card`, `UPI`, `NEFT`, `Cheque`) — matches seed data exactly
+- `quick-visit-sheet.tsx` still has "sheet" in its filename but uses Dialog — rename is cosmetic, deferred
 
 ## Start Command
 ```bash
