@@ -259,6 +259,7 @@ async function main() {
 
   const today = new Date();
   const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000);
+  const addDaysFromNow = (n: number) => new Date(today.getTime() + n * 86400000);
 
   // Also look up operations for follow-up seed
   const compFilling = await prisma.operation.findFirst({ where: { code: 17 } }); // Composite (Anterior)
@@ -1108,19 +1109,39 @@ async function main() {
   }
 
   // ==========================================
-  // TREATMENT PLANS
+  // TREATMENT CHAINS + PLANS (with pricing)
   // ==========================================
 
-  // Patient 3 (SRINIVAS NARRA): RCT plan for tooth 36 (3 steps, all completed)
-  const plan3 = await prisma.treatmentPlan.create({
+  // Look up lab rates for crown/implant cost snapshots
+  const dcPFMRate = await prisma.labRate.findFirst({ where: { labId: 1, itemCode: 7 } }); // DC PFM Crown ₹1500
+  const dcImplantCrown = await prisma.labRate.findFirst({ where: { labId: 1, itemCode: 8 } }); // DC Implant Crown ₹4500
+  const kdlPFMRate = await prisma.labRate.findFirst({ where: { labId: 2, itemCode: 4 } }); // KDL PFM Crown ₹650
+
+  // ── Patient 3 (SRINIVAS NARRA): Treatment Chain — "Tooth 36 Treatment" ──
+  // RCT (completed) → Crown PFM (pending) — classic dental chain
+  const chain3 = await prisma.treatmentChain.create({
     data: {
       patientId: 3,
-      title: "Root Canal Treatment tooth 36",
+      title: "Tooth 36 Treatment",
+      toothNumbers: "36",
       status: "ACTIVE",
+      createdById: surender!.id,
+    },
+  });
+
+  // Plan 1 in chain: RCT (3 steps, all completed) — ₹7,000
+  const plan3rct = await prisma.treatmentPlan.create({
+    data: {
+      patientId: 3,
+      chainId: chain3.id,
+      chainOrder: 1,
+      title: "Root Canal Treatment",
+      status: "ACTIVE",
+      estimatedTotal: 7000,
       createdById: surender!.id,
       items: {
         create: [
-          { sortOrder: 1, label: "Initial Assessment", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 0, visitId: rctChain3V1.id, completedAt: daysAgo(14) },
+          { sortOrder: 1, label: "Initial Assessment", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 0, estimatedCost: 7000, visitId: rctChain3V1.id, completedAt: daysAgo(14) },
           { sortOrder: 2, label: "Access Opening", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 7, visitId: rctChain3V2.id, completedAt: daysAgo(7) },
           { sortOrder: 3, label: "BMP / Obturation", operationId: rct!.id, assignedDoctorId: surender!.id, estimatedDayGap: 7, visitId: rctChain3V3.id, completedAt: today },
         ],
@@ -1128,43 +1149,142 @@ async function main() {
     },
   });
 
-  // Patient 3: Crown PFM plan for tooth 36 (pending — suggested after RCT)
+  // Plan 2 in chain: Crown PFM (3 steps, pending) — ₹7,000 + lab ₹1,500
   await prisma.treatmentPlan.create({
     data: {
       patientId: 3,
-      title: "Ceramic Crown - PFM tooth 36",
+      chainId: chain3.id,
+      chainOrder: 2,
+      title: "Ceramic Crown - PFM",
       status: "ACTIVE",
+      estimatedTotal: 8500,
       createdById: surender!.id,
       items: {
         create: [
-          { sortOrder: 1, label: "Tooth Prep & Impression", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
-          { sortOrder: 2, label: "Try-in", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 10 },
-          { sortOrder: 3, label: "Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 7 },
+          { sortOrder: 1, label: "Tooth Prep & Impression", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14, estimatedCost: 7000, scheduledDate: addDaysFromNow(7) },
+          { sortOrder: 2, label: "Try-in", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 10, scheduledDate: addDaysFromNow(17) },
+          { sortOrder: 3, label: "Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 7, estimatedLabCost: dcPFMRate?.rate || 1500, labRateId: dcPFMRate?.id, scheduledDate: addDaysFromNow(24) },
         ],
       },
     },
   });
 
-  // Patient 28: Implant plan (all pending)
-  if (implant) {
-    await prisma.treatmentPlan.create({
-      data: {
-        patientId: 28,
-        title: "Single Implant tooth 14",
-        status: "ACTIVE",
-        createdById: bhadra!.id,
-        items: {
-          create: [
-            { sortOrder: 1, label: "Implant Placement", operationId: implant.id, assignedDoctorId: bhadra!.id, estimatedDayGap: 0 },
-            { sortOrder: 2, label: "Healing Check (6 weeks)", assignedDoctorId: bhadra!.id, estimatedDayGap: 42 },
-            { sortOrder: 3, label: "Impression for Crown", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 42 },
-            { sortOrder: 4, label: "Crown Try-in", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
-            { sortOrder: 5, label: "Crown Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 7 },
-          ],
-        },
+  // ── Patient 28 (KAVITHA REDDY): Treatment Chain — "Implant 36" ──
+  // Implant (5 steps) + lab work — ₹35,000 + crown ₹7,000
+  const chain28 = await prisma.treatmentChain.create({
+    data: {
+      patientId: 28,
+      title: "Implant 36",
+      toothNumbers: "36",
+      status: "ACTIVE",
+      createdById: bhadra!.id,
+    },
+  });
+
+  // Plan 1: Implant placement + healing (all pending)
+  await prisma.treatmentPlan.create({
+    data: {
+      patientId: 28,
+      chainId: chain28.id,
+      chainOrder: 1,
+      title: "Implant - Dentium",
+      status: "ACTIVE",
+      estimatedTotal: 35000,
+      createdById: bhadra!.id,
+      items: {
+        create: [
+          { sortOrder: 1, label: "Assessment & Planning", operationId: implant!.id, assignedDoctorId: bhadra!.id, estimatedDayGap: 0, estimatedCost: 35000, scheduledDate: addDaysFromNow(3) },
+          { sortOrder: 2, label: "Implant Placement", operationId: implant!.id, assignedDoctorId: bhadra!.id, estimatedDayGap: 14, estimatedLabCost: 8000, scheduledDate: addDaysFromNow(17) },
+          { sortOrder: 3, label: "Healing Check", assignedDoctorId: bhadra!.id, estimatedDayGap: 90, scheduledDate: addDaysFromNow(107) },
+        ],
       },
-    });
-  }
+    },
+  });
+
+  // Plan 2: Crown on implant (pending, follows healing)
+  await prisma.treatmentPlan.create({
+    data: {
+      patientId: 28,
+      chainId: chain28.id,
+      chainOrder: 2,
+      title: "Crown on Implant",
+      status: "ACTIVE",
+      estimatedTotal: 11500,
+      createdById: bhadra!.id,
+      items: {
+        create: [
+          { sortOrder: 1, label: "Abutment", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14, estimatedCost: 7000 },
+          { sortOrder: 2, label: "Crown Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14, estimatedLabCost: dcImplantCrown?.rate || 4500, labRateId: dcImplantCrown?.id },
+        ],
+      },
+    },
+  });
+
+  // ── Standalone plan (no chain) — Patient 28 also has a standalone implant plan for tooth 14 ──
+  await prisma.treatmentPlan.create({
+    data: {
+      patientId: 28,
+      title: "Single Implant tooth 14",
+      status: "ACTIVE",
+      estimatedTotal: 49000,
+      createdById: bhadra!.id,
+      items: {
+        create: [
+          { sortOrder: 1, label: "Implant Placement", operationId: implant!.id, assignedDoctorId: bhadra!.id, estimatedDayGap: 0, estimatedCost: 35000 },
+          { sortOrder: 2, label: "Healing Check (6 weeks)", assignedDoctorId: bhadra!.id, estimatedDayGap: 42 },
+          { sortOrder: 3, label: "Impression for Crown", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 42, estimatedCost: 7000 },
+          { sortOrder: 4, label: "Crown Try-in", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 14 },
+          { sortOrder: 5, label: "Crown Cementation", operationId: cerCrown!.id, assignedDoctorId: ramana!.id, estimatedDayGap: 7, estimatedCost: 7000, estimatedLabCost: kdlPFMRate?.rate || 650, labRateId: kdlPFMRate?.id },
+        ],
+      },
+    },
+  });
+
+  // ==========================================
+  // CLINICAL NOTES (notepad entries for chain demo)
+  // ==========================================
+
+  // Patient 3 — notes tied to Tooth 36 chain
+  await prisma.clinicalNote.createMany({
+    data: [
+      {
+        patientId: 3, chainId: chain3.id, doctorId: surender!.id, visitId: rctChain3V1.id,
+        content: "RCT step 1 on 36. Access opening done.\nIrrigation with NaOCl. Ca(OH)₂ dressing.\nPatient to return in 7 days.",
+        noteDate: daysAgo(14),
+      },
+      {
+        patientId: 3, chainId: chain3.id, doctorId: surender!.id, visitId: rctChain3V2.id,
+        content: "BMP & shaping complete. Working length confirmed.\nFinal irrigation protocol done.\nCa(OH)₂ dressing refreshed.",
+        noteDate: daysAgo(7),
+      },
+      {
+        patientId: 3, chainId: chain3.id, doctorId: surender!.id, visitId: rctChain3V3.id,
+        content: "Obturation done with lateral condensation.\nIOPA confirms adequate fill. No voids.\nReferred for crown — Dr. Ramana Reddy.",
+        noteDate: today,
+      },
+    ],
+  });
+
+  // Patient 28 — notes tied to Implant chain + a standalone note
+  await prisma.clinicalNote.createMany({
+    data: [
+      {
+        patientId: 28, chainId: chain28.id, doctorId: surender!.id, visitId: rctV1.id,
+        content: "Patient assessed for implant tooth 36.\nAdequate bone on OPG. Referred to Dr. Bhadra Rao.\nTreatment plan discussed — implant + crown ₹42K.",
+        noteDate: daysAgo(45),
+      },
+      {
+        patientId: 28, chainId: chain28.id, doctorId: bhadra!.id,
+        content: "CBCT reviewed. Bone density adequate.\nDentium implant selected. Surgery scheduled.",
+        noteDate: daysAgo(30),
+      },
+      {
+        patientId: 28, doctorId: surender!.id, visitId: rctV2.id,
+        content: "Follow-up check. Patient comfortable.\nImplant site healing well. No concerns.",
+        noteDate: daysAgo(20),
+      },
+    ],
+  });
 
   console.log(`   - ${visits.length + 10 + 12 + 7} visits (incl. follow-up chains + 3 scenarios)`);
   console.log(`   - ${receipts.length} + scenario receipts`);
@@ -1175,7 +1295,8 @@ async function main() {
   console.log("   - 5 rooms");
   console.log("   - 1 clinic settings");
   console.log(`   - ${treatmentSteps.length} treatment steps`);
-  console.log("   - 2 treatment plans (Patient 3 RCT+Crown, Patient 28 Implant)");
+  console.log("   - 2 treatment chains + 5 treatment plans (with pricing + lab links)")
+  console.log("   - 6 clinical notes (notepad demo data)");
 
   // ==========================================
   // DOCTOR AVAILABILITY — consultant schedules

@@ -87,6 +87,7 @@ model LabRate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   visits    Visit[]
+  planItems TreatmentPlanItem[]
 
   @@unique([labId, itemCode])
   @@map("lab_rates")
@@ -197,6 +198,8 @@ model Doctor {
   payments             PatientPayment[]
   escrowFulfillments   EscrowFulfillment[]
   modifiedPlanItems    TreatmentPlanItem[] @relation("ModifiedPlanItems")
+  createdChains        TreatmentChain[]    @relation("CreatedChains")
+  clinicalNotes        ClinicalNote[]      @relation("ClinicalNotesAuthored")
 
   @@map("doctors")
 }
@@ -249,6 +252,8 @@ model Patient {
   prescriptions       Prescription[]
   payments            PatientPayment[]
   escrowFulfillments  EscrowFulfillment[]
+  treatmentChains     TreatmentChain[]
+  clinicalNotes       ClinicalNote[]
 
   @@map("patients")
 }
@@ -310,6 +315,7 @@ model Visit {
   workDone                WorkDone[]
   prescriptions           Prescription[]
   escrowFulfillments      EscrowFulfillment[]
+  clinicalNotes           ClinicalNote[]
 
   @@map("visits")
 }
@@ -419,23 +425,74 @@ model PatientFile {
 }
 
 // ============================================
+// TREATMENT CHAINS (group related plans: RCT → Crown)
+// ============================================
+
+model TreatmentChain {
+  id            Int              @id @default(autoincrement())
+  patientId     Int
+  patient       Patient          @relation(fields: [patientId], references: [id])
+  title         String           // "Tooth 36 Treatment"
+  toothNumbers  String?          // comma-separated: "36" or "36,37"
+  status        String           @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  createdById   Int
+  createdBy     Doctor           @relation("CreatedChains", fields: [createdById], references: [id])
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  plans         TreatmentPlan[]
+  clinicalNotes ClinicalNote[]
+
+  @@index([patientId])
+  @@map("treatment_chains")
+}
+
+// ============================================
+// CLINICAL NOTES (the notepad — append-only free text)
+// ============================================
+
+model ClinicalNote {
+  id        Int              @id @default(autoincrement())
+  patientId Int
+  patient   Patient          @relation(fields: [patientId], references: [id])
+  visitId   Int?
+  visit     Visit?           @relation(fields: [visitId], references: [id])
+  chainId   Int?
+  chain     TreatmentChain?  @relation(fields: [chainId], references: [id])
+  doctorId  Int
+  doctor    Doctor           @relation("ClinicalNotesAuthored", fields: [doctorId], references: [id])
+  content   String           // free-text note
+  noteDate  DateTime         @default(now())
+  createdAt DateTime         @default(now())
+
+  @@index([patientId])
+  @@index([chainId])
+  @@map("clinical_notes")
+}
+
+// ============================================
 // TREATMENT PLANS
 // ============================================
 
 model TreatmentPlan {
-  id          Int                 @id @default(autoincrement())
-  patientId   Int
-  patient     Patient             @relation(fields: [patientId], references: [id])
-  title       String              // "RCT + Crown tooth 36" — auto-generated or custom
-  status      String              @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
-  createdById Int
-  createdBy   Doctor              @relation("CreatedPlans", fields: [createdById], references: [id])
-  notes       String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  items       TreatmentPlanItem[]
+  id             Int                 @id @default(autoincrement())
+  patientId      Int
+  patient        Patient             @relation(fields: [patientId], references: [id])
+  chainId        Int?                // optional — links plan to a treatment chain
+  chain          TreatmentChain?     @relation(fields: [chainId], references: [id])
+  chainOrder     Int?                // order within chain (1, 2, 3...)
+  title          String              // "RCT + Crown tooth 36" — auto-generated or custom
+  status         String              @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  estimatedTotal Float?              // cached sum of item costs
+  createdById    Int
+  createdBy      Doctor              @relation("CreatedPlans", fields: [createdById], references: [id])
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  items          TreatmentPlanItem[]
 
   @@index([patientId])
+  @@index([chainId])
   @@map("treatment_plans")
 }
 
@@ -450,6 +507,11 @@ model TreatmentPlanItem {
   assignedDoctorId Int?           // optional — which doctor should do this step
   assignedDoctor   Doctor?        @relation("AssignedPlanItems", fields: [assignedDoctorId], references: [id])
   estimatedDayGap  Int            @default(7)
+  estimatedCost    Float?         // snapshot of operation fee at plan creation
+  estimatedLabCost Float?         // snapshot of lab cost
+  labRateId        Int?           // specific lab material chosen
+  labRate          LabRate?       @relation(fields: [labRateId], references: [id])
+  scheduledDate    DateTime?      // manually editable target date
   visitId          Int?           // set when completed — the visit that fulfilled this item
   visit            Visit?         @relation(fields: [visitId], references: [id])
   completedAt      DateTime?
