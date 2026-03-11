@@ -304,6 +304,7 @@ Long scrollable page with sections. Information not prioritized. Confusing.
 - [ ] **P1-L4-4**: Greeting omits "Dr." prefix for consultants. Dr. Ramana sees "Good morning, Ramana Reddy" instead of "Dr. Ramana Reddy". (`dashboard/page.tsx:366`)
 
 #### Dashboard Issues
+- [ ] **P1-DASH-0**: (Murli request) Today's appointment cards don't show patient outstanding balances. Reception needs to see at a glance who owes money when patients arrive — e.g., "Outstanding: ₹7,000" badge on each appointment card.
 - [ ] **P1-DASH-1**: Admin dashboard shows reception's to-do list, not clinic vital signs. Dr. Kazim sees checkout queue and prescription printing — not monthly revenue, audit flags, or staff activity. No role differentiation between L1 and L2 dashboard.
 - [ ] **P1-DASH-2**: Dashboard stat pills (`text-sm` inline links) don't visually pop. Key numbers (visits, collected, outstanding) should be hero-sized summary cards. (`dashboard/page.tsx:428-440`)
 - [ ] **P1-DASH-3**: Quick action buttons (New Patient, Schedule, Receipt) are reception-focused. Admin doesn't need these above the fold. (`dashboard/page.tsx:444-456`)
