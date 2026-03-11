@@ -204,6 +204,42 @@ export async function createVisitAndExamine(
     }
   }
 
+  // Duplicate visit prevention: check if a visit already exists today for this patient by this doctor
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
+  const existingTodayVisit = await prisma.visit.findFirst({
+    where: {
+      patientId,
+      doctorId: currentUser.id,
+      visitDate: { gte: todayStart, lt: todayEnd },
+    },
+    select: { id: true },
+  });
+
+  if (existingTodayVisit) {
+    // Reuse existing visit — link appointment and plan item to it
+    if (appointmentId) {
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { visitId: existingTodayVisit.id, status: "IN_PROGRESS" },
+      });
+    }
+    if (planItemId) {
+      await prisma.treatmentPlanItem.update({
+        where: { id: planItemId },
+        data: { visitId: existingTodayVisit.id, completedAt: new Date() },
+      });
+    }
+    revalidatePath("/visits");
+    revalidatePath("/dashboard");
+    revalidatePath("/appointments");
+    revalidatePath(`/patients/${patientId}`);
+    return { visitId: existingTodayVisit.id };
+  }
+
   try {
     const visit = await prisma.visit.create({
       data: {

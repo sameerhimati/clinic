@@ -91,7 +91,7 @@ export function VisitLogTable({
                         {visit.stepLabel || visit.operation?.name || visit.customLabel || "Visit"}
                       </span>
                       {visit.visitType === "FOLLOWUP" && (
-                        <Badge variant="outline" className="text-[10px] py-0 shrink-0">F/U</Badge>
+                        <Badge variant="outline" className="text-xs py-0 shrink-0">F/U</Badge>
                       )}
                     </div>
                   </td>
@@ -111,7 +111,7 @@ export function VisitLogTable({
                     {due > 0 ? (
                       <span className="text-destructive font-medium tabular-nums">₹{due.toLocaleString("en-IN")}</span>
                     ) : billed > 0 ? (
-                      <Badge variant="secondary" className="text-[10px]">Paid</Badge>
+                      <Badge variant="secondary" className="text-xs">Paid</Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

@@ -17,6 +17,7 @@ import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { dateToString } from "@/lib/validations";
+import { DoctorFilterSelect } from "@/components/doctor-filter-select";
 
 export const dynamic = "force-dynamic";
 
@@ -182,17 +183,11 @@ export default async function DoctorActivityReportPage({
           <span className="text-xs text-muted-foreground">To</span>
           <Input name="to" type="date" defaultValue={params.to} className="w-auto" />
         </div>
-        <select
-          name="doctorId"
+        <DoctorFilterSelect
+          doctors={doctors.map(d => ({ id: d.id, name: d.name }))}
           defaultValue={params.doctorId || ""}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          required
-        >
-          <option value="">Select Doctor...</option>
-          {doctors.map((d) => (
-            <option key={d.id} value={d.id}>{toTitleCase(d.name)}</option>
-          ))}
-        </select>
+          placeholder="Select Doctor..."
+        />
         <input type="hidden" name="view" value={viewMode} />
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
@@ -323,7 +318,7 @@ export default async function DoctorActivityReportPage({
                             {toTitleCase(v.patient.name)}
                           </Link>
                           {v.visitType !== "NEW" && (
-                            <Badge variant="outline" className="ml-1.5 text-[10px] py-0 px-1">
+                            <Badge variant="outline" className="ml-1.5 text-xs py-0 px-1">
                               {v.visitType}
                             </Badge>
                           )}

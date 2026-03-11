@@ -585,18 +585,18 @@ export default async function VisitDetailPage({
                       <span className="text-xs text-muted-foreground">Tooth {wd.toothNumber}</span>
                     )}
                     {wd.resultingStatus && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0">
                         → {getStatusLabel(wd.resultingStatus)}
                       </Badge>
                     )}
                     {wd.planItem && (
-                      <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0 inline-flex items-center gap-1">
+                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0 inline-flex items-center gap-1">
                         <Check className="h-3 w-3" />
                         {wd.planItem.label}
                       </span>
                     )}
                     {wd.fulfillment && !isDoctor && (
-                      <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0">
+                      <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0">
                         Escrow: {"\u20B9"}{wd.fulfillment.amount.toLocaleString("en-IN")}
                       </span>
                     )}
@@ -635,9 +635,9 @@ export default async function VisitDetailPage({
                   </div>
                   <div className="flex items-center gap-2">
                     {rx.isPrinted ? (
-                      <Badge variant="outline" className="text-[10px] text-green-700 border-green-300">Printed</Badge>
+                      <Badge variant="outline" className="text-xs text-green-700 border-green-300">Printed</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">Pending</Badge>
+                      <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">Pending</Badge>
                     )}
                     <Link
                       href={`/visits/${visit.id}/prescription/print?rxId=${rx.id}`}

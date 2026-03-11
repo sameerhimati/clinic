@@ -33,7 +33,7 @@ function MedicalAlertPills({ alerts }: { alerts: string[] }) {
     <div className="flex items-center gap-1 flex-wrap">
       <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />
       {alerts.map((a) => (
-        <span key={a} className="text-[10px] bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
+        <span key={a} className="text-xs bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
           {a}
         </span>
       ))}
@@ -141,7 +141,7 @@ export function DoctorScheduleWidget({
                     <span className="text-xs text-muted-foreground italic truncate max-w-[200px]">{nowSeeing.chiefComplaint}</span>
                   )}
                   {nowSeeing.planStep && (
-                    <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{nowSeeing.planStep}</Badge>
+                    <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50">{nowSeeing.planStep}</Badge>
                   )}
                 </div>
               )}
@@ -203,10 +203,10 @@ export function DoctorScheduleWidget({
                   {(appt.chiefComplaint || appt.planStep) && (
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {appt.chiefComplaint && (
-                        <span className="text-[10px] text-muted-foreground italic truncate max-w-[180px]">{appt.chiefComplaint}</span>
+                        <span className="text-xs text-muted-foreground italic truncate max-w-[180px]">{appt.chiefComplaint}</span>
                       )}
                       {appt.planStep && (
-                        <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
+                        <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
                       )}
                     </div>
                   )}
@@ -287,10 +287,10 @@ export function DoctorScheduleWidget({
                         {(appt.chiefComplaint || appt.planStep) && (
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             {appt.chiefComplaint && (
-                              <span className="text-[10px] text-muted-foreground italic truncate max-w-[160px]">{appt.chiefComplaint}</span>
+                              <span className="text-xs text-muted-foreground italic truncate max-w-[160px]">{appt.chiefComplaint}</span>
                             )}
                             {appt.planStep && (
-                              <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
+                              <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50">{appt.planStep}</Badge>
                             )}
                           </div>
                         )}

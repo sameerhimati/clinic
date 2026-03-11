@@ -32,7 +32,7 @@ const ACTION_LABELS: Record<string, string> = {
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; severity?: string; actorId?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; severity?: string; actorId?: string; page?: string }>;
 }) {
   const currentUser = await requireAuth();
   if (!isAdmin(currentUser.permissionLevel)) redirect("/dashboard");
@@ -58,13 +58,18 @@ export default async function AuditLogPage({
     if (!isNaN(actorId)) where.actorId = actorId;
   }
 
-  const [entries, doctors] = await Promise.all([
+  const page = parseInt(params.page || "1");
+  const pageSize = 50;
+
+  const [entries, totalCount, doctors] = await Promise.all([
     prisma.auditLog.findMany({
       where,
       include: { actor: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
-      take: 500,
+      take: pageSize,
+      skip: (page - 1) * pageSize,
     }),
+    prisma.auditLog.count({ where }),
     prisma.doctor.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -72,6 +77,7 @@ export default async function AuditLogPage({
     }),
   ]);
 
+  const totalPages = Math.ceil(totalCount / pageSize);
   const flaggedCount = entries.filter((e) => e.severity === "FLAG").length;
   const uniqueActors = new Set(entries.map((e) => e.actorId)).size;
 
@@ -135,7 +141,7 @@ export default async function AuditLogPage({
       <div className="flex gap-4 text-sm">
         <div className="rounded-lg border px-4 py-2">
           <div className="text-muted-foreground">Total Entries</div>
-          <div className="text-lg font-bold">{entries.length}</div>
+          <div className="text-lg font-bold">{totalCount}</div>
         </div>
         <div className="rounded-lg border px-4 py-2 border-amber-200 bg-amber-50/50">
           <div className="text-muted-foreground">Flagged</div>
@@ -215,6 +221,26 @@ export default async function AuditLogPage({
           </CardContent>
         </Card>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 print:hidden">
+          {page > 1 && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/reports/audit?from=${params.from}&to=${params.to}&severity=${params.severity || ""}&actorId=${params.actorId || ""}&page=${page - 1}`}>
+                Previous
+              </Link>
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          {page < totalPages && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/reports/audit?from=${params.from}&to=${params.to}&severity=${params.severity || ""}&actorId=${params.actorId || ""}&page=${page + 1}`}>
+                Next
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -223,16 +249,51 @@ function DetailsCell({ details }: { details: Record<string, unknown> }) {
   const keys = Object.keys(details);
   if (keys.length === 0) return <span className="text-muted-foreground">—</span>;
 
+  const LABELS: Record<string, string> = {
+    oldFee: "Previous fee",
+    newFee: "New fee",
+    rate: "Rate",
+    discount: "Discount",
+    discountPercent: "Discount %",
+    discountReason: "Reason",
+    oldRate: "Previous rate",
+    newRate: "New rate",
+  };
+
+  const isCurrency = (key: string) => ["oldFee", "newFee", "rate", "discount", "oldRate", "newRate"].includes(key);
+
+  // Special rendering for fee changes
+  if (details.oldFee != null && details.newFee != null) {
+    return (
+      <span className="font-mono text-xs">
+        {"\u20B9"}{Number(details.oldFee).toLocaleString("en-IN")} → {"\u20B9"}{Number(details.newFee).toLocaleString("en-IN")}
+      </span>
+    );
+  }
+  if (details.oldRate != null && details.newRate != null) {
+    return (
+      <span className="font-mono text-xs">
+        {"\u20B9"}{Number(details.oldRate).toLocaleString("en-IN")} → {"\u20B9"}{Number(details.newRate).toLocaleString("en-IN")}
+      </span>
+    );
+  }
+
   return (
     <div className="space-y-0.5">
-      {keys.slice(0, 4).map((key) => (
-        <div key={key} className="truncate">
-          <span className="text-muted-foreground">{key}:</span>{" "}
-          {typeof details[key] === "number"
-            ? (details[key] as number).toLocaleString("en-IN")
-            : String(details[key] ?? "")}
-        </div>
-      ))}
+      {keys.slice(0, 4).map((key) => {
+        const label = LABELS[key] || key;
+        const val = details[key];
+        const formatted = isCurrency(key) && typeof val === "number"
+          ? `\u20B9${val.toLocaleString("en-IN")}`
+          : typeof val === "number"
+            ? val.toLocaleString("en-IN")
+            : String(val ?? "");
+        return (
+          <div key={key} className="truncate">
+            <span className="text-muted-foreground">{label}:</span> {formatted}
+          </div>
+        );
+      })}
       {keys.length > 4 && (
         <div className="text-muted-foreground">+{keys.length - 4} more</div>
       )}

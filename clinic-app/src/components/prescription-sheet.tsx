@@ -226,7 +226,7 @@ export function PrescriptionSheet({
                         key={f}
                         type="button"
                         onClick={() => setFrequency(f === frequency ? "" : f)}
-                        className={`px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                        className={`px-1.5 py-0.5 text-xs rounded border transition-colors ${
                           frequency === f
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-background border-input hover:bg-accent"

@@ -19,6 +19,7 @@ import { Search } from "lucide-react";
 import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { DoctorFilterSelect } from "@/components/doctor-filter-select";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,15 @@ export default async function OutstandingReportPage({
 
   const totalOutstanding = outstanding.reduce((s, v) => s + v.balance, 0);
 
+  const now = new Date();
+  const aging = { bucket30: 0, bucket60: 0, bucket90: 0 };
+  for (const v of outstanding) {
+    const days = Math.floor((now.getTime() - new Date(v.visitDate).getTime()) / (1000 * 60 * 60 * 24));
+    if (days <= 30) aging.bucket30 += v.balance;
+    else if (days <= 60) aging.bucket60 += v.balance;
+    else aging.bucket90 += v.balance;
+  }
+
   return (
     <div className="space-y-6">
       <div className="print:hidden">
@@ -96,18 +106,10 @@ export default async function OutstandingReportPage({
           <span className="text-xs text-muted-foreground">To</span>
           <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
         </div>
-        <select
-          name="doctorId"
+        <DoctorFilterSelect
+          doctors={doctors.map(d => ({ id: d.id, name: d.name }))}
           defaultValue={params.doctorId || ""}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        >
-          <option value="">All Doctors</option>
-          {doctors.map((d) => (
-            <option key={d.id} value={d.id}>
-              {toTitleCase(d.name)}
-            </option>
-          ))}
-        </select>
+        />
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
@@ -121,6 +123,21 @@ export default async function OutstandingReportPage({
       <div className="flex items-center gap-3 text-sm">
         <span className="text-destructive font-bold text-lg">{"\u20B9"}{totalOutstanding.toLocaleString("en-IN")}</span>
         <span className="text-muted-foreground">outstanding across {outstanding.length} {outstanding.length === 1 ? "case" : "cases"}</span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border px-4 py-3 border-green-200 bg-green-50/50">
+          <div className="text-xs text-muted-foreground">0-30 days</div>
+          <div className="text-lg font-bold text-green-700">{"\u20B9"}{aging.bucket30.toLocaleString("en-IN")}</div>
+        </div>
+        <div className="rounded-lg border px-4 py-3 border-amber-200 bg-amber-50/50">
+          <div className="text-xs text-muted-foreground">30-60 days</div>
+          <div className="text-lg font-bold text-amber-700">{"\u20B9"}{aging.bucket60.toLocaleString("en-IN")}</div>
+        </div>
+        <div className="rounded-lg border px-4 py-3 border-red-200 bg-red-50/50">
+          <div className="text-xs text-muted-foreground">60+ days</div>
+          <div className="text-lg font-bold text-red-700">{"\u20B9"}{aging.bucket90.toLocaleString("en-IN")}</div>
+        </div>
       </div>
 
       {outstanding.length > 0 ? (

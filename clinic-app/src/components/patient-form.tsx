@@ -58,6 +58,7 @@ export function PatientForm({
     patient?.ageAtRegistration?.toString() || ""
   );
 
+  const dobRef = useRef<HTMLInputElement>(null);
   const [mobile, setMobile] = useState(patient?.mobile || "");
   const [mobileError, setMobileError] = useState<string | null>(null);
   const [duplicatePatient, setDuplicatePatient] = useState<{
@@ -187,7 +188,14 @@ export function PatientForm({
                 <Label>Age</Label>
                 <Input
                   name="ageAtRegistration" type="number" min={0} max={150}
-                  value={age} onChange={(e) => setAge(e.target.value)} placeholder="—"
+                  value={age} onChange={(e) => {
+                    setAge(e.target.value);
+                    const ageNum = parseInt(e.target.value);
+                    if (!isNaN(ageNum) && ageNum >= 0 && ageNum <= 150 && dobRef.current && !dobRef.current.value) {
+                      const approxYear = new Date().getFullYear() - ageNum;
+                      dobRef.current.value = `${approxYear}-01-01`;
+                    }
+                  }} placeholder="—"
                 />
               </div>
               <div className="space-y-1.5">
@@ -228,6 +236,7 @@ export function PatientForm({
                 <div className="space-y-1.5">
                   <Label>Date of Birth</Label>
                   <Input
+                    ref={dobRef}
                     name="dateOfBirth" type="date"
                     defaultValue={patient?.dateOfBirth ? dateToString(new Date(patient.dateOfBirth)) : ""}
                     onChange={(e) => handleDobChange(e.target.value)}

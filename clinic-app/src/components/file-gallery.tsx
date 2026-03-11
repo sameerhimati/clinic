@@ -148,7 +148,7 @@ export function FileGallery({
                     <FileText className="h-12 w-12 text-muted-foreground" />
                   )}
                   {/* Category badge */}
-                  <span className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${cat.color}`}>
+                  <span className={`absolute top-2 left-2 px-1.5 py-0.5 rounded text-xs font-medium ${cat.color}`}>
                     {cat.label}
                   </span>
                 </div>

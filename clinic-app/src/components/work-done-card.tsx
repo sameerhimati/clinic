@@ -78,7 +78,23 @@ export function WorkDoneCard({
     onEditTeeth?.(allTeeth);
   }
 
+  // Recently used operations from localStorage
+  const RECENT_OPS_KEY = "work-done-recent-ops";
+  const getRecentOps = (): { operationId: number; name: string }[] => {
+    try {
+      return JSON.parse(localStorage.getItem(RECENT_OPS_KEY) || "[]");
+    } catch { return []; }
+  };
+  const saveRecentOp = (opId: number, opName: string) => {
+    try {
+      const recent = getRecentOps().filter((r) => r.operationId !== opId);
+      recent.unshift({ operationId: opId, name: opName });
+      localStorage.setItem(RECENT_OPS_KEY, JSON.stringify(recent.slice(0, 5)));
+    } catch { /* ignore */ }
+  };
+
   function handleSelectOp(op: { id: number; name: string }) {
+    saveRecentOp(op.id, op.name);
     setSelectedOp(op);
     setOpSearch("");
     const inferred = inferToothStatus(op.name);
@@ -129,11 +145,17 @@ export function WorkDoneCard({
     resetForm();
   }
 
-  const filteredOps = allOperations.filter((op) => {
-    if (!opSearch) return false; // Only show when searching
-    const q = opSearch.toLowerCase();
-    return op.name.toLowerCase().includes(q) || (op.category?.toLowerCase().includes(q) ?? false);
-  }).slice(0, 8);
+  const recentOps = typeof window !== "undefined" ? getRecentOps() : [];
+  const recentOpsFull = !opSearch && recentOps.length > 0
+    ? recentOps.map((r) => allOperations.find((op) => op.id === r.operationId)).filter(Boolean) as typeof allOperations
+    : [];
+
+  const filteredOps = opSearch
+    ? allOperations.filter((op) => {
+        const q = opSearch.toLowerCase();
+        return op.name.toLowerCase().includes(q) || (op.category?.toLowerCase().includes(q) ?? false);
+      }).slice(0, 8)
+    : [];
 
   // Group entries by operation for display
   const groupedEntries = entries.reduce<Map<string, WorkDoneEntry[]>>((acc, entry) => {
@@ -249,8 +271,24 @@ export function WorkDoneCard({
                     className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     autoFocus
                   />
-                  {filteredOps.length > 0 && (
+                  {(filteredOps.length > 0 || recentOpsFull.length > 0) && (
                     <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+                      {recentOpsFull.length > 0 && !opSearch && (
+                        <>
+                          <div className="px-3 py-1 text-xs text-muted-foreground font-medium border-b bg-muted/30">Recent</div>
+                          {recentOpsFull.map((op) => (
+                            <button
+                              key={op.id}
+                              type="button"
+                              onClick={() => handleSelectOp(op)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                            >
+                              <span className="font-medium">{op.name}</span>
+                              {op.category && <span className="text-muted-foreground ml-2 text-xs">{op.category}</span>}
+                            </button>
+                          ))}
+                        </>
+                      )}
                       {filteredOps.map((op) => (
                         <button
                           key={op.id}
@@ -292,7 +330,7 @@ export function WorkDoneCard({
                         <button
                           type="button"
                           onClick={() => setShowStatusOverride(true)}
-                          className="text-[10px] text-primary hover:underline"
+                          className="text-xs text-primary hover:underline"
                         >
                           Override
                         </button>

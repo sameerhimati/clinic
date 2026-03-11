@@ -294,7 +294,7 @@ export function TreatmentPlanCard({
                   ) : null}
                   {/* Lab badge */}
                   {showCosts && item.labRateName && (
-                    <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1.5 text-muted-foreground">
+                    <Badge variant="outline" className="text-xs py-0 px-1 ml-1.5 text-muted-foreground">
                       Lab: {item.labRateName}
                       {item.estimatedLabCost ? ` ₹${item.estimatedLabCost.toLocaleString("en-IN")}` : ""}
                     </Badge>
@@ -317,7 +317,7 @@ export function TreatmentPlanCard({
                     <span className="text-xs ml-2">
                       <span className="text-blue-600">{formatDate(item.appointment!.date)}</span>
                       {doctorDisplay && <span className="text-muted-foreground"> · Dr. {toTitleCase(doctorDisplay)}</span>}
-                      <Badge variant="outline" className="ml-1.5 text-[10px] py-0 px-1 bg-blue-50 text-blue-600 border-blue-200">
+                      <Badge variant="outline" className="ml-1.5 text-xs py-0 px-1 bg-blue-50 text-blue-600 border-blue-200">
                         Scheduled
                       </Badge>
                     </span>
@@ -335,21 +335,21 @@ export function TreatmentPlanCard({
                             {isOverdue ? (
                               <>
                                 Due: {formatDate(estimated)}
-                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-red-600 border-red-200 bg-red-50">
+                                <Badge variant="outline" className="ml-1 text-xs py-0 px-1 text-red-600 border-red-200 bg-red-50">
                                   {Math.abs(daysUntil)}d overdue
                                 </Badge>
                               </>
                             ) : isUpcoming ? (
                               <>
                                 Due: {formatDate(estimated)}
-                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-amber-600 border-amber-200 bg-amber-50">
+                                <Badge variant="outline" className="ml-1 text-xs py-0 px-1 text-amber-600 border-amber-200 bg-amber-50">
                                   {daysUntil === 0 ? "Due today" : `In ${daysUntil}d`}
                                 </Badge>
                               </>
                             ) : (
                               <>
                                 ~{formatDate(estimated)}
-                                <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1 text-muted-foreground">
+                                <Badge variant="outline" className="ml-1 text-xs py-0 px-1 text-muted-foreground">
                                   Tentative
                                 </Badge>
                               </>
@@ -363,7 +363,7 @@ export function TreatmentPlanCard({
                   {/* Modified status badge */}
                   {item.modifiedStatus && (
                     <span className="ml-2">
-                      <Badge variant="outline" className={`text-[10px] py-0 px-1 ${item.modifiedStatus === "CHANGED" ? "text-amber-600 border-amber-200 bg-amber-50" : "text-muted-foreground border-muted bg-muted/50"}`}>
+                      <Badge variant="outline" className={`text-xs py-0 px-1 ${item.modifiedStatus === "CHANGED" ? "text-amber-600 border-amber-200 bg-amber-50" : "text-muted-foreground border-muted bg-muted/50"}`}>
                         {item.modifiedStatus === "CHANGED" ? "Changed" : "N/A"}
                       </Badge>
                       {item.modifiedReason && (

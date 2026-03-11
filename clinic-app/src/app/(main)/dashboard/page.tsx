@@ -8,11 +8,12 @@ import {
   CalendarDays,
   Phone,
   CheckCircle2,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { toTitleCase, formatDate, formatFullDate } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
-import { canCollectPayments } from "@/lib/permissions";
+import { canCollectPayments, isAdmin } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 import { MultiDaySchedule } from "@/components/multi-day-schedule";
@@ -40,6 +41,8 @@ async function getAdminDashboardData() {
     totalOutstandingResult,
     pendingPaymentVisits,
     todayAppointments,
+    auditFlagCount,
+    visitsByDoctor,
   ] = await Promise.all([
     prisma.visit.count({
       where: { visitDate: { gte: today, lt: tomorrow } },
@@ -77,6 +80,17 @@ async function getAdminDashboardData() {
         doctor: { select: { name: true } },
         visit: { select: { id: true } },
       },
+    }),
+    prisma.auditLog.count({
+      where: {
+        severity: "FLAG",
+        createdAt: { gte: today },
+      },
+    }),
+    prisma.visit.groupBy({
+      by: ["doctorId"],
+      where: { visitDate: { gte: today, lt: tomorrow } },
+      _count: true,
     }),
   ]);
 
@@ -300,6 +314,8 @@ async function getAdminDashboardData() {
     followUpQueue,
     readyForCheckout,
     escrowBalanceMap,
+    auditFlagCount,
+    visitsByDoctor,
   };
 }
 
@@ -447,20 +463,69 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-bold">{greeting}, {toTitleCase(doctor.name)}</h2>
           <span className="text-sm text-muted-foreground">{formatFullDate(new Date())}</span>
         </div>
-        <div className="flex flex-wrap gap-2 mt-3">
-          <Link href="/visits" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm hover:bg-accent transition-colors">
-            {data.todayVisits} visits today
+        {doctor.permissionLevel > 1 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Link href="/visits" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm hover:bg-accent transition-colors">
+              {data.todayVisits} visits today
+            </Link>
+            <Link href="/reports/commission" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-green-700 hover:bg-accent transition-colors">
+              {"\u20B9"}{data.todayCollections.toLocaleString("en-IN")} collected
+            </Link>
+            {data.totalOutstanding > 0 && (
+              <Link href="/reports/outstanding" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-destructive hover:bg-accent transition-colors">
+                {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")} outstanding
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* L1 Admin: prominent stat cards */}
+      {doctor.permissionLevel <= 1 && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Link href="/visits" className="block">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Visits Today</div>
+                <div className="text-2xl font-bold mt-1">{data.todayVisits}</div>
+              </CardContent>
+            </Card>
           </Link>
-          <Link href="/reports/commission" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-green-700 hover:bg-accent transition-colors">
-            {"\u20B9"}{data.todayCollections.toLocaleString("en-IN")} collected
+          <Link href="/reports/commission" className="block">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Collections</div>
+                <div className="text-2xl font-bold mt-1 text-green-700">{"\u20B9"}{data.todayCollections.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
           </Link>
-          {data.totalOutstanding > 0 && (
-            <Link href="/reports/outstanding" className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-destructive hover:bg-accent transition-colors">
-              {"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")} outstanding
+          <Link href="/reports/outstanding" className="block">
+            <Card className="hover:shadow-md transition-shadow">
+              <CardContent className="pt-5 pb-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Outstanding</div>
+                <div className="text-2xl font-bold mt-1 text-destructive">{"\u20B9"}{data.totalOutstanding.toLocaleString("en-IN")}</div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
+
+      {/* L1 Admin: audit flags + staff activity */}
+      {doctor.permissionLevel <= 1 && (
+        <div className="flex flex-wrap gap-3">
+          {data.auditFlagCount > 0 && (
+            <Link href="/reports/audit?severity=FLAG" className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm text-amber-700 hover:bg-amber-100 transition-colors">
+              <Shield className="h-3.5 w-3.5" />
+              {data.auditFlagCount} flagged action{data.auditFlagCount !== 1 ? "s" : ""} today
             </Link>
           )}
+          {data.visitsByDoctor.length > 0 && (
+            <div className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-sm text-muted-foreground">
+              Staff: {data.visitsByDoctor.map(v => v._count).reduce((a, b) => a + b, 0)} visits by {data.visitsByDoctor.length} doctor{data.visitsByDoctor.length !== 1 ? "s" : ""}
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -560,17 +625,17 @@ export default async function DashboardPage() {
               <div className="text-xs text-muted-foreground mt-0.5">
                 {item.treatmentTitle} — <span className="font-medium text-foreground">{item.nextStep}</span>
                 {item.daysUntilDue < 0 && (
-                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-red-600 border-red-200 bg-red-50">
+                  <Badge variant="outline" className="ml-1.5 text-xs px-1 py-0 text-red-600 border-red-200 bg-red-50">
                     {Math.abs(item.daysUntilDue)}d overdue
                   </Badge>
                 )}
                 {item.daysUntilDue === 0 && (
-                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-amber-600 border-amber-200 bg-amber-50">
+                  <Badge variant="outline" className="ml-1.5 text-xs px-1 py-0 text-amber-600 border-amber-200 bg-amber-50">
                     Due today
                   </Badge>
                 )}
                 {item.daysUntilDue > 0 && (
-                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0 text-blue-600 border-blue-200 bg-blue-50">
+                  <Badge variant="outline" className="ml-1.5 text-xs px-1 py-0 text-blue-600 border-blue-200 bg-blue-50">
                     In {item.daysUntilDue}d
                   </Badge>
                 )}

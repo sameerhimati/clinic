@@ -195,18 +195,31 @@ export function EscrowCheckout({
 
           {/* Quick-amount buttons */}
           <div className="flex gap-2 flex-wrap">
-            {[500, 1000, 2000, 5000, 10000].map((amt) => (
-              <Button
-                key={amt}
-                size="sm"
-                variant="outline"
-                type="button"
-                onClick={() => setAmount(String(amt))}
-                className="h-7 text-xs"
-              >
-                {"\u20B9"}{amt.toLocaleString("en-IN")}
-              </Button>
-            ))}
+            {(() => {
+              const effectiveBalance = escrow.balance - legacyOutstanding;
+              const deficit = effectiveBalance < 0 ? Math.abs(effectiveBalance) : 0;
+              const suggested = suggestedAmount && suggestedAmount > 0 ? suggestedAmount : 0;
+              // Build quick buttons: suggested amount first (if set), then deficit, then standard amounts
+              const quickAmounts: { amt: number; primary: boolean }[] = [];
+              const seen = new Set<number>();
+              if (suggested > 0) { quickAmounts.push({ amt: suggested, primary: true }); seen.add(suggested); }
+              if (deficit > 0 && !seen.has(deficit)) { quickAmounts.push({ amt: deficit, primary: !suggested }); seen.add(deficit); }
+              for (const amt of [500, 1000, 2000, 5000, 10000]) {
+                if (!seen.has(amt)) quickAmounts.push({ amt, primary: false });
+              }
+              return quickAmounts.map(({ amt, primary }) => (
+                <Button
+                  key={amt}
+                  size="sm"
+                  variant={primary ? "default" : "outline"}
+                  type="button"
+                  onClick={() => setAmount(String(amt))}
+                  className="h-7 text-xs"
+                >
+                  {"\u20B9"}{amt.toLocaleString("en-IN")}
+                </Button>
+              ));
+            })()}
           </div>
 
           <div className="space-y-2">
@@ -233,6 +246,12 @@ export function EscrowCheckout({
               <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
               <span className="text-sm text-green-800 font-medium">Payment recorded (Receipt #{lastPayment.receiptNo})</span>
               <div className="flex gap-2 ml-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/patients/${patientId}/checkout/${lastPayment.paymentId}/print`}>
+                    <Printer className="mr-1 h-3.5 w-3.5" />
+                    Print
+                  </Link>
+                </Button>
                 <Button size="sm" variant="outline" asChild>
                   <Link href={`/patients/${patientId}`}>Done</Link>
                 </Button>

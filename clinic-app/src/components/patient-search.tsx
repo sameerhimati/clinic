@@ -44,7 +44,7 @@ export function PatientSearch({
 
   // Debounced search
   useEffect(() => {
-    if (query.trim().length < 1) {
+    if (query.trim().length < 2) {
       setResults([]);
       return;
     }
@@ -187,7 +187,7 @@ export function PatientSearch({
         />
         <kbd className={cn(
           "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none select-none rounded border border-muted bg-muted/50 px-1.5 font-mono text-muted-foreground",
-          isLarge ? "text-xs" : "text-[10px]",
+          isLarge ? "text-xs" : "text-xs",
           query.length > 0 ? "hidden" : ""
         )}>/</kbd>
       </div>
@@ -198,7 +198,7 @@ export function PatientSearch({
           {loading && results.length === 0 && (
             <div className="p-3 text-sm text-muted-foreground text-center">Searching...</div>
           )}
-          {!loading && results.length === 0 && query.length >= 1 && (
+          {!loading && results.length === 0 && query.length >= 2 && (
             <div className="p-3 text-sm text-muted-foreground text-center">No patients found</div>
           )}
           {results.map((r, i) => {

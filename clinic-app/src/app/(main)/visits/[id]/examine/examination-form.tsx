@@ -71,25 +71,25 @@ function formatDoctorAvailability(slots: { dayOfWeek: number; startTime: string;
 }
 
 const TOP_COMPLAINTS = [
-  "PAIN",
-  "SWELLING",
-  "SENSITIVITY",
-  "BROKEN TOOTH",
-  "BLEEDING GUMS",
-  "REGULAR CHECKUP",
+  "Pain",
+  "Swelling",
+  "Sensitivity",
+  "Broken Tooth",
+  "Bleeding Gums",
+  "Regular Checkup",
 ];
 
 const MORE_COMPLAINTS = [
-  "LOOSE TOOTH",
-  "BAD BREATH",
-  "DISCOLORATION",
-  "SPACING",
-  "DIFFICULTY CHEWING",
-  "JAW PAIN",
-  "REFERRED BY DOCTOR",
-  "FOLLOW UP",
-  "ORTHODONTIC CONSULTATION",
-  "OTHER",
+  "Loose Tooth",
+  "Bad Breath",
+  "Discoloration",
+  "Spacing",
+  "Difficulty Chewing",
+  "Jaw Pain",
+  "Referred By Doctor",
+  "Follow Up",
+  "Orthodontic Consultation",
+  "Other",
 ];
 
 const TOP_DIAGNOSES = [
@@ -512,14 +512,14 @@ function ComplaintPills({ complaint, setComplaint }: { complaint: string; setCom
   const [showMore, setShowMore] = useState(false);
   const selectedParts = complaint.toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
   // Auto-expand if any MORE_COMPLAINTS are already selected
-  const hasMoreSelected = MORE_COMPLAINTS.some(c => selectedParts.includes(c));
+  const hasMoreSelected = MORE_COMPLAINTS.some(c => selectedParts.includes(c.toUpperCase()));
   const visibleComplaints = (showMore || hasMoreSelected) ? [...TOP_COMPLAINTS, ...MORE_COMPLAINTS] : TOP_COMPLAINTS;
 
   const toggle = (c: string) => {
     const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
     const upperParts = parts.map(s => s.toUpperCase());
-    if (upperParts.includes(c)) {
-      setComplaint(parts.filter((_, i) => upperParts[i] !== c).join(", "));
+    if (upperParts.includes(c.toUpperCase())) {
+      setComplaint(parts.filter((_, i) => upperParts[i] !== c.toUpperCase()).join(", "));
     } else {
       setComplaint(complaint ? complaint + ", " + c : c);
     }
@@ -534,7 +534,7 @@ function ComplaintPills({ complaint, setComplaint }: { complaint: string; setCom
             key={c}
             type="button"
             className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-              selectedParts.includes(c)
+              selectedParts.includes(c.toUpperCase())
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-background border-input hover:bg-accent"
             }`}
@@ -601,7 +601,7 @@ function ToothApplyBar({
           onClick={() => onApply(key)}
           className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-input bg-background hover:bg-accent cursor-pointer"
         >
-          <span style={{ color }} className="text-[10px]">{indicator}</span>
+          <span style={{ color }} className="text-xs">{indicator}</span>
           {label}
         </button>
       ))}
@@ -966,7 +966,7 @@ export function ExaminationForm({
           savedAt: Date.now(),
         }));
       } catch { /* quota exceeded — ignore */ }
-    }, 15000); // Save every 15s of idle
+    }, 5000); // Save every 5s of idle
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
   }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, readOnly, isLocked, isDirty, draftKey]);
 
@@ -1342,6 +1342,19 @@ export function ExaminationForm({
                 <span className="whitespace-pre-wrap">{lastBdsReport.complaint}</span>
               </div>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                if (lastBdsReport.diagnosis) setDiagnosis(lastBdsReport.diagnosis);
+                if (lastBdsReport.treatmentNotes) setTreatmentNotes(lastBdsReport.treatmentNotes);
+                toast.success("Previous notes copied — edit as needed");
+              }}
+            >
+              Copy to Notes
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -1662,7 +1675,7 @@ export function ExaminationForm({
                 Add
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">Press ⌘+Enter to add · Appends to treatment notes</p>
+            <p className="text-xs text-muted-foreground mt-1">Press ⌘+Enter to add · Appends to treatment notes</p>
           </div>
         )}
         <div className="py-3 flex gap-2 justify-between items-center">

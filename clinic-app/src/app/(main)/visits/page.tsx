@@ -9,6 +9,7 @@ import { formatDate, toTitleCase } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { calcBilled, calcBalance } from "@/lib/billing";
+import { DoctorFilterSelect } from "@/components/doctor-filter-select";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export default async function VisitsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; doctorId?: string; page?: string }>;
 }) {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const currentDoctor = await requireAuth();
   if (currentDoctor.permissionLevel >= 3) redirect("/dashboard");
   const params = await searchParams;
@@ -70,18 +73,10 @@ export default async function VisitsPage({
           <span className="text-xs text-muted-foreground">To</span>
           <Input name="to" type="date" defaultValue={params.to || ""} className="w-auto" />
         </div>
-        <select
-          name="doctorId"
+        <DoctorFilterSelect
+          doctors={doctors.map(d => ({ id: d.id, name: d.name }))}
           defaultValue={effectiveDoctorId}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        >
-          <option value="">All Doctors</option>
-          {doctors.map((d) => (
-            <option key={d.id} value={d.id}>
-              {toTitleCase(d.name)}
-            </option>
-          ))}
-        </select>
+        />
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter
         </Button>
@@ -90,6 +85,9 @@ export default async function VisitsPage({
             <Link href="/visits">Clear</Link>
           </Button>
         )}
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/visits?from=${todayStr}&to=${todayStr}`}>Today</Link>
+        </Button>
       </form>
 
       <p className="text-sm text-muted-foreground">{total} {total === 1 ? "visit" : "visits"}</p>

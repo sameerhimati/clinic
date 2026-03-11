@@ -221,7 +221,7 @@ export default async function PaymentsPage({
                 <div className="flex items-center justify-between p-4 hover:bg-accent transition-colors">
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      <Badge variant="outline" className={typeBadge[payment.type].className + " text-[10px] px-1.5 py-0"}>
+                      <Badge variant="outline" className={typeBadge[payment.type].className + " text-xs px-1.5 py-0"}>
                         {payment.type}
                       </Badge>
                       {payment.patientCode && (

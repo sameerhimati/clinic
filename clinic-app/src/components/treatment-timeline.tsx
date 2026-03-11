@@ -104,7 +104,7 @@ function TeethBadge({ teethJson }: { teethJson: string | null }) {
     const teeth: number[] = JSON.parse(teethJson);
     if (!teeth.length) return null;
     return (
-      <Badge variant="outline" className="text-[10px] py-0 font-mono gap-0.5">
+      <Badge variant="outline" className="text-xs py-0 font-mono gap-0.5">
         <span className="text-muted-foreground">🦷</span>
         {teeth.join(", ")}
       </Badge>
@@ -329,7 +329,7 @@ function StandaloneVisitEntry({
               <span className="shrink-0">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
               {report && <TeethBadge teethJson={report.teethSelected} />}
               {visitPlanMap?.get(visit.id) && (
-                <Badge variant="outline" className="text-[10px] py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                <Badge variant="outline" className="text-xs py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
                   <ClipboardList className="h-3 w-3" />
                   {visitPlanMap.get(visit.id)}
                 </Badge>
@@ -484,13 +484,13 @@ function ChainTimeline({
                           <span className="tabular-nums">{"\u20B9"}{rate.toLocaleString("en-IN")}</span>
                           {report && <TeethBadge teethJson={report.teethSelected} />}
                           {visitPlanMap?.get(visit.id) && (
-                            <Badge variant="outline" className="text-[10px] py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge variant="outline" className="text-xs py-0 gap-0.5 bg-blue-50 text-blue-700 border-blue-200">
                               <ClipboardList className="h-3 w-3" />
                               {visitPlanMap.get(visit.id)}
                             </Badge>
                           )}
                           {visit.followUpReason && FOLLOW_UP_REASON_BADGE[visit.followUpReason] && (
-                            <Badge variant="outline" className={`text-[10px] py-0 ${FOLLOW_UP_REASON_BADGE[visit.followUpReason].className}`}>
+                            <Badge variant="outline" className={`text-xs py-0 ${FOLLOW_UP_REASON_BADGE[visit.followUpReason].className}`}>
                               {FOLLOW_UP_REASON_BADGE[visit.followUpReason].label}
                             </Badge>
                           )}

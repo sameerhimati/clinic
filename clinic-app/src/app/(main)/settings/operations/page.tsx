@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { OperationCreateForm } from "./operation-form";
 import { OperationInlineEdit } from "./operation-inline-edit";
 import { TreatmentStepsEditor } from "./treatment-steps-editor";
@@ -17,15 +18,16 @@ export const dynamic = "force-dynamic";
 export default async function OperationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ showAll?: string }>;
+  searchParams: Promise<{ showAll?: string; search?: string }>;
 }) {
   const currentUser = await requireAuth();
   // L1 admins + L3 super-users can access this page
   const isFullAdmin = canManageSystem(currentUser.permissionLevel);
   const isL3Super = currentUser.permissionLevel === 3 && currentUser.isSuperUser;
   if (!isFullAdmin && !isL3Super) redirect("/dashboard");
-  const { showAll } = await searchParams;
+  const { showAll, search } = await searchParams;
   const showingAll = showAll === "1";
+  const searchTerm = search || "";
 
   const [operations, l3Doctors] = await Promise.all([
     prisma.operation.findMany({
@@ -42,9 +44,17 @@ export default async function OperationsPage({
     }),
   ]);
 
+  // Filter by search term
+  const filtered = searchTerm
+    ? operations.filter((op) => {
+        const term = searchTerm.toLowerCase();
+        return op.name.toLowerCase().includes(term) || (op.category || "").toLowerCase().includes(term);
+      })
+    : operations;
+
   // Group by category
   const grouped = new Map<string, typeof operations>();
-  for (const op of operations) {
+  for (const op of filtered) {
     const cat = op.category || "Other";
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(op);
@@ -59,7 +69,7 @@ export default async function OperationsPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold">Treatments & Tariff</h2>
-          <span className="text-sm text-muted-foreground">{operations.length} {showingAll ? "total" : "active"}</span>
+          <span className="text-sm text-muted-foreground">{searchTerm ? `${filtered.length} of ` : ""}{operations.length} {showingAll ? "total" : "active"}</span>
         </div>
         <Button variant="ghost" size="sm" asChild>
           <Link href={showingAll ? "/settings/operations" : "/settings/operations?showAll=1"}>
@@ -67,6 +77,23 @@ export default async function OperationsPage({
           </Link>
         </Button>
       </div>
+
+      {/* Search */}
+      <form action="/settings/operations" className="flex items-center gap-2">
+        {showingAll && <input type="hidden" name="showAll" value="1" />}
+        <Input
+          name="search"
+          placeholder="Search treatments by name or category..."
+          defaultValue={searchTerm}
+          className="max-w-sm"
+        />
+        <Button type="submit" variant="secondary" size="sm">Search</Button>
+        {searchTerm && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={showingAll ? "/settings/operations?showAll=1" : "/settings/operations"}>Clear</Link>
+          </Button>
+        )}
+      </form>
 
       {/* Add new operation — L1 only */}
       {isFullAdmin && <OperationCreateForm categories={Array.from(grouped.keys())} />}

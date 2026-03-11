@@ -12,6 +12,7 @@ import { createAppointment, updateAppointment, checkConflicts } from "@/app/(mai
 import Link from "next/link";
 import { X, AlertTriangle } from "lucide-react";
 import { toTitleCase } from "@/lib/format";
+import { DoctorCombobox } from "./doctor-combobox";
 import { toast } from "sonner";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { todayString } from "@/lib/validations";
@@ -290,6 +291,24 @@ export function AppointmentForm({
             </div>
           )}
 
+          {/* Walk-in toggle — only for new appointments */}
+          {!isReschedule && (
+            <label className="flex items-center gap-3 cursor-pointer rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+              <input
+                type="checkbox"
+                checked={isWalkIn}
+                onChange={(e) => handleWalkInToggle(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              <div>
+                <div className="text-sm font-medium">Walk-in patient</div>
+                <div className="text-xs text-muted-foreground">
+                  Auto-fills current time and marks patient as arrived
+                </div>
+              </div>
+            </label>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Doctor */}
             {isDoctor ? (
@@ -308,25 +327,20 @@ export function AppointmentForm({
             ) : (
               <div className="space-y-2">
                 <Label htmlFor="doctorId">Doctor</Label>
-                <select
-                  name="doctorId"
-                  value={selectedDoctorId || ""}
-                  onChange={(e) => {
-                    const docId = e.target.value ? parseInt(e.target.value) : undefined;
+                <DoctorCombobox
+                  doctors={doctors.map(d => ({ id: d.id, name: d.name }))}
+                  value={selectedDoctorId}
+                  onChange={(docId) => {
                     setSelectedDoctorId(docId);
                     if (docId && doctorDefaultRooms?.[docId]) {
                       setSelectedRoomId(doctorDefaultRooms[docId]);
                     }
                   }}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                >
-                  <option value="">Unassigned</option>
-                  {doctors.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {toTitleCase(d.name)}
-                    </option>
-                  ))}
-                </select>
+                  name="doctorId"
+                  placeholder="Unassigned"
+                  emptyLabel="Unassigned"
+                  className="h-9 w-full text-sm"
+                />
                 {hasAvailabilityData && (
                   <p className="text-xs text-muted-foreground">
                     Available: {formatAvailability(selectedDoctorSlots)}
@@ -479,23 +493,6 @@ export function AppointmentForm({
             <Textarea name="notes" rows={2} placeholder="Additional notes..." defaultValue={defaultNotes || ""} />
           </div>
 
-          {/* Walk-in toggle — only for new appointments */}
-          {!isReschedule && (
-            <label className="flex items-center gap-3 cursor-pointer rounded-lg border p-3 hover:bg-muted/50 transition-colors">
-              <input
-                type="checkbox"
-                checked={isWalkIn}
-                onChange={(e) => handleWalkInToggle(e.target.checked)}
-                className="h-4 w-4 rounded border-input accent-primary"
-              />
-              <div>
-                <div className="text-sm font-medium">Walk-in patient</div>
-                <div className="text-xs text-muted-foreground">
-                  Auto-fills current time and marks patient as arrived
-                </div>
-              </div>
-            </label>
-          )}
         </CardContent>
       </Card>
 

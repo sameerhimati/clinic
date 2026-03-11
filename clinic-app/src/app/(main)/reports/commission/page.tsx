@@ -22,6 +22,7 @@ import { PrintPageButton } from "@/components/print-button";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { dateToString } from "@/lib/validations";
+import { DoctorFilterSelect } from "@/components/doctor-filter-select";
 
 export const dynamic = "force-dynamic";
 
@@ -323,18 +324,10 @@ export default async function CommissionReportPage({
           <span className="text-xs text-muted-foreground">To</span>
           <Input name="to" type="date" defaultValue={params.to} className="w-auto" />
         </div>
-        <select
-          name="doctorId"
+        <DoctorFilterSelect
+          doctors={doctors.map(d => ({ id: d.id, name: d.name }))}
           defaultValue={params.doctorId || ""}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        >
-          <option value="">All Doctors</option>
-          {doctors.map((d) => (
-            <option key={d.id} value={d.id}>
-              {toTitleCase(d.name)}
-            </option>
-          ))}
-        </select>
+        />
         <input type="hidden" name="view" value={viewMode} />
         <Button type="submit" variant="secondary" size="sm">
           <Search className="mr-2 h-4 w-4" /> Filter

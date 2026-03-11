@@ -112,7 +112,7 @@ export function DashboardAppointmentList({
                       <div className="flex items-center gap-1 flex-wrap mt-0.5">
                         <AlertTriangle className="h-3 w-3 text-red-600 shrink-0" />
                         {appt.medicalAlerts.map((a) => (
-                          <span key={a} className="text-[10px] bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
+                          <span key={a} className="text-xs bg-red-50 text-red-700 border border-red-200 rounded px-1.5 py-0 leading-4 font-medium">
                             {a}
                           </span>
                         ))}
@@ -123,7 +123,7 @@ export function DashboardAppointmentList({
                       {appt.doctorName && <span>Dr. {appt.doctorName} · </span>}
                       {appt.reason || "Appointment"}
                       {appt.escrowBalance != null && appt.escrowBalance < 0 && (
-                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">
+                        <Badge variant="destructive" className="text-xs px-1.5 py-0 ml-1">
                           Due: {"\u20B9"}{Math.abs(appt.escrowBalance).toLocaleString("en-IN")}
                         </Badge>
                       )}
