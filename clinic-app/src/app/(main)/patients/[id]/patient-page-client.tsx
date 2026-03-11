@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import {
-  Plus,
   IndianRupee,
   AlertTriangle,
   CalendarDays,
@@ -52,7 +51,7 @@ import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
 import { TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, getStatusColor, getToothName, getToothShortName, type ToothStatusKey } from "@/lib/dental";
 import { toTitleCase, formatDate } from "@/lib/format";
 import { ToastOnParam } from "@/components/toast-on-param";
-import { ClipboardList, ChevronDown } from "lucide-react";
+import { ClipboardList, ChevronRight, SmilePlus } from "lucide-react";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { toast } from "sonner";
@@ -315,8 +314,12 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   // Tooth history modal
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null);
 
-  // Dental chart collapsible
-  // chartOpen state removed — dental chart is now always visible as hero
+  // Task 2A: Dental chart as dialog (saves ~450px vertical space)
+  const [chartOpen, setChartOpen] = useState(false);
+
+  // Task 3A: Collapsible sections
+  const [filesExpanded, setFilesExpanded] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(false);
 
   // Visit notes popup
   const [selectedVisit, setSelectedVisit] = useState<VisitWithRelations | null>(null);
@@ -522,7 +525,6 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
               )}
               <p className="text-xs text-muted-foreground mt-0.5">
                 {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
-                {data.firstVisit && <span> · First: {formatDate(data.firstVisit)}</span>}
                 {data.lastVisit && <span> · Last: {formatDate(data.lastVisit)}</span>}
                 {data.canCollect && data.escrowBalance !== 0 && (
                   <span className={`font-medium ${data.escrowBalance > 0 ? "text-green-700" : "text-destructive"}`}>
@@ -540,17 +542,21 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           </div>
           <div className="flex gap-2 shrink-0 items-center">
             {primaryCta}
-            {!!(appointmentActions || data.canEdit || (data.canCollect && data.totalBalance > 0)) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {appointmentActions}
-                  {appointmentActions && <DropdownMenuSeparator />}
-                  {data.canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setChartOpen(true)}>
+                  <SmilePlus className="mr-2 h-4 w-4" />
+                  Dental Chart
+                </DropdownMenuItem>
+                {(appointmentActions || data.canEdit || (data.canCollect && data.totalBalance > 0)) && <DropdownMenuSeparator />}
+                {appointmentActions}
+                {appointmentActions && data.canEdit && <DropdownMenuSeparator />}
+                {data.canEdit && (
                     <DropdownMenuItem asChild>
                       <Link href={`/patients/${patient.id}/edit`}>
                         <Edit className="mr-2 h-4 w-4" />
@@ -568,64 +574,83 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Needs Attention Banner */}
-      {(data.missingNotesCount > 0 || (data.canCollect && data.totalBalance > 0)) && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
-          {data.missingNotesCount > 0 && (
-            <p className="text-sm text-amber-800 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {data.missingNotesCount} visit{data.missingNotesCount !== 1 ? "s" : ""} need clinical notes
-            </p>
-          )}
-          {data.canCollect && data.totalBalance > 0 && (
-            <p className="text-sm text-amber-800 flex items-center gap-2">
-              <IndianRupee className="h-4 w-4 shrink-0" />
-              ₹{data.totalBalance.toLocaleString("en-IN")} outstanding
-              <Link href={`/patients/${patient.id}/checkout`} className="text-primary hover:underline ml-1">
-                Collect →
-              </Link>
-            </p>
-          )}
-        </div>
-      )}
+      {/* Task 3D: Compact attention summary — single row replacing separate banners */}
+      {(() => {
+        const alerts: React.ReactNode[] = [];
+        if (data.missingNotesCount > 0 && isDoctor) {
+          alerts.push(
+            <span key="notes" className="flex items-center gap-1">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {data.missingNotesCount} missing note{data.missingNotesCount !== 1 ? "s" : ""}
+            </span>
+          );
+        }
+        if (data.canCollect && data.totalBalance > 0) {
+          alerts.push(
+            <Link key="balance" href={`/patients/${patient.id}/checkout`} className="flex items-center gap-1 hover:underline">
+              <IndianRupee className="h-3.5 w-3.5" />
+              ₹{data.totalBalance.toLocaleString("en-IN")} due
+            </Link>
+          );
+        }
+        // Find next plan step
+        const nextStep = data.treatmentPlans
+          .filter(p => p.status === "ACTIVE")
+          .flatMap(p => p.items.filter(i => !i.completedAt))
+          .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+        if (nextStep) {
+          alerts.push(
+            <span key="next" className="flex items-center gap-1">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Next: {nextStep.label}
+            </span>
+          );
+        }
+        if (alerts.length === 0) return null;
+        return (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-amber-800">
+            {alerts}
+          </div>
+        );
+      })()}
 
       {/* Post-Registration: Schedule Now banner */}
       <ScheduleNowBanner patientId={patient.id} />
 
-      {/* Dental Chart — Hero */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Dental Chart</CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {(() => {
-                const findingsCount = data.toothStatuses.filter((ts) => ts.status !== "HEALTHY").length;
-                return findingsCount > 0 ? `${findingsCount} teeth with findings` : "No findings recorded";
-              })()}
-            </span>
+      {/* Task 2A: Dental Chart Dialog (moved from inline hero) */}
+      <Dialog open={chartOpen} onOpenChange={setChartOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">Dental Chart</DialogTitle>
+            <DialogDescription className="sr-only">Interactive dental chart showing tooth statuses and findings</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-2">
+            <ToothChart
+              selected={[]}
+              size="lg"
+              toothStatuses={data.toothStatuses.map((ts) => ({
+                toothNumber: ts.toothNumber,
+                status: ts.status,
+                findingName: ts.findingName || undefined,
+                color: ts.findingColor || undefined,
+              }))}
+              onDoubleClick={(tooth) => setSelectedTooth(tooth)}
+              highlightTeeth={planTeeth.length > 0 ? planTeeth : undefined}
+              readOnly
+            />
           </div>
-        </CardHeader>
-        <CardContent className="flex justify-center pb-4">
-          <ToothChart
-            selected={[]}
-            size="lg"
-            toothStatuses={data.toothStatuses.map((ts) => ({
-              toothNumber: ts.toothNumber,
-              status: ts.status,
-              findingName: ts.findingName || undefined,
-              color: ts.findingColor || undefined,
-            }))}
-            onDoubleClick={(tooth) => setSelectedTooth(tooth)}
-            highlightTeeth={planTeeth.length > 0 ? planTeeth : undefined}
-            readOnly
-          />
-        </CardContent>
-      </Card>
+          <p className="text-xs text-center text-muted-foreground">
+            {(() => {
+              const findingsCount = data.toothStatuses.filter((ts) => ts.status !== "HEALTHY").length;
+              return findingsCount > 0 ? `${findingsCount} teeth with findings · Double-click for history` : "No findings recorded";
+            })()}
+          </p>
+        </DialogContent>
+      </Dialog>
 
       {/* Tooth History Modal — Premium Design */}
       <Dialog open={selectedTooth !== null} onOpenChange={(open) => { if (!open) setSelectedTooth(null); }}>
@@ -869,35 +894,23 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </DialogContent>
       </Dialog>
 
-      {/* Clinical Notepad */}
-      {(data.clinicalNotes.length > 0 || currentUser.permissionLevel >= 3) && (
-        <section>
-          <ClinicalNotepad
-            patientId={patient.id}
-            notes={data.clinicalNotes}
-            chains={data.treatmentChains.map(c => ({ id: c.id, title: c.title }))}
-            canAddNotes={currentUser.permissionLevel >= 3}
-            currentDoctorName={currentUser.name}
-          />
-        </section>
-      )}
-
-      {/* Treatment Chains */}
+      {/* 1. Treatment Chains (Task 2C: moved up — "what's the plan?") */}
       {data.treatmentChains.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Chains</h3>
-          {data.treatmentChains.map((chain) => (
+          {data.treatmentChains.map((chain, i) => (
             <TreatmentChainCard
               key={chain.id}
               chain={chain}
               isDoctor={isDoctor}
               permissionLevel={currentUser.permissionLevel}
+              defaultExpanded={i < 2}
             />
           ))}
         </section>
       )}
 
-      {/* Standalone Treatment Plans */}
+      {/* 2. Standalone Treatment Plans */}
       {(data.treatmentPlans.length > 0 || !isDoctor) && (
         <TreatmentPlansSection
           plans={data.treatmentPlans}
@@ -907,7 +920,8 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         />
       )}
 
-      {/* Appointments */}
+      {/* 3. Appointments (Task 2C: moved up — "what's happening today/next?") */}
+      {/* Task 3B: Compact — show today + next 1 future only */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
@@ -953,7 +967,8 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   </div>
                 </div>
               ))}
-              {data.futureAppointments.map((appt) => (
+              {/* Task 3B: Show only next 1 future appointment inline */}
+              {data.futureAppointments.slice(0, 1).map((appt) => (
                 <div key={`f-${appt.id}`} className="flex items-center justify-between px-4 py-2.5">
                   <div>
                     <div className="font-medium text-sm">
@@ -972,22 +987,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   </div>
                 </div>
               ))}
-              {data.pastAppointments.map((appt) => (
-                <div key={`p-${appt.id}`} className="flex items-center justify-between px-4 py-2.5 opacity-60">
-                  <div>
-                    <div className="text-sm">
-                      {formatDate(appt.date)}
-                      {appt.timeSlot && <span className="text-muted-foreground"> · {appt.timeSlot}</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {appt.doctorName && `Dr. ${appt.doctorName}`}
-                      {appt.reason && ` · ${appt.reason}`}
-                    </div>
-                  </div>
-                  <StatusBadge status={appt.status} />
-                </div>
-              ))}
-              {data.todayAppointments.length === 0 && data.futureAppointments.length === 0 && data.pastAppointments.length === 0 && (
+              {data.todayAppointments.length === 0 && data.futureAppointments.length === 0 && (
                 <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                   No appointments scheduled
                 </div>
@@ -995,9 +995,18 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             </div>
           </CardContent>
         </Card>
+        {/* Task 3B: View all link when there are more appointments */}
+        {(data.futureAppointments.length > 1 || data.pastAppointments.length > 0) && (
+          <Link
+            href={`/appointments?patientId=${patient.id}`}
+            className="text-xs text-muted-foreground hover:text-foreground mt-2 inline-block transition-colors"
+          >
+            View all appointments ({data.futureAppointments.length + data.pastAppointments.length + data.todayAppointments.length})
+          </Link>
+        )}
       </section>
 
-      {/* Treatment History */}
+      {/* 4. Treatment History (kept — "what was done?") */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment History</h3>
@@ -1038,62 +1047,99 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         )}
       </section>
 
-      {/* Files & Images */}
-      <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Files ({data.files.length})</h3>
-        <div className="space-y-4">
-          <FileUpload patientId={patient.id} />
-          <FileGallery
-            files={data.files}
-            canDelete={currentUser.permissionLevel <= 2}
+      {/* 5. Clinical Notepad (moved down — reference, not primary) */}
+      {(data.clinicalNotes.length > 0 || currentUser.permissionLevel >= 3) && (
+        <section>
+          <ClinicalNotepad
+            patientId={patient.id}
+            notes={data.clinicalNotes}
+            chains={data.treatmentChains.map(c => ({ id: c.id, title: c.title }))}
+            canAddNotes={currentUser.permissionLevel >= 3}
+            currentDoctorName={currentUser.name}
           />
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Patient Information */}
+      {/* 6. Files & Images (Task 3A: Collapsible, default closed) */}
       <section>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Patient Information</h3>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
-              <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
-              <InfoRow label="Date of Birth" value={patient.dateOfBirth ? formatDate(patient.dateOfBirth) : null} />
-              <InfoRow label="Occupation" value={patient.occupation} />
-              <InfoRow label="Mobile" value={patient.mobile} />
-              <InfoRow label="Phone" value={patient.phone} />
-              <InfoRow label="Email" value={patient.email} />
-              <Separator className="sm:col-span-2" />
-              <InfoRow label="Address" value={[patient.addressLine1, patient.addressLine2, patient.addressLine3].filter(Boolean).join(", ")} />
-              <InfoRow label="City" value={patient.city} />
-              <InfoRow label="Pincode" value={patient.pincode} />
-              <Separator className="sm:col-span-2" />
-              <InfoRow label="Referring Physician" value={patient.referringPhysician} />
-              <InfoRow label="Physician Phone" value={patient.physicianPhone} />
-              {patient.remarks && (
-                <div className="sm:col-span-2">
-                  <div className="text-sm text-muted-foreground">Remarks</div>
-                  <div className="mt-0.5">{patient.remarks}</div>
-                </div>
-              )}
-            </div>
-            <MedicalHistoryEditor
-              patientId={patient.id}
-              currentDiseaseIds={patient.diseases.map((pd) => pd.diseaseId)}
-              allDiseases={data.allDiseases}
-              canEdit={data.canEdit}
-              diseaseNames={patient.diseases.map((pd) => pd.disease.name)}
+        <button
+          type="button"
+          onClick={() => setFilesExpanded(!filesExpanded)}
+          className="flex items-center gap-1.5 mb-2 group"
+        >
+          <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${filesExpanded ? "rotate-90" : ""}`} />
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide group-hover:text-foreground transition-colors">
+            Files ({data.files.length})
+          </h3>
+        </button>
+        {filesExpanded && (
+          <div className="space-y-4">
+            <FileUpload patientId={patient.id} />
+            <FileGallery
+              files={data.files}
+              canDelete={currentUser.permissionLevel <= 2}
             />
-          </CardContent>
-        </Card>
-        {data.isAdmin && (
-          <div className="mt-4 flex justify-end">
-            <DeletePatientButton patientId={patient.id} patientName={toTitleCase(patient.name)} />
           </div>
         )}
       </section>
 
-      {/* Financial Summary — hidden for doctors */}
+      {/* 7. Patient Information (Task 3A: Collapsible, default closed) */}
+      <section>
+        <button
+          type="button"
+          onClick={() => setInfoExpanded(!infoExpanded)}
+          className="flex items-center gap-1.5 mb-2 group"
+        >
+          <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${infoExpanded ? "rotate-90" : ""}`} />
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide group-hover:text-foreground transition-colors">
+            Patient Information
+          </h3>
+        </button>
+        {infoExpanded && (
+          <>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <InfoRow label="Patient Code" value={patient.code ? `#${patient.code}` : null} />
+                  <InfoRow label="Father/Husband" value={patient.fatherHusbandName} />
+                  <InfoRow label="Date of Birth" value={patient.dateOfBirth ? formatDate(patient.dateOfBirth) : null} />
+                  <InfoRow label="Occupation" value={patient.occupation} />
+                  <InfoRow label="Mobile" value={patient.mobile} />
+                  <InfoRow label="Phone" value={patient.phone} />
+                  <InfoRow label="Email" value={patient.email} />
+                  <Separator className="sm:col-span-2" />
+                  <InfoRow label="Address" value={[patient.addressLine1, patient.addressLine2, patient.addressLine3].filter(Boolean).join(", ")} />
+                  <InfoRow label="City" value={patient.city} />
+                  <InfoRow label="Pincode" value={patient.pincode} />
+                  <Separator className="sm:col-span-2" />
+                  <InfoRow label="Referring Physician" value={patient.referringPhysician} />
+                  <InfoRow label="Physician Phone" value={patient.physicianPhone} />
+                  {patient.remarks && (
+                    <div className="sm:col-span-2">
+                      <div className="text-sm text-muted-foreground">Remarks</div>
+                      <div className="mt-0.5">{patient.remarks}</div>
+                    </div>
+                  )}
+                </div>
+                <MedicalHistoryEditor
+                  patientId={patient.id}
+                  currentDiseaseIds={patient.diseases.map((pd) => pd.diseaseId)}
+                  allDiseases={data.allDiseases}
+                  canEdit={data.canEdit}
+                  diseaseNames={patient.diseases.map((pd) => pd.disease.name)}
+                />
+              </CardContent>
+            </Card>
+            {data.isAdmin && (
+              <div className="mt-4 flex justify-end">
+                <DeletePatientButton patientId={patient.id} patientName={toTitleCase(patient.name)} />
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* 8. Financial Summary — hidden for doctors (L1/L2 only) */}
       {currentUser.permissionLevel <= 2 && (
         <section>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Financial Summary</h3>

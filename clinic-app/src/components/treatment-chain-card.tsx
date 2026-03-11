@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,12 +47,14 @@ export function TreatmentChainCard({
   chain,
   isDoctor,
   permissionLevel,
+  defaultExpanded = true,
 }: {
   chain: TreatmentChainData;
   isDoctor?: boolean;
   permissionLevel?: number;
+  defaultExpanded?: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const level = permissionLevel ?? 0;
   const showCosts = level <= 3; // L1, L2, L3 see costs. L4 does not.
 
@@ -159,18 +160,6 @@ export function TreatmentChainCard({
             />
           ))}
 
-          {/* Chain actions */}
-          {chain.status === "ACTIVE" && !isDoctor && (
-            <div className="pt-2 border-t flex gap-2">
-              <Button size="sm" variant="outline" asChild>
-                <Link
-                  href={`/patients/${chain.patientId}/chain/new?chainId=${chain.id}`}
-                >
-                  Add Plan to Chain
-                </Link>
-              </Button>
-            </div>
-          )}
         </CardContent>
       )}
     </Card>

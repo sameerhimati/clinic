@@ -45,12 +45,14 @@ export function ClinicalNotepad({
   chains,
   canAddNotes,
   currentDoctorName,
+  visitId,
 }: {
   patientId: number;
   notes: NoteEntry[];
   chains: ChainOption[];
   canAddNotes: boolean;
   currentDoctorName?: string;
+  visitId?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -94,6 +96,7 @@ export function ClinicalNotepad({
           patientId,
           content,
           selectedChainId !== "none" ? parseInt(selectedChainId) : null,
+          visitId ?? null,
         );
         setContent("");
         toast.success("Note saved");

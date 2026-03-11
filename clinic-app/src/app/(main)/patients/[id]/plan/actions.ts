@@ -3,7 +3,15 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
-import { logFlaggedAction } from "@/lib/audit";
+import { logAudit, logFlaggedAction } from "@/lib/audit";
+
+// W7: Validate date parsing
+function parseDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) throw new Error(`Invalid date: ${s}`);
+  return d;
+}
 
 type PlanItemInput = {
   label: string;
@@ -53,7 +61,7 @@ export async function createTreatmentPlan(
           estimatedCost: item.estimatedCost || null,
           estimatedLabCost: item.estimatedLabCost || null,
           labRateId: item.labRateId || null,
-          scheduledDate: item.scheduledDate ? new Date(item.scheduledDate) : null,
+          scheduledDate: parseDate(item.scheduledDate),
           notes: item.notes || null,
           // If first item and a visit is provided, mark it completed
           ...(index === 0 && firstItemVisitId
@@ -63,6 +71,15 @@ export async function createTreatmentPlan(
       },
     },
     include: { items: true },
+  });
+
+  logAudit({
+    action: "PLAN_CREATED",
+    actorId: currentUser.id,
+    patientId,
+    entityType: "TreatmentPlan",
+    entityId: plan.id,
+    details: { title, itemCount: items.length, estimatedTotal },
   });
 
   revalidatePath(`/patients/${patientId}`);
@@ -127,7 +144,7 @@ export async function updateTreatmentPlan(
         estimatedCost: item.estimatedCost || null,
         estimatedLabCost: item.estimatedLabCost || null,
         labRateId: item.labRateId || null,
-        scheduledDate: item.scheduledDate ? new Date(item.scheduledDate) : null,
+        scheduledDate: parseDate(item.scheduledDate),
         notes: item.notes || null,
       })),
     });
@@ -303,7 +320,8 @@ export async function modifyPlanItem(
   reason: string,
 ) {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel > 4) {
+  // C1: L3 doctors + L4 consultants can modify plan items; L1/L2 cannot
+  if (currentUser.permissionLevel < 3) {
     throw new Error("Unauthorized");
   }
 
@@ -345,6 +363,8 @@ export async function modifyPlanItem(
 
 // Get treatment steps for an operation (used by plan editor)
 export async function getOperationSteps(operationId: number) {
+  // C2: Require authentication for read-only actions
+  await requireAuth();
   return prisma.treatmentStep.findMany({
     where: { operationId },
     orderBy: { stepNumber: "asc" },

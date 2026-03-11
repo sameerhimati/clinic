@@ -128,6 +128,8 @@ export function TreatmentPlanCard({
   const [modifyStatus, setModifyStatus] = useState<"CHANGED" | "NOT_APPLICABLE">("CHANGED");
   const [modifyReason, setModifyReason] = useState("");
   const canModify = (permissionLevel ?? 0) >= 3;
+  // W1: Gate costs — L1/L2/L3 see costs, L4 does not
+  const showCosts = (permissionLevel ?? 0) <= 3;
   const items = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const completedCount = items.filter((i) => i.visitId !== null).length;
   const totalCount = items.length;
@@ -220,7 +222,7 @@ export function TreatmentPlanCard({
             <CardTitle className="text-base">{plan.title}</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               {completedCount} of {totalCount} steps
-              {plan.estimatedTotal ? (
+              {showCosts && plan.estimatedTotal ? (
                 <span className="ml-2 font-semibold text-primary">
                   ₹{plan.estimatedTotal.toLocaleString("en-IN")}
                 </span>
@@ -285,13 +287,13 @@ export function TreatmentPlanCard({
                     {item.label}
                   </span>
                   {/* Cost inline */}
-                  {item.estimatedCost ? (
+                  {showCosts && item.estimatedCost ? (
                     <span className="text-xs text-muted-foreground ml-2">
                       ₹{item.estimatedCost.toLocaleString("en-IN")}
                     </span>
                   ) : null}
                   {/* Lab badge */}
-                  {item.labRateName && (
+                  {showCosts && item.labRateName && (
                     <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1.5 text-muted-foreground">
                       Lab: {item.labRateName}
                       {item.estimatedLabCost ? ` ₹${item.estimatedLabCost.toLocaleString("en-IN")}` : ""}

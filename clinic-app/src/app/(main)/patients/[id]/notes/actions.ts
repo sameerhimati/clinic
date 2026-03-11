@@ -11,11 +11,22 @@ export async function addClinicalNote(
   visitId?: number | null,
 ) {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel > 4) {
+  // C1: L3 doctors + L4 consultants can write notes; L1/L2 cannot
+  if (currentUser.permissionLevel < 3) {
     throw new Error("Unauthorized");
   }
 
   if (!content.trim()) throw new Error("Note content is required");
+
+  // C4: Validate chainId/visitId belong to this patient
+  if (chainId) {
+    const chain = await prisma.treatmentChain.findUnique({ where: { id: chainId }, select: { patientId: true } });
+    if (!chain || chain.patientId !== patientId) throw new Error("Invalid chain");
+  }
+  if (visitId) {
+    const visit = await prisma.visit.findUnique({ where: { id: visitId }, select: { patientId: true } });
+    if (!visit || visit.patientId !== patientId) throw new Error("Invalid visit");
+  }
 
   await prisma.clinicalNote.create({
     data: {
@@ -33,6 +44,8 @@ export async function addClinicalNote(
 }
 
 export async function getPatientNotes(patientId: number) {
+  // C2: Require authentication for read-only actions
+  await requireAuth();
   return prisma.clinicalNote.findMany({
     where: { patientId },
     orderBy: { noteDate: "asc" },

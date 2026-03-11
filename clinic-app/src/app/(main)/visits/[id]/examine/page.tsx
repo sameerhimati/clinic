@@ -218,6 +218,23 @@ export default async function ExaminePage({
     },
   });
 
+  // Clinical notes for notepad + active chains
+  const [clinicalNotes, notepadChains] = await Promise.all([
+    prisma.clinicalNote.findMany({
+      where: { patientId: visit.patientId },
+      orderBy: { noteDate: "asc" },
+      include: {
+        doctor: { select: { name: true } },
+        chain: { select: { id: true, title: true } },
+      },
+    }),
+    prisma.treatmentChain.findMany({
+      where: { patientId: visit.patientId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, title: true },
+    }),
+  ]);
+
   // Operations for the plan editor
   const allOperationsRaw = await prisma.operation.findMany({
     where: { isActive: true },
@@ -328,6 +345,15 @@ export default async function ExaminePage({
           notes: ts.notes ?? undefined,
         }))}
         toothFindings={activeFindings}
+        clinicalNotes={clinicalNotes.map((n) => ({
+          id: n.id,
+          content: n.content,
+          noteDate: n.noteDate.toISOString(),
+          doctorName: n.doctor.name,
+          chainId: n.chainId,
+          chainTitle: n.chain?.title || null,
+        }))}
+        notepadChains={notepadChains}
         toothHistory={toothHistory.map((h) => ({
           toothNumber: h.toothNumber,
           status: h.status,

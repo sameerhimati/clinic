@@ -32,6 +32,7 @@ import { completePlanItems } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
 import { toTitleCase, formatDateTime } from "@/lib/format";
 import { CheckCircle2, Circle } from "lucide-react";
+import { ClinicalNotepad, type NoteEntry, type ChainOption } from "@/components/clinical-notepad";
 
 type PreviousReport = {
   visitId: number;
@@ -574,6 +575,8 @@ export function ExaminationForm({
   patientDiseases,
   patientFiles,
   currentStepTemplate,
+  clinicalNotes,
+  notepadChains,
   toothStatuses: toothStatusesProp,
   toothFindings,
   toothHistory: toothHistoryProp,
@@ -611,6 +614,8 @@ export function ExaminationForm({
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
   patientDiseases?: string[];
   patientFiles?: PatientFileRef[];
+  clinicalNotes?: NoteEntry[];
+  notepadChains?: ChainOption[];
   toothStatuses?: { toothNumber: number; status: string; findingId?: number; findingName?: string; color?: string; notes?: string }[];
   toothFindings?: ToothFindingOption[];
   toothHistory?: { toothNumber: number; status: string; findingName?: string; date: string; doctorName: string; visitCaseNo?: number }[];
@@ -1415,6 +1420,18 @@ export function ExaminationForm({
 
           </CardContent>
         </Card>
+      )}
+
+      {/* Clinical Notepad — patient-level running notes */}
+      {patientId && clinicalNotes && notepadChains && (
+        <ClinicalNotepad
+          patientId={patientId}
+          notes={clinicalNotes}
+          chains={notepadChains}
+          canAddNotes={isDoctor && !readOnly && !isLocked}
+          currentDoctorName={currentDoctor?.name}
+          visitId={visitId}
+        />
       )}
 
       {/* Work Done — between notes and treatment plan */}
