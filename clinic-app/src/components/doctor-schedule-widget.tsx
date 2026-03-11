@@ -296,17 +296,6 @@ export function DoctorScheduleWidget({
                         )}
                       </div>
                       <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                        {appt.status === "SCHEDULED" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() => handleStatusChange(appt.id, "ARRIVED")}
-                            disabled={isPending}
-                          >
-                            Arrived
-                          </Button>
-                        )}
                         {appt.status === "ARRIVED" && (
                           <Button
                             size="sm"

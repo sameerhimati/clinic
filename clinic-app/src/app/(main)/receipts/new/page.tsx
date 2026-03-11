@@ -19,9 +19,11 @@ export default async function NewReceiptPage({
 
   const params = await searchParams;
 
-  // Fetch all visits with receipt data to calculate balances
+  // Fetch visits with outstanding balance
   const visits = await prisma.visit.findMany({
+    where: { operationRate: { gt: 0 } },
     orderBy: { visitDate: "desc" },
+    take: 500,
     include: {
       patient: { select: { name: true, code: true } },
       operation: { select: { name: true } },

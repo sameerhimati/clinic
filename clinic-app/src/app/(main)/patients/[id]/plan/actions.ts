@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
+import { canCreateTreatmentPlans } from "@/lib/permissions";
 import { logAudit, logFlaggedAction } from "@/lib/audit";
 
 // W7: Validate date parsing
@@ -33,7 +34,7 @@ export async function createTreatmentPlan(
   firstItemVisitId?: number | null,
 ) {
   const currentUser = await requireAuth();
-  if (currentUser.permissionLevel > 3) {
+  if (!canCreateTreatmentPlans(currentUser.permissionLevel)) {
     throw new Error("Unauthorized");
   }
 

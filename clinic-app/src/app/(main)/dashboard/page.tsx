@@ -37,8 +37,8 @@ async function getAdminDashboardData() {
   const [
     todayVisits,
     todayReceipts,
+    totalOutstandingResult,
     pendingPaymentVisits,
-    outstandingVisits,
     todayAppointments,
   ] = await Promise.all([
     prisma.visit.count({
@@ -49,19 +49,20 @@ async function getAdminDashboardData() {
       _sum: { amount: true },
       _count: true,
     }),
+    prisma.$queryRaw<[{ total: number }]>`
+      SELECT COALESCE(SUM(v.operationRate - v.discount - COALESCE(r.paid, 0)), 0) as total
+      FROM visits v
+      LEFT JOIN (SELECT visitId, SUM(amount) as paid FROM receipts GROUP BY visitId) r ON r.visitId = v.id
+      WHERE v.operationRate > 0 AND (v.operationRate - v.discount - COALESCE(r.paid, 0)) > 0
+    `,
     prisma.visit.findMany({
       where: { operationRate: { gt: 0 } },
       orderBy: { visitDate: "desc" },
+      take: 200,
       include: {
         patient: { select: { id: true, name: true, code: true } },
         operation: { select: { name: true } },
         doctor: { select: { name: true } },
-        receipts: { select: { amount: true } },
-      },
-    }),
-    prisma.visit.findMany({
-      where: { operationRate: { gt: 0 } },
-      include: {
         receipts: { select: { amount: true } },
       },
     }),
@@ -79,16 +80,36 @@ async function getAdminDashboardData() {
     }),
   ]);
 
-  let totalOutstanding = 0;
-  for (const visit of outstandingVisits) {
-    const balance = calcBalance(visit, visit.receipts);
-    if (balance > 0) totalOutstanding += balance;
-  }
+  const totalOutstanding = Number(totalOutstandingResult[0]?.total ?? 0);
 
   // Filter to visits with outstanding balance, take top 5
   const pendingPayments = pendingPaymentVisits
     .filter((v) => calcBalance(v, v.receipts) > 0)
     .slice(0, 5);
+
+  // Batch-query escrow balances for today's appointment patients
+  const appointmentPatientIds = [...new Set(todayAppointments.map((a) => a.patientId))];
+  let escrowBalanceMap = new Map<number, number>();
+  if (appointmentPatientIds.length > 0) {
+    const [apptDeposits, apptFulfillments] = await Promise.all([
+      prisma.patientPayment.groupBy({
+        by: ["patientId"],
+        where: { patientId: { in: appointmentPatientIds } },
+        _sum: { amount: true },
+      }),
+      prisma.escrowFulfillment.groupBy({
+        by: ["patientId"],
+        where: { patientId: { in: appointmentPatientIds } },
+        _sum: { amount: true },
+      }),
+    ]);
+    const apptFulMap = new Map(apptFulfillments.map((f) => [f.patientId, f._sum.amount || 0]));
+    for (const d of apptDeposits) {
+      const dep = d._sum.amount || 0;
+      const ful = apptFulMap.get(d.patientId) || 0;
+      escrowBalanceMap.set(d.patientId, dep - ful);
+    }
+  }
 
   // Negative escrow patients
   const allPatientPayments = await prisma.patientPayment.groupBy({
@@ -278,6 +299,7 @@ async function getAdminDashboardData() {
     negativeEscrowPatients,
     followUpQueue,
     readyForCheckout,
+    escrowBalanceMap,
   };
 }
 
@@ -363,7 +385,7 @@ export default async function DashboardPage() {
         {/* Compact header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-2xl font-bold">{greeting}, {isConsultant ? "" : "Dr. "}{toTitleCase(doctor.name)}</h2>
+            <h2 className="text-2xl font-bold">{greeting}, Dr. {toTitleCase(doctor.name)}</h2>
             <span className="text-sm text-muted-foreground">{formatFullDate(new Date())}</span>
           </div>
         </div>
@@ -519,6 +541,7 @@ export default async function DashboardPage() {
           status: appt.status,
           reason: appt.reason,
           medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
+          escrowBalance: data.escrowBalanceMap.get(appt.patientId) ?? null,
         }))}
       />
 

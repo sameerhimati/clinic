@@ -96,7 +96,7 @@ export async function recordEscrowDeposit(data: {
   ]);
   const nextReceiptNo = Math.max(maxReceipt._max.receiptNo || 0, maxPayment._max.receiptNo || 0) + 1;
 
-  await prisma.patientPayment.create({
+  const payment = await prisma.patientPayment.create({
     data: {
       patientId,
       amount,
@@ -112,4 +112,6 @@ export async function recordEscrowDeposit(data: {
   revalidatePath(`/patients/${patientId}`);
   revalidatePath(`/patients/${patientId}/checkout`);
   revalidatePath("/dashboard");
+
+  return { paymentId: payment.id, receiptNo: nextReceiptNo };
 }

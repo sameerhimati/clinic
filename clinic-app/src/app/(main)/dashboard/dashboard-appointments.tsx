@@ -23,6 +23,7 @@ type DashboardAppointment = {
   status: string;
   reason: string | null;
   medicalAlerts?: string[];
+  escrowBalance?: number | null;
 };
 
 const STATUS_BORDER_COLOR: Record<string, string> = {
@@ -117,10 +118,15 @@ export function DashboardAppointmentList({
                         ))}
                       </div>
                     )}
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
                       {appt.timeSlot && <span>{appt.timeSlot} · </span>}
                       {appt.doctorName && <span>Dr. {appt.doctorName} · </span>}
                       {appt.reason || "Appointment"}
+                      {appt.escrowBalance != null && appt.escrowBalance < 0 && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">
+                          Due: {"\u20B9"}{Math.abs(appt.escrowBalance).toLocaleString("en-IN")}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>

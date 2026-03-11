@@ -92,6 +92,28 @@ const MORE_COMPLAINTS = [
   "OTHER",
 ];
 
+const TOP_DIAGNOSES = [
+  "Dental Caries",
+  "Pulpitis",
+  "Periapical Abscess",
+  "Gingivitis",
+  "Periodontitis",
+  "Fractured Tooth",
+];
+
+const MORE_DIAGNOSES = [
+  "Impacted Tooth",
+  "Malocclusion",
+  "Temporomandibular Disorder",
+  "Oral Ulcer",
+  "Root Stump",
+  "Attrition",
+  "Dental Fluorosis",
+  "Pericoronitis",
+  "Calculus",
+  "Tooth Erosion",
+];
+
 
 type ExistingReport = {
   id: number;
@@ -411,6 +433,77 @@ function PreviousNotesPanel({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function QuickPills({
+  label,
+  value,
+  onChange,
+  topItems,
+  moreItems,
+  uppercase = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  topItems: string[];
+  moreItems: string[];
+  uppercase?: boolean;
+}) {
+  const [showMore, setShowMore] = useState(false);
+  const normalize = (s: string) => uppercase ? s.toUpperCase() : s.toLowerCase();
+  const selectedParts = value.split(",").map(s => s.trim()).filter(Boolean);
+  const normalizedSelected = selectedParts.map(normalize);
+  const hasMoreSelected = moreItems.some(c => normalizedSelected.includes(normalize(c)));
+  const visibleItems = (showMore || hasMoreSelected) ? [...topItems, ...moreItems] : topItems;
+
+  const toggle = (item: string) => {
+    const parts = value.split(",").map(s => s.trim()).filter(Boolean);
+    const normed = parts.map(normalize);
+    if (normed.includes(normalize(item))) {
+      onChange(parts.filter((_, i) => normed[i] !== normalize(item)).join(", "));
+    } else {
+      onChange(value ? value + ", " + item : item);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleItems.map((c) => (
+          <button
+            key={c}
+            type="button"
+            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+              normalizedSelected.includes(normalize(c))
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-input hover:bg-accent"
+            }`}
+            onClick={() => toggle(c)}
+          >
+            {c}
+          </button>
+        ))}
+        {!showMore && !hasMoreSelected && (
+          <button
+            type="button"
+            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
+            onClick={() => setShowMore(true)}
+          >
+            More...
+          </button>
+        )}
+      </div>
+      <Textarea
+        placeholder={`Type or select ${label.toLowerCase()}...`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        className="text-sm"
+      />
     </div>
   );
 }
@@ -784,7 +877,6 @@ export function ExaminationForm({
   // Express renders: plan progress + compact chart + work done + brief note
   const isExpressCandidate = isFollowUp && !existingReport;
   const [viewMode, setViewMode] = useState<"express" | "full">(isExpressCandidate ? "express" : "full");
-  const isQuickMode = viewMode === "full"; // "full" = current quick layout (backwards compat)
 
   // Autosave drafts to localStorage
   const draftKey = `exam-draft-${visitId}`;
@@ -906,7 +998,7 @@ export function ExaminationForm({
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === "s") {
         e.preventDefault();
-        handleSaveRef.current("detail");
+        handleSaveRef.current("stay");
       } else if (mod && e.key === "Enter") {
         e.preventDefault();
         handleSaveRef.current("next");
@@ -924,7 +1016,7 @@ export function ExaminationForm({
 
 
 
-  async function handleSave(redirectTarget: "detail" | "print" | "next") {
+  async function handleSave(redirectTarget: "detail" | "print" | "next" | "stay") {
     startTransition(async () => {
       try {
         clearDraft();
@@ -993,7 +1085,11 @@ export function ExaminationForm({
         } else if (!matchingPlanItem) {
           toast.success("Examination saved");
         }
-        if (redirectTarget === "print") {
+        if (redirectTarget === "stay") {
+          toast.success("Saved");
+          router.refresh();
+          return;
+        } else if (redirectTarget === "print") {
           router.push(`/visits/${visitId}/examine/print`);
         } else if (redirectTarget === "next") {
           // Find next arrived patient and go directly to their exam
@@ -1383,6 +1479,14 @@ export function ExaminationForm({
           <CardContent className="space-y-4">
             <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
 
+            <QuickPills
+              label="Diagnosis"
+              value={diagnosis}
+              onChange={setDiagnosis}
+              topItems={TOP_DIAGNOSES}
+              moreItems={MORE_DIAGNOSES}
+            />
+
             <div className="space-y-1.5">
               <Label>Teeth {toothUpdates.size > 0 && <span className="text-xs text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</Label>
               <ToothChart
@@ -1626,12 +1730,20 @@ export function ExaminationForm({
               </Button>
             )}
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSave("stay")}
+              disabled={isPending}
+            >
+              {isPending ? "Saving..." : "Save"}
+            </Button>
+            <Button
               variant={isDoctor ? "outline" : "default"}
               size="sm"
               onClick={() => handleSave("detail")}
               disabled={isPending}
             >
-              {isPending ? "Saving..." : "Save"}
+              {isPending ? "Saving..." : "Save & Close"}
             </Button>
             {isDoctor && (
               <Button

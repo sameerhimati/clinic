@@ -56,7 +56,7 @@ export async function updateAppointmentStatus(
   newStatus: string,
   cancelReason?: string
 ) {
-  await requireAuth();
+  const currentUser = await requireAuth();
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -66,6 +66,19 @@ export async function updateAppointmentStatus(
   const allowed = getAllowedNextStatuses(appointment.status);
   if (!allowed.includes(newStatus)) {
     throw new Error(`Cannot transition from ${appointment.status} to ${newStatus}`);
+  }
+
+  // L1/L2 can change any status. Doctors can only revert their OWN
+  // appointment from COMPLETED→IN_PROGRESS (exam form undo).
+  if (!canSchedule(currentUser.permissionLevel)) {
+    const isDoctorUndo =
+      currentUser.permissionLevel >= 3 &&
+      appointment.doctorId === currentUser.id &&
+      appointment.status === "COMPLETED" &&
+      newStatus === "IN_PROGRESS";
+    if (!isDoctorUndo) {
+      throw new Error("Only admin/reception can update appointment status");
+    }
   }
 
   // cancelReason is optional — appointments cancelled from patient detail may not have one

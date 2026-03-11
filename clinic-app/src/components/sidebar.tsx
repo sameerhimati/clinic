@@ -72,7 +72,7 @@ const navSections: NavSection[] = [
     visible: (level) => level >= 3,
     items: [
       { href: "/my-activity", label: "My Activity", icon: Activity },
-      { href: (id: number) => `/doctors/${id}/edit`, label: "My Schedule", icon: Clock },
+      { href: "/appointments", label: "My Schedule", icon: Clock },
     ],
   },
 ];

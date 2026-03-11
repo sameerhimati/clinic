@@ -18,7 +18,8 @@ import { recordEscrowDeposit } from "./actions";
 import { format } from "date-fns";
 import { todayString } from "@/lib/validations";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, CheckCircle2, Printer } from "lucide-react";
+import Link from "next/link";
 
 type EscrowPayment = {
   id: number;
@@ -65,6 +66,7 @@ export function EscrowCheckout({
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
   const [showHistory, setShowHistory] = useState(false);
+  const [lastPayment, setLastPayment] = useState<{ paymentId: number; receiptNo: number } | null>(null);
 
   const payAmount = parseFloat(amount) || 0;
 
@@ -72,7 +74,7 @@ export function EscrowCheckout({
     if (payAmount <= 0) return;
     startTransition(async () => {
       try {
-        await recordEscrowDeposit({
+        const result = await recordEscrowDeposit({
           patientId,
           amount: payAmount,
           paymentMode,
@@ -80,6 +82,7 @@ export function EscrowCheckout({
           notes: notes || undefined,
         });
         toast.success(`Collected \u20B9${payAmount.toLocaleString("en-IN")} successfully`);
+        setLastPayment(result);
         setAmount("");
         setNotes("");
         router.refresh();
@@ -224,6 +227,18 @@ export function EscrowCheckout({
           >
             {isPending ? "Processing..." : payAmount > 0 ? `Collect \u20B9${payAmount.toLocaleString("en-IN")}` : "Enter Amount"}
           </Button>
+
+          {lastPayment && (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <span className="text-sm text-green-800 font-medium">Payment recorded (Receipt #{lastPayment.receiptNo})</span>
+              <div className="flex gap-2 ml-2">
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={`/patients/${patientId}`}>Done</Link>
+                </Button>
+              </div>
+            </div>
+          )}
 
           <p className="text-xs text-muted-foreground text-center">
             Goes into patient account. Auto-deducted when procedures are completed.

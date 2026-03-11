@@ -77,10 +77,16 @@ export default async function PaymentsPage({
     depositWhere.paymentMode = modeFilter;
   }
 
+  // Fetch limited records for the current page window + counts/aggregates
+  const fetchLimit = pageSize * 3;
+  const fetchSkip = Math.max(0, (page - 1) * pageSize);
+
   const [receipts, deposits, receiptTotal, depositTotal, receiptAgg, depositAgg] = await Promise.all([
     prisma.receipt.findMany({
       where: receiptWhere,
       orderBy: { receiptDate: "desc" },
+      take: fetchLimit,
+      skip: fetchSkip,
       include: {
         visit: {
           include: {
@@ -93,6 +99,8 @@ export default async function PaymentsPage({
     prisma.patientPayment.findMany({
       where: depositWhere,
       orderBy: { paymentDate: "desc" },
+      take: fetchLimit,
+      skip: fetchSkip,
       include: {
         patient: { select: { id: true, name: true, code: true } },
       },
@@ -133,8 +141,8 @@ export default async function PaymentsPage({
 
   const total = receiptTotal + depositTotal;
   const totalAmount = (receiptAgg._sum.amount || 0) + (depositAgg._sum.amount || 0);
-  const totalPages = Math.ceil(unified.length / pageSize);
-  const paged = unified.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(total / pageSize);
+  const paged = unified.slice(0, pageSize);
 
   const typeBadge = {
     Receipt: { className: "bg-green-50 text-green-700 border-green-200" },

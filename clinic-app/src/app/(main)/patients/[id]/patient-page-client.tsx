@@ -210,12 +210,14 @@ function TreatmentPlansSection({ plans, patientId, isDoctor, permissionLevel }: 
               </Link>
             </Button>
           )}
-          <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-            <Link href={`/patients/${patientId}/plan/new`}>
-              <ClipboardList className="h-3.5 w-3.5 mr-1" />
-              New Plan
-            </Link>
-          </Button>
+          {permissionLevel === 3 && (
+            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+              <Link href={`/patients/${patientId}/plan/new`}>
+                <ClipboardList className="h-3.5 w-3.5 mr-1" />
+                New Plan
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
       {activePlans.length > 0 ? (
@@ -925,12 +927,14 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       <section>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
-          <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-            <Link href={smartScheduleUrl}>
-              <CalendarDays className="h-3.5 w-3.5 mr-1" />
-              Schedule
-            </Link>
-          </Button>
+          {!isDoctor && (
+            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+              <Link href={smartScheduleUrl}>
+                <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                Schedule
+              </Link>
+            </Button>
+          )}
         </div>
         <Card>
           <CardContent className="p-0">
@@ -952,7 +956,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {appt.status === "SCHEDULED" && (
+                    {appt.status === "SCHEDULED" && !isDoctor && (
                       <Button
                         size="sm"
                         className="h-7 text-xs"

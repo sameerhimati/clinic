@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
+import { canCreateTreatmentPlans } from "@/lib/permissions";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { toTitleCase } from "@/lib/format";
 import { NewPlanForm } from "./new-plan-form";
@@ -15,6 +16,7 @@ export default async function NewPlanPage({
   const { id } = await params;
   const patientId = parseInt(id);
   const currentUser = await requireAuth();
+  if (!canCreateTreatmentPlans(currentUser.permissionLevel)) redirect("/dashboard");
 
   const [patient, operations, doctors] = await Promise.all([
     prisma.patient.findUnique({
