@@ -23,7 +23,7 @@ type DashboardAppointment = {
   status: string;
   reason: string | null;
   medicalAlerts?: string[];
-  escrowBalance?: number | null;
+  totalCollected?: number | null;
 };
 
 const STATUS_BORDER_COLOR: Record<string, string> = {
@@ -122,9 +122,9 @@ export function DashboardAppointmentList({
                       {appt.timeSlot && <span>{appt.timeSlot} · </span>}
                       {appt.doctorName && <span>Dr. {appt.doctorName} · </span>}
                       {appt.reason || "Appointment"}
-                      {appt.escrowBalance != null && appt.escrowBalance < 0 && (
+                      {appt.totalCollected != null && appt.totalCollected < 0 && (
                         <Badge variant="destructive" className="text-xs px-1.5 py-0 ml-1">
-                          Due: {"\u20B9"}{Math.abs(appt.escrowBalance).toLocaleString("en-IN")}
+                          Due: {"\u20B9"}{Math.abs(appt.totalCollected).toLocaleString("en-IN")}
                         </Badge>
                       )}
                     </div>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toTitleCase, formatDate, formatDateTime, getVisitLabel } from "@/lib/format";
-import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, Check, ArrowRight, Circle, Wrench, Pill, Printer } from "lucide-react";
+import { IndianRupee, FileText, ClipboardPlus, GitBranch, Lock, MessageSquarePlus, CalendarDays, Check, ArrowRight, Circle, Pill, Printer } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, canSeeInternalCosts, isReportLocked } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
@@ -16,7 +16,7 @@ import { DetailRow } from "@/components/detail-row";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ToastOnParam } from "@/components/toast-on-param";
 import { ConsultantQuickNote } from "@/components/consultant-quick-note";
-import { getStatusLabel } from "@/lib/dental";
+
 
 export const dynamic = "force-dynamic";
 
@@ -195,18 +195,6 @@ export default async function VisitDetailPage({
     }
   }
 
-  // Fetch work done entries for this visit
-  const workDoneEntries = await prisma.workDone.findMany({
-    where: { visitId: visit.id },
-    include: {
-      operation: { select: { name: true } },
-      performedBy: { select: { name: true } },
-      planItem: { select: { label: true } },
-      fulfillment: { select: { id: true, amount: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
-
   // Fetch prescriptions for this visit
   const prescriptions = await prisma.prescription.findMany({
     where: { visitId: visit.id },
@@ -272,7 +260,7 @@ export default async function VisitDetailPage({
             <Link href={`/patients/${visit.patientId}`} className="hover:underline font-medium">
               #{visit.patient.code} {visit.patient.salutation && `${visit.patient.salutation}. `}{toTitleCase(visit.patient.name)}
             </Link>
-            {" \u00b7 "}
+            {" · "}
             {formatDate(visit.visitDate)}
           </p>
           {/* Step label */}
@@ -378,7 +366,7 @@ export default async function VisitDetailPage({
                     <span>{formatDate(fu.visitDate)}</span>
                     <span className="text-muted-foreground">—</span>
                     <span className="font-medium">{fu.operation?.name || fu.customLabel || "Visit"}</span>
-                    {fu.doctor && <span className="text-muted-foreground">\u00b7 Dr. {toTitleCase(fu.doctor.name)}</span>}
+                    {fu.doctor && <span className="text-muted-foreground"> · Dr. {toTitleCase(fu.doctor.name)}</span>}
                   </div>
                   <Badge variant="outline" className="text-xs">View</Badge>
                 </Link>
@@ -566,52 +554,6 @@ export default async function VisitDetailPage({
         </Card>
       )}
 
-      {/* Work Done */}
-      {workDoneEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              Work Done ({workDoneEntries.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {workDoneEntries.map((wd) => (
-              <div key={wd.id} className="flex items-start gap-2 text-sm rounded-md border p-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{wd.operation.name}</span>
-                    {wd.toothNumber && (
-                      <span className="text-xs text-muted-foreground">Tooth {wd.toothNumber}</span>
-                    )}
-                    {wd.resultingStatus && (
-                      <Badge variant="outline" className="text-xs px-1.5 py-0">
-                        → {getStatusLabel(wd.resultingStatus)}
-                      </Badge>
-                    )}
-                    {wd.planItem && (
-                      <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0 inline-flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        {wd.planItem.label}
-                      </span>
-                    )}
-                    {wd.fulfillment && !isDoctor && (
-                      <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0">
-                        Escrow: {"\u20B9"}{wd.fulfillment.amount.toLocaleString("en-IN")}
-                      </span>
-                    )}
-                  </div>
-                  {wd.notes && <p className="text-xs text-muted-foreground mt-1">{wd.notes}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Dr. {toTitleCase(wd.performedBy.name)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Prescriptions */}
       {prescriptions.length > 0 && (
         <Card>
@@ -666,7 +608,7 @@ export default async function VisitDetailPage({
 
       {/* L4 Consultant Quick Note */}
       {currentUser.permissionLevel === 4 && clinicalReport && (
-        <ConsultantQuickNote visitId={visit.id} />
+        <ConsultantQuickNote visitId={visit.id} patientId={visit.patientId} />
       )}
 
       {/* Visit Details — only fields not in header */}

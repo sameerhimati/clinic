@@ -46,6 +46,11 @@ export function canCreateTreatmentPlans(permissionLevel: number): boolean {
   return permissionLevel === 3;
 }
 
+/** Can schedule follow-up appointments from exam page (L3 doctors + L4 consultants) */
+export function canScheduleFollowUp(permissionLevel: number): boolean {
+  return permissionLevel === 3 || permissionLevel === 4;
+}
+
 /** Can create visits directly (L1 admin + L2 reception only) */
 export function canCreateVisits(permissionLevel: number): boolean {
   return permissionLevel <= 2;
@@ -59,9 +64,24 @@ export function isAdmin(permissionLevel: number): boolean {
 /** Max discount percent allowed by role */
 export function maxDiscountPercent(permissionLevel: number, isSuperUser: boolean): number {
   if (permissionLevel <= 1) return 100; // L1: unlimited
-  if (permissionLevel === 2 && isSuperUser) return 50; // L2 super: up to 50%
+  if (permissionLevel === 2 && isSuperUser) return 100; // L2 super: unlimited
   if (permissionLevel <= 3) return 20; // L2 standard + L3: up to 20%
   return 0; // L4: no discounts
+}
+
+/** Can override minimum fee enforcement (rate below tariff minimum) */
+export function canOverrideMinFee(permissionLevel: number, isSuperUser: boolean): boolean {
+  return permissionLevel <= 1 || (permissionLevel === 2 && isSuperUser);
+}
+
+/** Can manage lab rates and operation tariffs (L1 always, L2 super-user) */
+export function canManageRates(permissionLevel: number, isSuperUser: boolean): boolean {
+  return permissionLevel <= 1 || (permissionLevel === 2 && isSuperUser);
+}
+
+/** Can create/manage lab orders (L1/L2 only) */
+export function canManageLabOrders(permissionLevel: number): boolean {
+  return permissionLevel <= 2;
 }
 
 /** Whether discount >20% requires a reason (for audit) */

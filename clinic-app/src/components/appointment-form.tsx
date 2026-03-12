@@ -123,6 +123,7 @@ export function AppointmentForm({
   const [selectedRoomId, setSelectedRoomId] = useState<number | undefined>(defaultRoomId || (defaultDoctorId && doctorDefaultRooms?.[defaultDoctorId]) || undefined);
   const [selectedDate, setSelectedDate] = useState(defaultDate || todayString());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(defaultTimeSlot || "");
+  const [appointmentType, setAppointmentType] = useState<"CONSULTATION" | "TREATMENT">(planItemId ? "TREATMENT" : "CONSULTATION");
   const [reason, setReason] = useState(defaultReason || "");
   const [conflicts, setConflicts] = useState<{ id: number; patientName: string; timeSlot: string | null; status: string }[]>([]);
   const conflictTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,6 +224,7 @@ export function AppointmentForm({
       )}
       {isWalkIn && <input type="hidden" name="isWalkIn" value="true" />}
       {planItemId && <input type="hidden" name="planItemId" value={planItemId} />}
+      <input type="hidden" name="type" value={appointmentType} />
 
       {/* Scheduling */}
       <Card>
@@ -308,6 +310,26 @@ export function AppointmentForm({
               </div>
             </label>
           )}
+
+          {/* Appointment Type — auto-inferred from planItemId */}
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Badge
+              variant="outline"
+              className={`text-sm py-1 px-3 ${
+                appointmentType === "TREATMENT"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-blue-50 text-blue-700 border-blue-200"
+              }`}
+            >
+              {appointmentType === "TREATMENT" ? "Treatment" : "Consultation"}
+            </Badge>
+            {planItemId && (
+              <p className="text-xs text-muted-foreground">
+                Auto-set to Treatment (linked to plan step)
+              </p>
+            )}
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Doctor */}

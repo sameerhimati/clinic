@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { formatDate, toTitleCase } from "@/lib/format";
 import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
+import { activateChain, cancelChain } from "@/app/(main)/patients/[id]/chain/actions";
+import { toast } from "sonner";
 
 export type ChainPlanData = TreatmentPlanData & {
   chainOrder: number | null;
@@ -48,11 +51,15 @@ export function TreatmentChainCard({
   isDoctor,
   permissionLevel,
   defaultExpanded = true,
+  onScheduleFollowUp,
+  onAddPlan,
 }: {
   chain: TreatmentChainData;
   isDoctor?: boolean;
   permissionLevel?: number;
   defaultExpanded?: boolean;
+  onScheduleFollowUp?: (defaults: { reason: string; doctorId?: number; date?: string; planItemId?: number }) => void;
+  onAddPlan?: (chainId: number, chainTitle: string, toothNumbers: string | null) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const level = permissionLevel ?? 0;
@@ -75,7 +82,13 @@ export function TreatmentChainCard({
     0,
   );
 
+  const isDraft = chain.status === "DRAFT";
+
   const statusBadge = {
+    DRAFT: {
+      label: "Draft",
+      className: "bg-amber-50 text-amber-700 border-amber-200",
+    },
     ACTIVE: {
       label: "Active",
       className: "bg-blue-50 text-blue-700 border-blue-200",
@@ -90,8 +103,35 @@ export function TreatmentChainCard({
     },
   }[chain.status] || { label: chain.status, className: "" };
 
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleActivate() {
+    startTransition(async () => {
+      try {
+        await activateChain(chain.id);
+        toast.success("Chain activated");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to activate");
+      }
+    });
+  }
+
+  function handleCancel() {
+    startTransition(async () => {
+      try {
+        await cancelChain(chain.id);
+        toast.success("Chain cancelled");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to cancel");
+      }
+    });
+  }
+
   return (
-    <Card className="border-primary/20">
+    <Card className={isDraft ? "border-dashed border-amber-300" : "border-primary/20"}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -157,9 +197,57 @@ export function TreatmentChainCard({
               isDoctor={isDoctor}
               permissionLevel={level}
               patientId={chain.patientId}
+              onScheduleFollowUp={onScheduleFollowUp}
             />
           ))}
 
+          {/* Draft chain actions */}
+          {isDraft && level === 3 && (
+            <div className="flex gap-2 pt-2 border-t">
+              {onAddPlan && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => onAddPlan(chain.id, chain.title, chain.toothNumbers)}
+                >
+                  + Add Plan
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs text-green-700 border-green-300 hover:bg-green-50"
+                onClick={handleActivate}
+                disabled={isPending}
+              >
+                Activate
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs text-muted-foreground hover:text-destructive"
+                onClick={handleCancel}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {/* Active chain — add more plans (L3 doctor only) */}
+          {chain.status === "ACTIVE" && level === 3 && onAddPlan && (
+            <div className="flex gap-2 pt-2 border-t">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => onAddPlan(chain.id, chain.title, chain.toothNumbers)}
+              >
+                + Add Plan
+              </Button>
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
@@ -173,6 +261,7 @@ function ChainPlanSection({
   isDoctor,
   permissionLevel,
   patientId,
+  onScheduleFollowUp,
 }: {
   plan: ChainPlanData;
   planIndex: number;
@@ -180,6 +269,7 @@ function ChainPlanSection({
   isDoctor?: boolean;
   permissionLevel: number;
   patientId: number;
+  onScheduleFollowUp?: (defaults: { reason: string; doctorId?: number; date?: string; planItemId?: number }) => void;
 }) {
   const items = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const completedCount = items.filter((i) => i.visitId !== null).length;
@@ -262,8 +352,21 @@ function ChainPlanSection({
                   </span>
                 )}
 
-                {/* Scheduled date */}
-                {!isItemCompleted && item.scheduledDate && (
+                {/* Appointment scheduled */}
+                {!isItemCompleted && item.appointment && (
+                  <span className="text-xs ml-2">
+                    <span className="text-blue-600">{formatDate(item.appointment.date)}</span>
+                    {item.appointment.doctorName && (
+                      <span className="text-muted-foreground"> · Dr. {toTitleCase(item.appointment.doctorName)}</span>
+                    )}
+                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                      Scheduled
+                    </Badge>
+                  </span>
+                )}
+
+                {/* Scheduled date (no appointment yet) */}
+                {!isItemCompleted && !item.appointment && item.scheduledDate && (
                   <span className="text-xs text-muted-foreground ml-2">
                     → {formatDate(item.scheduledDate)}
                   </span>
@@ -285,24 +388,59 @@ function ChainPlanSection({
         })}
       </div>
 
-      {/* Plan actions — schedule next */}
-      {!isComplete && !isDoctor && plan.status === "ACTIVE" && (
-        <div className="flex gap-2 pt-1">
-          {(() => {
-            const nextItem = items.find((i) => i.visitId === null);
-            if (!nextItem) return null;
-            const scheduleUrl = `/appointments/new?patientId=${patientId}${nextItem.assignedDoctorId ? `&doctorId=${nextItem.assignedDoctorId}` : ""}&reason=${encodeURIComponent(nextItem.label)}${nextItem.scheduledDate ? `&date=${new Date(nextItem.scheduledDate).toISOString().split("T")[0]}` : ""}&planItemId=${nextItem.id}`;
-            return (
+      {/* Plan actions — schedule next or show upcoming appointment */}
+      {!isComplete && plan.status === "ACTIVE" && (() => {
+        const nextItem = items.find((i) => i.visitId === null);
+        if (!nextItem) return null;
+        const hasAppointment = nextItem.appointment != null;
+
+        if (hasAppointment) {
+          return (
+            <div className="flex items-center gap-2 pt-1 text-xs">
+              <CalendarDays className="h-3 w-3 text-blue-600" />
+              <span className="text-blue-700 font-medium">
+                {nextItem.label} — {formatDate(nextItem.appointment!.date)}
+              </span>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                {nextItem.appointment!.status === "SCHEDULED" ? "Scheduled" : nextItem.appointment!.status === "ARRIVED" ? "Arrived" : "In Progress"}
+              </Badge>
+              {nextItem.appointment!.doctorName && (
+                <span className="text-muted-foreground">Dr. {toTitleCase(nextItem.appointment!.doctorName)}</span>
+              )}
+            </div>
+          );
+        }
+
+        if (isDoctor) return null;
+
+        return (
+          <div className="flex gap-2 pt-1">
+            {onScheduleFollowUp ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => onScheduleFollowUp({
+                  reason: nextItem.label,
+                  doctorId: nextItem.assignedDoctorId || undefined,
+                  date: nextItem.scheduledDate ? new Date(nextItem.scheduledDate).toISOString().split("T")[0] : undefined,
+                  planItemId: nextItem.id > 0 ? nextItem.id : undefined,
+                })}
+              >
+                <CalendarDays className="mr-1 h-3 w-3" />
+                Schedule: {nextItem.label}
+              </Button>
+            ) : (
               <Button size="sm" variant="outline" asChild className="text-xs">
-                <Link href={scheduleUrl}>
+                <Link href={`/appointments/new?patientId=${patientId}${nextItem.assignedDoctorId ? `&doctorId=${nextItem.assignedDoctorId}` : ""}&reason=${encodeURIComponent(nextItem.label)}${nextItem.scheduledDate ? `&date=${new Date(nextItem.scheduledDate).toISOString().split("T")[0]}` : ""}${nextItem.id > 0 ? `&planItemId=${nextItem.id}` : ""}`}>
                   <CalendarDays className="mr-1 h-3 w-3" />
                   Schedule: {nextItem.label}
                 </Link>
               </Button>
-            );
-          })()}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

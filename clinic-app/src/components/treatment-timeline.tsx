@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toTitleCase, formatDate, formatDateTime, getVisitLabel } from "@/lib/format";
 import { Calendar, AlertTriangle, ChevronDown, ChevronRight, MessageSquarePlus, Lock, Plus, ClipboardList } from "lucide-react";
 import { useState, useTransition } from "react";
-import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
+import { addClinicalNote } from "@/app/(main)/patients/[id]/notes/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -114,7 +114,7 @@ function TeethBadge({ teethJson }: { teethJson: string | null }) {
   }
 }
 
-function QuickNoteForm({ visitId }: { visitId: number }) {
+function QuickNoteForm({ visitId, patientId }: { visitId: number; patientId: number }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -149,7 +149,7 @@ function QuickNoteForm({ visitId }: { visitId: number }) {
           onClick={() => {
             startTransition(async () => {
               try {
-                await saveQuickNote(visitId, note);
+                await addClinicalNote(patientId, note, null, visitId);
                 toast.success("Note saved");
                 setNote("");
                 setOpen(false);
@@ -364,7 +364,7 @@ function StandaloneVisitEntry({
           <div className="border-t px-3 py-2 flex items-center gap-2 text-sm">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
             <span className="text-amber-600 text-xs">Notes not recorded</span>
-            <QuickNoteForm visitId={visit.id} />
+            <QuickNoteForm visitId={visit.id} patientId={patientId} />
             <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
               Full Notes
             </Link>
@@ -517,7 +517,7 @@ function ChainTimeline({
                           <div className="flex items-center gap-2 text-sm mt-1" onClick={(e) => e.stopPropagation()}>
                             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                             <span className="text-amber-600 text-xs">Notes not recorded</span>
-                            <QuickNoteForm visitId={visit.id} />
+                            <QuickNoteForm visitId={visit.id} patientId={patientId} />
                             <Link href={`/visits/${visit.id}/examine`} className="text-xs text-blue-600 hover:underline">
                               Full Notes
                             </Link>

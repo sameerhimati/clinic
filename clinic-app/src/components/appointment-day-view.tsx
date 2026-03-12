@@ -46,6 +46,7 @@ type Appointment = {
   roomId: number | null;
   roomName: string | null;
   timeSlot: string | null;
+  type: string;
   status: string;
   reason: string | null;
   notes: string | null;
@@ -286,10 +287,17 @@ function AppointmentCard({
         </div>
         <SecondaryActions appt={appt} onStatusChange={onStatusChange} isDoctor={isDoctor} doctors={doctors} onReassignDoctor={onReassignDoctor} />
       </div>
-      {/* Treatment / operation name — bold */}
-      {appt.operationName && (
-        <div className="font-medium truncate">{appt.operationName}</div>
-      )}
+      {/* Type badge + Treatment / operation name */}
+      <div className="flex items-center gap-1.5">
+        <span className={`inline-flex items-center rounded px-1 py-0.5 text-[10px] font-medium leading-none ${
+          appt.type === "TREATMENT" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+        }`}>
+          {appt.type === "TREATMENT" ? "Tx" : "Consult"}
+        </span>
+        {appt.operationName && (
+          <span className="font-medium truncate">{appt.operationName}</span>
+        )}
+      </div>
       {/* Step label for follow-ups */}
       {appt.stepLabel && (
         <div className="text-primary truncate">{appt.stepLabel}</div>

@@ -3,13 +3,6 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Notebook, Send } from "lucide-react";
 import { addClinicalNote } from "@/app/(main)/patients/[id]/notes/actions";
 import { toast } from "sonner";
@@ -23,6 +16,17 @@ export type NoteEntry = {
   doctorName: string;
   chainId: number | null;
   chainTitle: string | null;
+  // Historical ClinicalReport entries (read-only, interleaved by date)
+  isHistorical?: boolean;
+  visitCaseNo?: number | null;
+  operationName?: string | null;
+  fields?: {
+    complaint?: string | null;
+    diagnosis?: string | null;
+    treatmentNotes?: string | null;
+    examination?: string | null;
+    medication?: string | null;
+  };
 };
 
 export type ChainOption = {
@@ -57,36 +61,12 @@ export function ClinicalNotepad({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [content, setContent] = useState("");
-  const [selectedChainId, setSelectedChainId] = useState<string>("none");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom on mount
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [notes.length]);
-
-  // Group notes by chain
-  const chainNotes: Record<number, NoteEntry[]> = {};
-  const unchainedNotes: NoteEntry[] = [];
-
-  for (const note of notes) {
-    if (note.chainId) {
-      if (!chainNotes[note.chainId]) chainNotes[note.chainId] = [];
-      chainNotes[note.chainId].push(note);
-    } else {
-      unchainedNotes.push(note);
-    }
-  }
-
-  // Order chains by first note date
-  const chainOrder = Object.entries(chainNotes)
-    .map(([chainId, notes]) => ({
-      chainId: parseInt(chainId),
-      title: notes[0].chainTitle || "Unknown Chain",
-      notes,
-      firstDate: notes[0].noteDate,
-    }))
-    .sort((a, b) => a.firstDate.localeCompare(b.firstDate));
 
   function handleSubmit() {
     if (!content.trim()) return;
@@ -95,7 +75,7 @@ export function ClinicalNotepad({
         await addClinicalNote(
           patientId,
           content,
-          selectedChainId !== "none" ? parseInt(selectedChainId) : null,
+          null, // no chain — always patient-level
           visitId ?? null,
         );
         setContent("");
@@ -120,8 +100,8 @@ export function ClinicalNotepad({
         </span>
       </div>
 
-      {/* Notes area — scrollable lined paper effect */}
-      <div className="max-h-[500px] overflow-y-auto px-4 py-3 space-y-0 font-mono text-[13px] leading-relaxed bg-[repeating-linear-gradient(transparent,transparent_27px,hsl(var(--border)/0.3)_28px)]">
+      {/* Notes area — scrollable continuous stream */}
+      <div className="max-h-[500px] overflow-y-auto px-4 py-3 space-y-0 font-mono text-sm leading-relaxed">
         {!hasNotes && (
           <div className="text-center text-muted-foreground py-8">
             <Notebook className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -130,30 +110,8 @@ export function ClinicalNotepad({
           </div>
         )}
 
-        {/* Chain sections */}
-        {chainOrder.map((chainGroup) => (
-          <div key={chainGroup.chainId} className="mb-4">
-            {/* Major divider */}
-            <div className="text-primary font-bold py-1 tracking-wide border-b-2 border-double border-primary/30 mb-2">
-              ═══ {chainGroup.title} ═══
-            </div>
-
-            {/* Notes within chain, grouped by date */}
-            {renderNotesByDate(chainGroup.notes)}
-          </div>
-        ))}
-
-        {/* Unchained notes */}
-        {unchainedNotes.length > 0 && (
-          <div className="mb-4">
-            {chainOrder.length > 0 && (
-              <div className="text-muted-foreground font-bold py-1 tracking-wide border-b-2 border-double border-muted-foreground/20 mb-2">
-                ═══ Other Notes ═══
-              </div>
-            )}
-            {renderNotesByDate(unchainedNotes)}
-          </div>
-        )}
+        {/* All notes in a single reverse-chronological stream */}
+        {hasNotes && renderNotesByDate(notes)}
 
         <div ref={bottomRef} />
       </div>
@@ -161,37 +119,19 @@ export function ClinicalNotepad({
       {/* Input area */}
       {canAddNotes && (
         <div className="border-t p-3 space-y-2 bg-muted/10">
-          <div className="flex gap-2 items-center">
-            {chains.length > 0 && (
-              <Select
-                value={selectedChainId}
-                onValueChange={setSelectedChainId}
-              >
-                <SelectTrigger className="h-8 text-xs w-48">
-                  <SelectValue placeholder="Chain (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No chain</SelectItem>
-                  {chains.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {currentDoctorName && (
-              <span className="text-xs text-muted-foreground ml-auto">
+          {currentDoctorName && (
+            <div className="flex items-center">
+              <span className="text-xs text-muted-foreground">
                 Dr. {toTitleCase(currentDoctorName)}
               </span>
-            )}
-          </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Type your note here..."
-              rows={3}
+              rows={4}
               className="text-sm font-mono resize-none"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -240,11 +180,35 @@ function renderNotesByDate(notes: NoteEntry[]) {
         {date} — Dr. {toTitleCase(dateNotes[0].doctorName)}
       </div>
       {/* Notes content */}
-      {dateNotes.map((note) => (
-        <div key={note.id} className="whitespace-pre-wrap text-foreground mb-1">
-          {note.content}
-        </div>
-      ))}
+      {dateNotes.map((note) =>
+        note.isHistorical ? (
+          <div key={note.id} className="rounded bg-muted/30 px-2.5 py-1.5 mb-1.5 text-foreground border-l-2 border-blue-300">
+            <div className="text-xs text-muted-foreground font-semibold mb-0.5">
+              {note.visitCaseNo && `Case #${note.visitCaseNo}`}
+              {note.operationName && ` — ${note.operationName}`}
+            </div>
+            {note.fields?.complaint && (
+              <div><span className="text-muted-foreground">C: </span>{note.fields.complaint}</div>
+            )}
+            {note.fields?.diagnosis && (
+              <div><span className="text-muted-foreground">D: </span>{note.fields.diagnosis}</div>
+            )}
+            {note.fields?.treatmentNotes && (
+              <div><span className="text-muted-foreground">Tx: </span>{note.fields.treatmentNotes}</div>
+            )}
+            {note.fields?.examination && (
+              <div><span className="text-muted-foreground">Ex: </span>{note.fields.examination}</div>
+            )}
+            {note.fields?.medication && (
+              <div><span className="text-muted-foreground">Rx: </span>{note.fields.medication}</div>
+            )}
+          </div>
+        ) : (
+          <div key={note.id} className="whitespace-pre-wrap text-foreground mb-1">
+            {note.content}
+          </div>
+        )
+      )}
     </div>
   ));
 }

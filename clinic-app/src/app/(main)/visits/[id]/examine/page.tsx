@@ -40,49 +40,27 @@ export default async function ExaminePage({
     redirect(`/visits/${visitId}`);
   }
 
-  // Fetch ALL previous visits for this patient (full history, not just chain)
+  // Fetch ALL previous visits for this patient (for historical notepad entries)
   const allPatientVisits = await prisma.visit.findMany({
     where: { patientId: visit.patientId, id: { not: visitId } },
     include: {
-      doctor: { select: { name: true } },
       operation: { select: { name: true } },
       clinicalReports: {
-        include: {
+        select: {
+          reportDate: true,
+          doctorId: true,
           doctor: { select: { name: true } },
-          addendums: {
-            include: { doctor: { select: { name: true } } },
-            orderBy: { createdAt: "asc" },
-          },
+          complaint: true,
+          examination: true,
+          diagnosis: true,
+          treatmentNotes: true,
+          medication: true,
         },
         take: 1,
       },
     },
-    orderBy: { visitDate: "desc" },
+    orderBy: { visitDate: "asc" },
   });
-
-  const previousReports = allPatientVisits
-    .filter((v) => v.clinicalReports.length > 0)
-    .map((v) => {
-      const r = v.clinicalReports[0];
-      return {
-        visitId: v.id,
-        caseNo: v.caseNo,
-        stepLabel: v.stepLabel,
-        operationName: v.operation?.name || null,
-        doctorName: toTitleCase(r.doctor.name),
-        reportDate: formatDate(r.reportDate),
-        complaint: r.complaint,
-        examination: r.examination,
-        diagnosis: r.diagnosis,
-        treatmentNotes: r.treatmentNotes,
-        medication: r.medication,
-        addendums: r.addendums.map((a) => ({
-          content: a.content,
-          doctorName: toTitleCase(a.doctor.name),
-          createdAt: formatDate(a.createdAt),
-        })),
-      };
-    });
 
   // Load existing clinical report if any
   const existingReport = await prisma.clinicalReport.findFirst({
@@ -126,7 +104,7 @@ export default async function ExaminePage({
   ]);
 
   // Fetch data for treatment plan creation (doctors + template steps + existing plans + availability)
-  const [treatmentSteps, activeDoctors, existingPlans, doctorAvailability] = await Promise.all([
+  const [treatmentSteps, activeDoctors, patientChains, doctorAvailability] = await Promise.all([
     visit.operationId
       ? prisma.treatmentStep.findMany({
           where: { operationId: visit.operationId },
@@ -139,17 +117,23 @@ export default async function ExaminePage({
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    prisma.treatmentPlan.findMany({
+    // Fetch all chains (non-cancelled) with ALL plans for full progress view
+    prisma.treatmentChain.findMany({
       where: {
         patientId: visit.patientId,
-        status: "ACTIVE",
+        status: { not: "CANCELLED" },
       },
-      select: {
-        id: true,
-        title: true,
-        items: {
-          orderBy: { sortOrder: "asc" },
-          select: { id: true, label: true, sortOrder: true, visitId: true, completedAt: true, operationId: true },
+      orderBy: { createdAt: "asc" },
+      include: {
+        plans: {
+          where: { status: { not: "CANCELLED" } },
+          orderBy: { chainOrder: "asc" },
+          include: {
+            items: {
+              orderBy: { sortOrder: "asc" },
+              select: { id: true, label: true, sortOrder: true, visitId: true, completedAt: true, operationId: true },
+            },
+          },
         },
       },
     }),
@@ -158,45 +142,67 @@ export default async function ExaminePage({
     }),
   ]);
 
-  // Find a matching plan item for this visit (follow-ups with active plan)
-  // Match by: operation matches an incomplete item, or stepLabel matches an item label
-  let matchingPlanItem: {
-    itemId: number;
-    itemLabel: string;
-    planId: number;
-    planTitle: string;
-    allItems: { id: number; label: string; sortOrder: number; isCompleted: boolean }[];
-  } | null = null;
+  // Also fetch standalone active plans (no chain)
+  const standalonePlans = await prisma.treatmentPlan.findMany({
+    where: {
+      patientId: visit.patientId,
+      chainId: null,
+      status: "ACTIVE",
+    },
+    include: {
+      items: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, label: true, sortOrder: true, visitId: true, completedAt: true, operationId: true },
+      },
+    },
+  });
 
-  if (visit.parentVisitId) {
-    for (const plan of existingPlans) {
-      const incompleteItems = plan.items.filter((i) => i.visitId === null);
-      // Try to match by stepLabel first, then by operationId (no fallback — must match)
-      const match =
-        (visit.stepLabel
-          ? incompleteItems.find((i) => i.label === visit.stepLabel)
-          : null) ||
-        (visit.operationId
-          ? incompleteItems.find((i) => i.operationId === visit.operationId)
-          : null);
+  // Build chain-grouped progress data
+  const activeChainsForProgress = [
+    // Chains with their plans
+    ...patientChains.map((chain) => ({
+      chainId: chain.id,
+      chainTitle: chain.title,
+      chainStatus: chain.status,
+      chainToothNumbers: chain.toothNumbers,
+      plans: chain.plans.map((p) => ({
+        planId: p.id,
+        planTitle: p.title,
+        planStatus: p.status,
+        items: p.items.map((i) => ({
+          id: i.id,
+          label: i.label,
+          sortOrder: i.sortOrder,
+          completedAt: i.completedAt ? i.completedAt.toISOString() : null,
+          visitId: i.visitId,
+        })),
+      })),
+    })),
+    // Standalone plans as pseudo-chains
+    ...standalonePlans.map((p) => ({
+      chainId: -p.id,
+      chainTitle: p.title,
+      chainStatus: "ACTIVE",
+      plans: [{
+        planId: p.id,
+        planTitle: p.title,
+        planStatus: p.status,
+        items: p.items.map((i) => ({
+          id: i.id,
+          label: i.label,
+          sortOrder: i.sortOrder,
+          completedAt: i.completedAt ? i.completedAt.toISOString() : null,
+          visitId: i.visitId,
+        })),
+      }],
+    })),
+  ].filter((c) => c.plans.length > 0);
 
-      if (match) {
-        matchingPlanItem = {
-          itemId: match.id,
-          itemLabel: match.label,
-          planId: plan.id,
-          planTitle: plan.title,
-          allItems: plan.items.map((i) => ({
-            id: i.id,
-            label: i.label,
-            sortOrder: i.sortOrder,
-            isCompleted: i.visitId !== null,
-          })),
-        };
-        break;
-      }
-    }
-  }
+  // Keep flat active plans for Treatment Plans card (edit links) — include DRAFT plans too
+  const existingActivePlans = [
+    ...patientChains.flatMap((c) => c.plans.filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")),
+    ...standalonePlans,
+  ];
 
   // Fetch patient files (X-rays, scans, photos) for reference during exam
   const patientFiles = await prisma.patientFile.findMany({
@@ -235,11 +241,53 @@ export default async function ExaminePage({
     }),
   ]);
 
+  // Transform past ClinicalReports into historical NoteEntry for the notepad
+  const historicalNotes = allPatientVisits
+    .filter((v) => v.clinicalReports.length > 0)
+    .filter((v) => {
+      const r = v.clinicalReports[0];
+      return r.complaint || r.diagnosis || r.treatmentNotes || r.examination;
+    })
+    .map((v) => {
+      const r = v.clinicalReports[0];
+      return {
+        id: -v.id, // negative to distinguish from real notes
+        content: "",
+        noteDate: r.reportDate.toISOString(),
+        doctorName: r.doctor.name,
+        chainId: null as number | null,
+        chainTitle: null as string | null,
+        isHistorical: true as const,
+        visitCaseNo: v.caseNo,
+        operationName: v.operation?.name || null,
+        fields: {
+          complaint: r.complaint,
+          diagnosis: r.diagnosis,
+          treatmentNotes: r.treatmentNotes,
+          examination: r.examination,
+          medication: r.medication,
+        },
+      };
+    });
+
+  // Merge historical + real notes, sorted by date
+  const allNoteEntries = [
+    ...historicalNotes,
+    ...clinicalNotes.map((n) => ({
+      id: n.id,
+      content: n.content,
+      noteDate: n.noteDate.toISOString(),
+      doctorName: n.doctor.name,
+      chainId: n.chainId,
+      chainTitle: n.chain?.title || null,
+    })),
+  ].sort((a, b) => a.noteDate.localeCompare(b.noteDate));
+
   // Operations for the plan editor
   const allOperationsRaw = await prisma.operation.findMany({
     where: { isActive: true },
     orderBy: [{ category: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, category: true, suggestsOperationId: true, _count: { select: { treatmentSteps: true } } },
+    select: { id: true, name: true, category: true, suggestsOperationId: true, defaultMinFee: true, _count: { select: { treatmentSteps: true } } },
   });
   const allOperations = allOperationsRaw.map((op) => ({
     id: op.id,
@@ -247,10 +295,11 @@ export default async function ExaminePage({
     category: op.category,
     stepCount: op._count.treatmentSteps,
     suggestsOperationId: op.suggestsOperationId,
+    defaultMinFee: op.defaultMinFee,
   }));
 
   return (
-    <div className={previousReports.length > 0 ? "space-y-6" : "max-w-3xl space-y-6"}>
+    <div className="max-w-3xl space-y-6">
       <Breadcrumbs items={[
         { label: "Patients", href: "/patients" },
         { label: toTitleCase(visit.patient.name), href: `/patients/${visit.patient.id}` },
@@ -307,19 +356,12 @@ export default async function ExaminePage({
         permissionLevel={currentUser.permissionLevel}
         readOnly={!userCanExamine}
         patientDiseases={visit.patient.diseases.map((pd) => pd.disease.name)}
-        previousReports={previousReports}
         operationName={operationName}
         isFollowUp={!!visit.parentVisitId}
-        treatmentSteps={treatmentSteps}
-        currentStepTemplate={
-          visit.stepLabel
-            ? treatmentSteps.find((s) => s.name === visit.stepLabel)?.noteTemplate ?? null
-            : treatmentSteps[0]?.noteTemplate ?? null
-        }
         allDoctors={activeDoctors}
         allOperations={allOperations}
-        matchingPlanItem={matchingPlanItem}
-        existingActivePlans={existingPlans.map((p) => ({
+        activeChainsForProgress={activeChainsForProgress}
+        existingActivePlans={existingActivePlans.map((p) => ({
           id: p.id,
           title: p.title,
           nextItemLabel: p.items.find((i) => i.visitId === null)?.label || null,
@@ -345,14 +387,7 @@ export default async function ExaminePage({
           notes: ts.notes ?? undefined,
         }))}
         toothFindings={activeFindings}
-        clinicalNotes={clinicalNotes.map((n) => ({
-          id: n.id,
-          content: n.content,
-          noteDate: n.noteDate.toISOString(),
-          doctorName: n.doctor.name,
-          chainId: n.chainId,
-          chainTitle: n.chain?.title || null,
-        }))}
+        clinicalNotes={allNoteEntries}
         notepadChains={notepadChains}
         toothHistory={toothHistory.map((h) => ({
           toothNumber: h.toothNumber,

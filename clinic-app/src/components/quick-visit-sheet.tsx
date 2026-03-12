@@ -14,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { OperationCombobox, type Operation, type Doctor, type Lab } from "@/components/visit-form";
 import { toTitleCase } from "@/lib/format";
@@ -88,13 +87,6 @@ export function QuickVisitSheet({
   const [visitDate, setVisitDate] = useState(todayString());
   const [stepLabel, setStepLabel] = useState("");
   const [notes, setNotes] = useState("");
-  const [showLabSection, setShowLabSection] = useState(false);
-  const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
-  const [labRateId, setLabRateId] = useState<number | null>(null);
-  const [labRateAmount, setLabRateAmount] = useState("0");
-  const [labQuantity, setLabQuantity] = useState("1");
-
-  const selectedLab = labs.find((l) => l.id === selectedLabId);
   const rateNum = parseFloat(operationRate) || 0;
 
   function resetForm() {
@@ -107,11 +99,6 @@ export function QuickVisitSheet({
     setVisitDate(todayString());
     setStepLabel("");
     setNotes("");
-    setShowLabSection(false);
-    setSelectedLabId(null);
-    setLabRateId(null);
-    setLabRateAmount("0");
-    setLabQuantity("1");
   }
 
   async function handleSubmit(andExamine: boolean) {
@@ -136,10 +123,6 @@ export function QuickVisitSheet({
           parentVisitId: followUpContext?.rootVisitId,
           stepLabel: stepLabel || undefined,
           notes: notes || undefined,
-          labId: selectedLabId || undefined,
-          labRateId: labRateId || undefined,
-          labRateAmount: parseFloat(labRateAmount) || undefined,
-          labQuantity: parseInt(labQuantity) || undefined,
           appointmentId,
         });
 
@@ -160,7 +143,7 @@ export function QuickVisitSheet({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -334,89 +317,6 @@ export function QuickVisitSheet({
                 ))}
               </select>
             </div>
-          )}
-
-          {/* Lab Work (collapsible) — hidden for doctors */}
-          {!isDoctor && (
-            <>
-              {!showLabSection ? (
-                <button
-                  type="button"
-                  onClick={() => setShowLabSection(true)}
-                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                  Add Lab Work
-                </button>
-              ) : (
-                <div className="rounded-lg border p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Lab Work</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => {
-                        setShowLabSection(false);
-                        setSelectedLabId(null);
-                        setLabRateId(null);
-                      }}
-                    >
-                      <X className="h-3 w-3 mr-1" /> Remove
-                    </Button>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Lab</Label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                        onChange={(e) => {
-                          setSelectedLabId(e.target.value ? parseInt(e.target.value) : null);
-                          setLabRateId(null);
-                        }}
-                      >
-                        <option value="">Select lab...</option>
-                        {labs.map((l) => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {selectedLab && (
-                      <div className="space-y-1.5">
-                        <Label>Lab Item</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                          onChange={(e) => {
-                            const rateId = e.target.value ? parseInt(e.target.value) : null;
-                            setLabRateId(rateId);
-                            if (rateId && selectedLab) {
-                              const rate = selectedLab.rates.find(r => r.id === rateId);
-                              if (rate && rate.rate > 0) setLabRateAmount(rate.rate.toString());
-                            }
-                          }}
-                        >
-                          <option value="">Select item...</option>
-                          {selectedLab.rates.map((lr) => (
-                            <option key={lr.id} value={lr.id}>
-                              {lr.itemName} {lr.rate > 0 ? `(₹${formatINR(lr.rate)})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    <div className="space-y-1.5">
-                      <Label>Lab Rate (₹)</Label>
-                      <Input type="number" step="1" min="0" value={labRateAmount} onChange={(e) => setLabRateAmount(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Qty</Label>
-                      <Input type="number" min="1" value={labQuantity} onChange={(e) => setLabQuantity(e.target.value)} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
           )}
 
           {/* Notes */}

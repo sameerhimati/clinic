@@ -3,51 +3,49 @@
 import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth-context";
-import { saveExamination, finalizeReport, unlockReport, addAddendum, getNextArrivedAppointment } from "./actions";
+import { saveExamination, finalizeReport, unlockReport, addAddendum, getNextArrivedAppointment, createFollowUpAppointment } from "./actions";
 import { createVisitAndExamine } from "@/app/(main)/visits/actions";
 import { updateAppointmentStatus } from "@/app/(main)/appointments/actions";
 import { toast } from "sonner";
+import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, AlertTriangle, ImageIcon, X, ZoomIn, Download, Pill, ClipboardList, Plus, CalendarDays, Trash2, Pencil, ChevronsUpDown, Check as CheckIcon } from "lucide-react";
+import Link from "next/link";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Lock, Unlock, Clock, MessageSquarePlus, Printer, ChevronDown, ChevronUp, FileText, ToggleLeft, ToggleRight, AlertTriangle, ImageIcon, X, ZoomIn, Download, Pill, StickyNote } from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { canCreateTreatmentPlans } from "@/lib/permissions";
 import { PrescriptionSheet } from "@/components/prescription-sheet";
 import { ToothChart, type ToothStatusData } from "@/components/tooth-chart";
 import { ToothDetailPanel, type ToothUpdate, type ToothFindingOption } from "@/components/tooth-detail-panel";
 import { TOOTH_STATUSES, TOOTH_STATUS_INDICATORS, getStatusColor, type ToothStatusKey } from "@/lib/dental";
-import { WorkDoneCard, type WorkDoneEntry } from "@/components/work-done-card";
-import { completePlanItems } from "@/app/(main)/patients/[id]/plan/actions";
 import { format } from "date-fns";
 import { toTitleCase, formatDateTime } from "@/lib/format";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, Square, SquareCheck } from "lucide-react";
 import { ClinicalNotepad, type NoteEntry, type ChainOption } from "@/components/clinical-notepad";
-
-type PreviousReport = {
-  visitId: number;
-  caseNo: number | null;
-  stepLabel: string | null;
-  operationName: string | null;
-  doctorName: string;
-  reportDate: string;
-  complaint: string | null;
-  examination: string | null;
-  diagnosis: string | null;
-  treatmentNotes: string | null;
-  medication: string | null;
-  addendums: { content: string; doctorName: string; createdAt: string }[];
-};
+import { InlinePlanSheet } from "@/components/inline-plan-sheet";
+import { activateChain, cancelChain } from "@/app/(main)/patients/[id]/chain/actions";
+import { deletePlanItem, renamePlanItem, deletePlan, cancelPlan } from "@/app/(main)/patients/[id]/plan/actions";
 
 const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -69,51 +67,6 @@ function formatDoctorAvailability(slots: { dayOfWeek: number; startTime: string;
     })
     .join(", ");
 }
-
-const TOP_COMPLAINTS = [
-  "Pain",
-  "Swelling",
-  "Sensitivity",
-  "Broken Tooth",
-  "Bleeding Gums",
-  "Regular Checkup",
-];
-
-const MORE_COMPLAINTS = [
-  "Loose Tooth",
-  "Bad Breath",
-  "Discoloration",
-  "Spacing",
-  "Difficulty Chewing",
-  "Jaw Pain",
-  "Referred By Doctor",
-  "Follow Up",
-  "Orthodontic Consultation",
-  "Other",
-];
-
-const TOP_DIAGNOSES = [
-  "Dental Caries",
-  "Pulpitis",
-  "Periapical Abscess",
-  "Gingivitis",
-  "Periodontitis",
-  "Fractured Tooth",
-];
-
-const MORE_DIAGNOSES = [
-  "Impacted Tooth",
-  "Malocclusion",
-  "Temporomandibular Disorder",
-  "Oral Ulcer",
-  "Root Stump",
-  "Attrition",
-  "Dental Fluorosis",
-  "Pericoronitis",
-  "Calculus",
-  "Tooth Erosion",
-];
-
 
 type ExistingReport = {
   id: number;
@@ -319,267 +272,24 @@ function ExamFileLightbox({
   );
 }
 
-function PreviousNoteCard({ report }: { report: PreviousReport }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasContent = report.complaint || report.diagnosis || report.treatmentNotes || report.examination || report.medication;
-
-  if (!hasContent) return null;
-
-  return (
-    <div className="rounded-md border bg-card p-3 text-xs space-y-1.5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <span className="font-medium text-sm">
-            {report.operationName || report.stepLabel || "Visit"}
-            {report.operationName && report.stepLabel && (
-              <span className="text-muted-foreground font-normal"> — {report.stepLabel}</span>
-            )}
-          </span>
-          <div className="text-muted-foreground">
-            Dr. {report.doctorName} · {report.reportDate}
-            {report.caseNo && <span> · Case #{report.caseNo}</span>}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="shrink-0 rounded p-1 hover:bg-accent"
-        >
-          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        </button>
-      </div>
-
-      {/* Collapsed: truncated fields */}
-      {!expanded && (
-        <div className="space-y-1 text-muted-foreground">
-          {report.complaint && (
-            <div className="line-clamp-2"><span className="font-medium text-foreground">C: </span>{report.complaint}</div>
-          )}
-          {report.diagnosis && (
-            <div className="line-clamp-2"><span className="font-medium text-foreground">D: </span>{report.diagnosis}</div>
-          )}
-          {report.treatmentNotes && (
-            <div className="line-clamp-2"><span className="font-medium text-foreground">Tx: </span>{report.treatmentNotes}</div>
-          )}
-        </div>
-      )}
-
-      {/* Expanded: all fields */}
-      {expanded && (
-        <div className="space-y-2 text-foreground">
-          {report.complaint && (
-            <div><span className="text-muted-foreground font-medium">Complaint: </span><span className="whitespace-pre-wrap">{report.complaint}</span></div>
-          )}
-          {report.examination && (
-            <div><span className="text-muted-foreground font-medium">Examination: </span><span className="whitespace-pre-wrap">{report.examination}</span></div>
-          )}
-          {report.diagnosis && (
-            <div><span className="text-muted-foreground font-medium">Diagnosis: </span><span className="whitespace-pre-wrap">{report.diagnosis}</span></div>
-          )}
-          {report.treatmentNotes && (
-            <div><span className="text-muted-foreground font-medium">Treatment: </span><span className="whitespace-pre-wrap">{report.treatmentNotes}</span></div>
-          )}
-          {report.medication && (
-            <div><span className="text-muted-foreground font-medium">Medication: </span><span className="whitespace-pre-wrap">{report.medication}</span></div>
-          )}
-          {report.addendums.length > 0 && (
-            <div className="border-t pt-1.5 mt-1.5 space-y-1">
-              {report.addendums.map((a, i) => (
-                <div key={i} className="text-xs text-muted-foreground">
-                  <span className="italic">{a.content}</span>
-                  <span className="ml-1">— Dr. {a.doctorName}, {a.createdAt}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PreviousNotesPanel({
-  reports,
-  operationName,
-  collapsed,
-  onToggle,
-}: {
-  reports: PreviousReport[];
-  operationName: string;
-  collapsed?: boolean;
-  onToggle?: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <div
-        className={`flex items-center justify-between ${onToggle ? "cursor-pointer" : ""}`}
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold text-sm">Patient History</h3>
-          <span className="text-xs text-muted-foreground">({reports.length} visit{reports.length !== 1 ? "s" : ""})</span>
-        </div>
-        {onToggle && (
-          <button type="button" className="shrink-0 rounded p-1 hover:bg-accent">
-            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </button>
-        )}
-      </div>
-      {!collapsed && (
-        <div className="space-y-2">
-          {reports.map((r) => (
-            <PreviousNoteCard key={r.visitId} report={r} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QuickPills({
-  label,
-  value,
-  onChange,
-  topItems,
-  moreItems,
-  uppercase = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  topItems: string[];
-  moreItems: string[];
-  uppercase?: boolean;
-}) {
-  const [showMore, setShowMore] = useState(false);
-  const normalize = (s: string) => uppercase ? s.toUpperCase() : s.toLowerCase();
-  const selectedParts = value.split(",").map(s => s.trim()).filter(Boolean);
-  const normalizedSelected = selectedParts.map(normalize);
-  const hasMoreSelected = moreItems.some(c => normalizedSelected.includes(normalize(c)));
-  const visibleItems = (showMore || hasMoreSelected) ? [...topItems, ...moreItems] : topItems;
-
-  const toggle = (item: string) => {
-    const parts = value.split(",").map(s => s.trim()).filter(Boolean);
-    const normed = parts.map(normalize);
-    if (normed.includes(normalize(item))) {
-      onChange(parts.filter((_, i) => normed[i] !== normalize(item)).join(", "));
-    } else {
-      onChange(value ? value + ", " + item : item);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1.5">
-        {visibleItems.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-              normalizedSelected.includes(normalize(c))
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background border-input hover:bg-accent"
-            }`}
-            onClick={() => toggle(c)}
-          >
-            {c}
-          </button>
-        ))}
-        {!showMore && !hasMoreSelected && (
-          <button
-            type="button"
-            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
-            onClick={() => setShowMore(true)}
-          >
-            More...
-          </button>
-        )}
-      </div>
-      <Textarea
-        placeholder={`Type or select ${label.toLowerCase()}...`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={2}
-        className="text-sm"
-      />
-    </div>
-  );
-}
-
-function ComplaintPills({ complaint, setComplaint }: { complaint: string; setComplaint: (v: string) => void }) {
-  const [showMore, setShowMore] = useState(false);
-  const selectedParts = complaint.toUpperCase().split(",").map(s => s.trim()).filter(Boolean);
-  // Auto-expand if any MORE_COMPLAINTS are already selected
-  const hasMoreSelected = MORE_COMPLAINTS.some(c => selectedParts.includes(c.toUpperCase()));
-  const visibleComplaints = (showMore || hasMoreSelected) ? [...TOP_COMPLAINTS, ...MORE_COMPLAINTS] : TOP_COMPLAINTS;
-
-  const toggle = (c: string) => {
-    const parts = complaint.split(",").map(s => s.trim()).filter(Boolean);
-    const upperParts = parts.map(s => s.toUpperCase());
-    if (upperParts.includes(c.toUpperCase())) {
-      setComplaint(parts.filter((_, i) => upperParts[i] !== c.toUpperCase()).join(", "));
-    } else {
-      setComplaint(complaint ? complaint + ", " + c : c);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <Label>Chief Complaint</Label>
-      <div className="flex flex-wrap gap-1.5">
-        {visibleComplaints.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
-              selectedParts.includes(c.toUpperCase())
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background border-input hover:bg-accent"
-            }`}
-            onClick={() => toggle(c)}
-          >
-            {c}
-          </button>
-        ))}
-        {!showMore && !hasMoreSelected && (
-          <button
-            type="button"
-            className="px-2 py-0.5 text-xs rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground hover:bg-accent transition-colors"
-            onClick={() => setShowMore(true)}
-          >
-            More…
-          </button>
-        )}
-      </div>
-      <Textarea
-        placeholder="Additional details..."
-        value={complaint}
-        onChange={(e) => setComplaint(e.target.value)}
-        rows={2}
-      />
-    </div>
-  );
-}
-
 /** Floating apply toolbar — appears when teeth are selected */
 function ToothApplyBar({
   selected,
   onApply,
   onClear,
   onDetails,
-  onRecordWorkDone,
+  findings,
 }: {
   selected: number[];
-  onApply: (status: string) => void;
+  onApply: (status: string, findingId?: number, findingName?: string) => void;
   onClear: () => void;
   onDetails: () => void;
-  onRecordWorkDone?: () => void;
+  findings?: ToothFindingOption[];
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   if (selected.length === 0) return null;
 
-  const statusButtons: { key: string; label: string; indicator: string; color: string }[] = [
+  const statusOptions: { key: string; label: string; indicator: string; color: string }[] = [
     { key: "MISSING", label: "Missing", indicator: TOOTH_STATUS_INDICATORS.MISSING, color: getStatusColor("MISSING") },
     { key: "CARIES", label: "Caries", indicator: TOOTH_STATUS_INDICATORS.CARIES, color: getStatusColor("CARIES") },
     { key: "FILLED", label: "Filled", indicator: TOOTH_STATUS_INDICATORS.FILLED, color: getStatusColor("FILLED") },
@@ -587,52 +297,106 @@ function ToothApplyBar({
     { key: "RCT", label: "RCT", indicator: TOOTH_STATUS_INDICATORS.RCT, color: getStatusColor("RCT") },
     { key: "IMPLANT", label: "Implant", indicator: TOOTH_STATUS_INDICATORS.IMPLANT, color: getStatusColor("IMPLANT") },
     { key: "EXTRACTED", label: "Extracted", indicator: TOOTH_STATUS_INDICATORS.EXTRACTED, color: getStatusColor("EXTRACTED") },
+    { key: "HEALTHY", label: "Healthy", indicator: "✓", color: getStatusColor("HEALTHY") },
   ];
 
+  // Group findings by category
+  const findingsByCategory = new Map<string, ToothFindingOption[]>();
+  if (findings) {
+    for (const f of findings) {
+      const cat = f.category || "Other";
+      if (!findingsByCategory.has(cat)) findingsByCategory.set(cat, []);
+      findingsByCategory.get(cat)!.push(f);
+    }
+  }
+
+  // Map finding names to a tooth status for auto-setting
+  function inferStatusFromFinding(name: string): string {
+    const n = name.toUpperCase();
+    if (n.includes("CARIES")) return "CARIES";
+    if (n.includes("MISSING")) return "MISSING";
+    if (n.includes("FILLED") || n.includes("FILLING")) return "FILLED";
+    if (n.includes("CROWN") || n.includes("VENEER") || n.includes("BRIDGE")) return "CROWNED";
+    if (n.includes("RCT")) return "RCT";
+    if (n.includes("IMPLANT")) return "IMPLANT";
+    if (n.includes("EXTRACT") || n.includes("ROOT STUMP")) return "EXTRACTED";
+    return "CARIES"; // default for clinical findings
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-2 p-2 rounded-lg border border-primary/20 bg-primary/5">
-      <span className="text-xs font-medium text-primary mr-1">
+    <div className="flex flex-wrap items-center gap-2 mt-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
+      <span className="text-xs font-medium text-primary shrink-0">
         {selected.length} {selected.length === 1 ? "tooth" : "teeth"}:
       </span>
-      {statusButtons.map(({ key, label, indicator, color }) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => onApply(key)}
-          className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-input bg-background hover:bg-accent cursor-pointer"
-        >
-          <span style={{ color }} className="text-xs">{indicator}</span>
-          {label}
-        </button>
-      ))}
-      <button
-        type="button"
-        onClick={() => onApply("HEALTHY")}
-        className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-green-300 text-green-700 bg-green-50 hover:bg-green-100 cursor-pointer"
-      >
-        Healthy
-      </button>
+      <Popover open={pickerOpen} onOpenChange={setPickerOpen} modal={false}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 h-8 text-sm font-medium w-[200px] hover:bg-accent cursor-pointer"
+          >
+            <span className="text-muted-foreground">Set status / finding...</span>
+            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0" align="start" disablePortal>
+          <Command>
+            <CommandInput placeholder="Search..." />
+            <CommandList className="max-h-[300px] overscroll-contain">
+              <CommandEmpty>No match.</CommandEmpty>
+              <CommandGroup heading="Status">
+                {statusOptions.map(({ key, label, indicator, color }) => (
+                  <CommandItem
+                    key={key}
+                    value={`status ${label}`}
+                    onSelect={() => {
+                      onApply(key);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    <span style={{ color }} className="text-sm font-bold w-5 text-center shrink-0">{indicator}</span>
+                    <span className="ml-2">{label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              {Array.from(findingsByCategory.entries()).map(([cat, items]) => (
+                <CommandGroup key={cat} heading={cat}>
+                  {items.map((f) => (
+                    <CommandItem
+                      key={f.id}
+                      value={`finding ${f.name} ${cat}`}
+                      onSelect={() => {
+                        const status = inferStatusFromFinding(f.name);
+                        onApply(status, f.id, f.name);
+                        setPickerOpen(false);
+                      }}
+                    >
+                      {f.color && (
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: f.color }}
+                        />
+                      )}
+                      <span className="ml-2">{f.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
       <div className="flex-1" />
-      {onRecordWorkDone && (
-        <button
-          type="button"
-          onClick={onRecordWorkDone}
-          className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium transition-colors border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 cursor-pointer"
-        >
-          Record Work Done
-        </button>
-      )}
       <button
         type="button"
         onClick={onDetails}
-        className="text-xs text-primary hover:underline cursor-pointer"
+        className="text-xs text-primary hover:underline cursor-pointer px-1"
       >
         Details...
       </button>
       <button
         type="button"
         onClick={onClear}
-        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-1"
       >
         Clear
       </button>
@@ -656,13 +420,12 @@ export function ExaminationForm({
   lockedAt,
   permissionLevel,
   readOnly,
-  previousReports,
   operationName,
   isFollowUp,
   treatmentSteps,
   allDoctors,
   allOperations,
-  matchingPlanItem,
+  activeChainsForProgress,
   existingActivePlans,
   doctorAvailability,
   patientDiseases,
@@ -689,21 +452,25 @@ export function ExaminationForm({
   lockedAt: string | null;
   permissionLevel?: number;
   readOnly?: boolean;
-  previousReports?: PreviousReport[];
   operationName?: string;
   isFollowUp?: boolean;
   treatmentSteps?: { name: string; defaultDayGap: number; description: string | null; noteTemplate?: string | null }[];
   currentStepTemplate?: string | null;
   allDoctors?: { id: number; name: string }[];
-  allOperations?: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null }[];
+  allOperations?: { id: number; name: string; category: string | null; stepCount?: number; suggestsOperationId?: number | null; defaultMinFee?: number | null }[];
   doctorAvailability?: { doctorId: number; dayOfWeek: number; startTime: string; endTime: string }[];
-  matchingPlanItem?: {
-    itemId: number;
-    itemLabel: string;
-    planId: number;
-    planTitle: string;
-    allItems: { id: number; label: string; sortOrder: number; isCompleted: boolean }[];
-  } | null;
+  activeChainsForProgress?: {
+    chainId: number;
+    chainTitle: string;
+    chainStatus: string;
+    chainToothNumbers?: string | null;
+    plans: {
+      planId: number;
+      planTitle: string;
+      planStatus: string;
+      items: { id: number; label: string; sortOrder: number; completedAt: string | null; visitId: number | null }[];
+    }[];
+  }[];
   existingActivePlans?: { id: number; title: string; nextItemLabel: string | null }[];
   patientDiseases?: string[];
   patientFiles?: PatientFileRef[];
@@ -724,11 +491,7 @@ export function ExaminationForm({
   // Auto-set report date: preserve existing, default to today for new (local time)
   const reportDate = existingReport?.reportDate || format(new Date(), "yyyy-MM-dd");
 
-  const [complaint, setComplaint] = useState(existingReport?.complaint || "");
   const [examination, setExamination] = useState(existingReport?.examination || "");
-  const [diagnosis, setDiagnosis] = useState(existingReport?.diagnosis || "");
-  const [treatmentNotes, setTreatmentNotes] = useState(existingReport?.treatmentNotes || "");
-  const [estimate, setEstimate] = useState(existingReport?.estimate || "");
   const [addendumText, setAddendumText] = useState("");
   const [teethSelected, setTeethSelected] = useState<number[]>(() => {
     try {
@@ -736,17 +499,30 @@ export function ExaminationForm({
     } catch { return []; }
   });
 
-  // Work Done state
-  const [workDoneEntries, setWorkDoneEntries] = useState<WorkDoneEntry[]>([]);
-  const [workDoneNotes, setWorkDoneNotes] = useState("");
-  const workDoneRef = useRef<HTMLDivElement>(null);
+  // Treatment progress state (replaces Work Done)
+  const [selectedProgressItemIds, setSelectedProgressItemIds] = useState<Set<number>>(new Set());
 
   // Prescription sheet state
   const [rxSheetOpen, setRxSheetOpen] = useState(false);
 
-  // Quick note state
-  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
-  const [quickNote, setQuickNote] = useState("");
+  // Inline plan sheet state
+  const [planSheetOpen, setPlanSheetOpen] = useState(false);
+  const [planSheetMode, setPlanSheetMode] = useState<"new-chain" | "add-to-chain">("new-chain");
+  const [planSheetChainId, setPlanSheetChainId] = useState<number | undefined>();
+  const [planSheetChainTitle, setPlanSheetChainTitle] = useState<string | undefined>();
+  const [planSheetChainTeeth, setPlanSheetChainTeeth] = useState<string | null>(null);
+
+  // Inline plan editing state
+  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editingItemLabel, setEditingItemLabel] = useState("");
+
+  // Follow-up scheduling state
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpTimeSlot, setFollowUpTimeSlot] = useState("");
+  const [followUpScheduled, setFollowUpScheduled] = useState(false);
+
+  const [chartExpanded, setChartExpanded] = useState(false);
 
   // Tooth detail panel state
   const [toothUpdates, setToothUpdates] = useState<Map<number, ToothUpdate>>(new Map());
@@ -780,25 +556,31 @@ export function ExaminationForm({
     return Array.from(result.values());
   })();
 
-  function handleBatchApply(status: string) {
+  function handleBatchApply(status: string, findingId?: number, findingName?: string) {
     const selectedTeeth = [...teethSelected];
     setToothUpdates((prev) => {
       const next = new Map(prev);
       for (const tooth of selectedTeeth) {
-        if (status === "HEALTHY") {
+        if (status === "HEALTHY" && !findingId) {
           next.delete(tooth);
         } else {
           const existing = next.get(tooth);
-          next.set(tooth, { toothNumber: tooth, status, findingId: existing?.findingId, notes: existing?.notes });
+          next.set(tooth, { toothNumber: tooth, status, findingId: findingId ?? existing?.findingId, notes: existing?.notes });
         }
       }
       return next;
     });
-    // Auto-append tooth findings to treatment notes
+    // Auto-append tooth findings to dental chart notes (examination field), deduplicating
     if (status !== "HEALTHY" && selectedTeeth.length > 0) {
-      const statusLabel = TOOTH_STATUSES[status as ToothStatusKey]?.label || status;
-      const lines = selectedTeeth.map((t) => `${t} -- ${statusLabel}`).join("\n");
-      setTreatmentNotes((prev) => prev ? `${prev}\n${lines}` : lines);
+      const label = findingName || TOOTH_STATUSES[status as ToothStatusKey]?.label || status;
+      setExamination((prev) => {
+        const existingLines = new Set((prev || "").split("\n").map((l) => l.trim()).filter(Boolean));
+        const newLines = selectedTeeth
+          .map((t) => `${t} -- ${label}`)
+          .filter((line) => !existingLines.has(line));
+        if (newLines.length === 0) return prev;
+        return prev ? `${prev}\n${newLines.join("\n")}` : newLines.join("\n");
+      });
     }
     setTeethSelected([]);
   }
@@ -836,47 +618,121 @@ export function ExaminationForm({
     return null;
   }
 
-  function handleAddWorkDone(entry: WorkDoneEntry) {
-    setWorkDoneEntries((prev) => [...prev, entry]);
-    // Auto-update tooth statuses for Work Done entries
-    if (entry.resultingStatus && entry.toothNumbers.length > 0) {
-      setToothUpdates((prev) => {
-        const next = new Map(prev);
-        for (const tooth of entry.toothNumbers) {
-          next.set(tooth, { toothNumber: tooth, status: entry.resultingStatus! });
-        }
-        return next;
-      });
+  function toggleProgressItem(itemId: number) {
+    setSelectedProgressItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }
+
+  function handleActivateChain(chainId: number) {
+    startTransition(async () => {
+      try {
+        await activateChain(chainId);
+        toast.success("Chain activated");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to activate chain");
+      }
+    });
+  }
+
+  function handleCancelChain(chainId: number) {
+    startTransition(async () => {
+      try {
+        await cancelChain(chainId);
+        toast.success("Chain cancelled");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to cancel chain");
+      }
+    });
+  }
+
+  function handleDeletePlanItem(itemId: number) {
+    if (!confirm("Delete this step?")) return;
+    startTransition(async () => {
+      try {
+        await deletePlanItem(itemId);
+        setSelectedProgressItemIds((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+        toast.success("Step deleted");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete step");
+      }
+    });
+  }
+
+  function handleRenamePlanItem(itemId: number, newLabel: string) {
+    if (!newLabel.trim()) return;
+    startTransition(async () => {
+      try {
+        await renamePlanItem(itemId, newLabel);
+        setEditingItemId(null);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to rename step");
+      }
+    });
+  }
+
+  function handleDeletePlan(planId: number) {
+    if (!confirm("Delete this entire plan and all its steps?")) return;
+    startTransition(async () => {
+      try {
+        await deletePlan(planId);
+        toast.success("Plan deleted");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete plan");
+      }
+    });
+  }
+
+  function handleCancelPlan(planId: number) {
+    const reason = prompt("Reason for cancelling this plan:");
+    if (!reason) return;
+    startTransition(async () => {
+      try {
+        await cancelPlan(planId, reason);
+        toast.success("Plan cancelled");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to cancel plan");
+      }
+    });
+  }
+
+  function handleScheduleFollowUp() {
+    if (!followUpDate) {
+      toast.error("Select a date for the follow-up");
+      return;
     }
+    startTransition(async () => {
+      try {
+        await createFollowUpAppointment(visitId, {
+          date: followUpDate,
+          timeSlot: followUpTimeSlot || undefined,
+        });
+        toast.success("Follow-up scheduled");
+        setFollowUpScheduled(true);
+        setFollowUpDate("");
+        setFollowUpTimeSlot("");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to schedule follow-up");
+      }
+    });
   }
-
-  function handleRemoveWorkDone(id: string) {
-    setWorkDoneEntries((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  // Tooth → Work Done shortcut: scroll to work done card and pre-fill teeth
-  function handleToothToWorkDone() {
-    if (workDoneRef.current) {
-      workDoneRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }
-
-  // Build plan items available for Work Done auto-matching
-  const activePlanItemsForWorkDone = (() => {
-    if (!matchingPlanItem) return undefined;
-    return matchingPlanItem.allItems
-      .filter((item) => !item.isCompleted)
-      .map((item) => ({
-        id: item.id,
-        label: item.label,
-        operationId: null as number | null, // plan items may not have operationId exposed
-      }));
-  })();
-
-  // Express mode for follow-ups without existing reports, Full mode otherwise
-  // Express renders: plan progress + compact chart + work done + brief note
-  const isExpressCandidate = isFollowUp && !existingReport;
-  const [viewMode, setViewMode] = useState<"express" | "full">(isExpressCandidate ? "express" : "full");
 
   // Autosave drafts to localStorage
   const draftKey = `exam-draft-${visitId}`;
@@ -892,10 +748,8 @@ export function ExaminationForm({
       if (raw) {
         const draft = JSON.parse(raw);
         // Only offer restore if draft has content and differs from saved
-        const hasContent = draft.complaint || draft.examination || draft.diagnosis || draft.treatmentNotes;
-        const differsSaved = draft.complaint !== (existingReport?.complaint || "") ||
-          draft.treatmentNotes !== (existingReport?.treatmentNotes || "") ||
-          draft.diagnosis !== (existingReport?.diagnosis || "");
+        const hasContent = draft.examination;
+        const differsSaved = draft.examination !== (existingReport?.examination || "");
         if (hasContent && differsSaved) {
           setHasDraft(true);
         } else {
@@ -911,11 +765,7 @@ export function ExaminationForm({
       const raw = localStorage.getItem(draftKey);
       if (!raw) return;
       const draft = JSON.parse(raw);
-      if (draft.complaint != null) setComplaint(draft.complaint);
       if (draft.examination != null) setExamination(draft.examination);
-      if (draft.diagnosis != null) setDiagnosis(draft.diagnosis);
-      if (draft.treatmentNotes != null) setTreatmentNotes(draft.treatmentNotes);
-      if (draft.estimate != null) setEstimate(draft.estimate);
       if (draft.teethSelected) {
         try { setTeethSelected(JSON.parse(draft.teethSelected)); } catch { /* ignore */ }
       }
@@ -936,22 +786,16 @@ export function ExaminationForm({
 
   // Track dirty state for beforeunload warning
   const savedRef = useRef({
-    complaint: existingReport?.complaint || "",
     examination: existingReport?.examination || "",
-    diagnosis: existingReport?.diagnosis || "",
-    treatmentNotes: existingReport?.treatmentNotes || "",
-    estimate: existingReport?.estimate || "",
     teethSelected: existingReport?.teethSelected || "[]",
   });
 
   const isDirty = useCallback(() => {
     const s = savedRef.current;
-    return complaint !== s.complaint || examination !== s.examination ||
-      diagnosis !== s.diagnosis || treatmentNotes !== s.treatmentNotes ||
-      estimate !== s.estimate ||
+    return examination !== s.examination ||
       JSON.stringify(teethSelected) !== s.teethSelected ||
-      workDoneEntries.length > 0 || workDoneNotes !== "";
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, workDoneEntries, workDoneNotes]);
+      selectedProgressItemIds.size > 0;
+  }, [examination, teethSelected, selectedProgressItemIds]);
 
   // Debounced autosave to localStorage
   useEffect(() => {
@@ -961,14 +805,14 @@ export function ExaminationForm({
       if (!isDirty()) return;
       try {
         localStorage.setItem(draftKey, JSON.stringify({
-          complaint, examination, diagnosis, treatmentNotes, estimate,
+          examination,
           teethSelected: JSON.stringify(teethSelected),
           savedAt: Date.now(),
         }));
       } catch { /* quota exceeded — ignore */ }
     }, 5000); // Save every 5s of idle
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
-  }, [complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected, readOnly, isLocked, isDirty, draftKey]);
+  }, [examination, teethSelected, readOnly, isLocked, isDirty, draftKey]);
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -977,7 +821,7 @@ export function ExaminationForm({
         // Save draft immediately on unload
         try {
           localStorage.setItem(draftKey, JSON.stringify({
-            complaint, examination, diagnosis, treatmentNotes, estimate,
+            examination,
             teethSelected: JSON.stringify(teethSelected),
             savedAt: Date.now(),
           }));
@@ -986,7 +830,7 @@ export function ExaminationForm({
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty, draftKey, complaint, examination, diagnosis, treatmentNotes, estimate, teethSelected]);
+  }, [isDirty, draftKey, examination, teethSelected]);
 
   // Keyboard shortcuts: Cmd+S = Save, Cmd+Enter = Save & Next Patient
   const handleSaveRef = useRef(handleSave);
@@ -1009,9 +853,7 @@ export function ExaminationForm({
   }, [readOnly, isLocked]);
 
   const isDoctor = (permissionLevel ?? 0) >= 3;
-  const hasPreviousNotes = previousReports && previousReports.length > 0;
   const hasFiles = patientFiles && patientFiles.length > 0;
-  const [mobileNotesOpen, setMobileNotesOpen] = useState(true);
   const [filesCollapsed, setFilesCollapsed] = useState(true);
 
 
@@ -1023,50 +865,30 @@ export function ExaminationForm({
         const result = await saveExamination(visitId, {
           doctorId,
           reportDate,
-          complaint: complaint || null,
           examination: examination || null,
-          diagnosis: diagnosis || null,
-          treatmentNotes: [treatmentNotes, workDoneNotes].filter(Boolean).join("\n\n") || null,
-          estimate: estimate || null,
-          medication: null,
           teethSelected: teethSelected.length > 0 ? JSON.stringify(teethSelected) : null,
           toothUpdates: toothUpdates.size > 0 ? Array.from(toothUpdates.values()) : undefined,
-          workDone: workDoneEntries.length > 0
-            ? workDoneEntries.flatMap((entry) => {
-                if (entry.toothNumbers.length === 0) {
-                  return [{
-                    operationId: entry.operationId,
-                    resultingStatus: entry.resultingStatus || undefined,
-                    planItemId: entry.planItemId || undefined,
-                    notes: entry.notes || undefined,
-                  }];
-                }
-                return entry.toothNumbers.map((tooth, idx) => ({
-                  operationId: entry.operationId,
-                  toothNumber: tooth,
-                  resultingStatus: entry.resultingStatus || undefined,
-                  planItemId: idx === 0 ? (entry.planItemId || undefined) : undefined,
-                  notes: idx === 0 ? (entry.notes || undefined) : undefined,
-                }));
-              })
-            : undefined,
+          progressItemIds: selectedProgressItemIds.size > 0 ? Array.from(selectedProgressItemIds) : undefined,
         });
 
-        // Auto-complete matching plan item for follow-up visits
-        // Skip if WorkDone entries already handle plan item completion
-        const workDoneHandlesPlan = workDoneEntries.some((e) => e.planItemId != null);
-        if (matchingPlanItem && !workDoneHandlesPlan) {
+        // Auto-finalize (lock) the report after save — only when leaving the page
+        if (result?.reportId && redirectTarget !== "stay") {
           try {
-            await completePlanItems([matchingPlanItem.itemId], visitId);
-            toast.success(`Step completed: ${matchingPlanItem.itemLabel}`);
+            await finalizeReport(result.reportId);
           } catch {
-            toast.error("Exam saved but plan step completion failed");
+            // Non-fatal — report saved but not locked
           }
         }
 
-        // Escrow deficit warning
-        if (result?.escrowDeficitWarning) {
-          toast.warning(`Patient escrow is now -₹${Math.abs(result.escrowNewBalance).toLocaleString("en-IN")}. Inform reception to collect.`, { duration: 10000 });
+        // Progress completion toast
+        if (result?.progressCompleted) {
+          const { itemLabels, planCompleted, chainCompleted } = result.progressCompleted;
+          const msg = chainCompleted
+            ? `All treatment complete! Steps done: ${itemLabels.join(", ")}`
+            : planCompleted
+              ? `Plan completed! Steps done: ${itemLabels.join(", ")}`
+              : `Progress updated: ${itemLabels.join(", ")}`;
+          toast.success(msg, { duration: 6000 });
         }
 
         if (result?.appointmentAutoCompleted && result.completedAppointmentId) {
@@ -1082,7 +904,7 @@ export function ExaminationForm({
             },
             duration: 8000,
           });
-        } else if (!matchingPlanItem) {
+        } else if (!result?.progressCompleted) {
           toast.success("Examination saved");
         }
         if (redirectTarget === "stay") {
@@ -1120,19 +942,6 @@ export function ExaminationForm({
     });
   }
 
-  async function handleFinalize() {
-    if (!reportId) return;
-    startTransition(async () => {
-      try {
-        await finalizeReport(reportId);
-        toast.success("Notes finalized and locked");
-        router.refresh();
-      } catch {
-        toast.error("Failed to finalize notes");
-      }
-    });
-  }
-
   async function handleUnlock() {
     if (!reportId) return;
     startTransition(async () => {
@@ -1159,31 +968,6 @@ export function ExaminationForm({
       }
     });
   }
-
-  // Side-by-side layout helpers (inline, not a component — avoids remount on re-render)
-  const previousNotesDesktop = hasPreviousNotes ? (
-    <div className="lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:sticky lg:top-[72px] pr-1">
-      <PreviousNotesPanel
-        reports={previousReports!}
-        operationName={operationName || "Treatment"}
-      />
-    </div>
-  ) : null;
-
-  const previousNotesMobile = hasPreviousNotes ? (
-    <div className="lg:hidden mb-4">
-      <Card>
-        <CardContent className="p-3">
-          <PreviousNotesPanel
-            reports={previousReports!}
-            operationName={operationName || "Treatment"}
-            collapsed={!mobileNotesOpen}
-            onToggle={() => setMobileNotesOpen(!mobileNotesOpen)}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  ) : null;
 
   // Read-only state for non-doctors viewing reports, or locked reports
   if ((readOnly || isLocked) && existingReport) {
@@ -1295,70 +1079,12 @@ export function ExaminationForm({
       </div>
     );
 
-    if (!hasPreviousNotes) return readOnlyContent;
-    return (
-      <>
-        {previousNotesMobile}
-        <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
-          {previousNotesDesktop}
-          <div className="max-w-3xl">{readOnlyContent}</div>
-        </div>
-        <div className="lg:hidden">{readOnlyContent}</div>
-      </>
-    );
+    return readOnlyContent;
   }
-
-  // BDS Recommendation — most recent report for consultants
-  const lastBdsReport = (permissionLevel === 4 && previousReports && previousReports.length > 0) ? previousReports[0] : null;
 
   // Editable form — polished cards matching patient/visit form patterns
   const editableContent = (
     <div className="space-y-6 pb-24">
-      {/* BDS Recommendation Banner — for consultants */}
-      {lastBdsReport && (
-        <Card className="border-blue-300 bg-blue-50/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-blue-800">
-              <FileText className="h-4 w-4" />
-              BDS Recommendation — Dr. {lastBdsReport.doctorName}, {lastBdsReport.reportDate}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {lastBdsReport.diagnosis && (
-              <div>
-                <span className="text-blue-700 font-medium">Diagnosis: </span>
-                <span className="whitespace-pre-wrap">{lastBdsReport.diagnosis}</span>
-              </div>
-            )}
-            {lastBdsReport.treatmentNotes && (
-              <div>
-                <span className="text-blue-700 font-medium">Treatment Notes: </span>
-                <span className="whitespace-pre-wrap">{lastBdsReport.treatmentNotes}</span>
-              </div>
-            )}
-            {lastBdsReport.complaint && !lastBdsReport.diagnosis && !lastBdsReport.treatmentNotes && (
-              <div>
-                <span className="text-blue-700 font-medium">Complaint: </span>
-                <span className="whitespace-pre-wrap">{lastBdsReport.complaint}</span>
-              </div>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => {
-                if (lastBdsReport.diagnosis) setDiagnosis(lastBdsReport.diagnosis);
-                if (lastBdsReport.treatmentNotes) setTreatmentNotes(lastBdsReport.treatmentNotes);
-                toast.success("Previous notes copied — edit as needed");
-              }}
-            >
-              Copy to Notes
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Medical alerts — patient safety */}
       {patientDiseases && patientDiseases.length > 0 && (
         <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
@@ -1428,118 +1154,12 @@ export function ExaminationForm({
         </div>
       )}
 
-      {/* Mode toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          Dr. {doctorName} {"\u00b7"} {reportDate}
-        </span>
-        <div className="inline-flex items-center rounded-md border text-xs">
-          <button
-            type="button"
-            onClick={() => setViewMode("express")}
-            className={`px-2.5 py-1 rounded-l-md transition-colors ${viewMode === "express" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-          >
-            Express
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("full")}
-            className={`px-2.5 py-1 rounded-r-md transition-colors ${viewMode === "full" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-          >
-            Full
-          </button>
-        </div>
-      </div>
+      {/* Doctor / date info */}
+      <span className="text-xs text-muted-foreground">
+        Dr. {doctorName} {"\u00b7"} {reportDate}
+      </span>
 
-      {viewMode === "express" ? (
-        /* Express Mode: Compact chart + Work Done + Brief note */
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Follow-up Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Teeth</Label>
-              <ToothChart
-                selected={teethSelected}
-                onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
-                toothStatuses={mergedToothStatuses}
-                onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
-                readOnly={readOnly || isLocked}
-                size="sm"
-              />
-              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} onRecordWorkDone={isDoctor ? handleToothToWorkDone : undefined} />}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Brief Follow-up Note</Label>
-              <Textarea
-                placeholder="Quick follow-up note..."
-                value={treatmentNotes}
-                onChange={(e) => setTreatmentNotes(e.target.value)}
-                rows={3}
-                autoFocus
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Full Mode: Complaint pills → Tooth chart → Single notes */
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Clinical Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ComplaintPills complaint={complaint} setComplaint={setComplaint} />
-
-            <QuickPills
-              label="Diagnosis"
-              value={diagnosis}
-              onChange={setDiagnosis}
-              topItems={TOP_DIAGNOSES}
-              moreItems={MORE_DIAGNOSES}
-            />
-
-            <div className="space-y-1.5">
-              <Label>Teeth {toothUpdates.size > 0 && <span className="text-xs text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</Label>
-              <ToothChart
-                selected={teethSelected}
-                onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
-                toothStatuses={mergedToothStatuses}
-                onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
-                readOnly={readOnly || isLocked}
-              />
-              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} onRecordWorkDone={isDoctor ? handleToothToWorkDone : undefined} />}
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Notes</Label>
-                {currentStepTemplate && !treatmentNotes && (
-                  <button
-                    type="button"
-                    onClick={() => setTreatmentNotes(currentStepTemplate)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    <FileText className="h-3 w-3" />
-                    Use Template
-                  </button>
-                )}
-              </div>
-              <Textarea
-                placeholder="Treatment notes, findings, procedures performed..."
-                value={treatmentNotes}
-                onChange={(e) => setTreatmentNotes(e.target.value)}
-                rows={6}
-                autoFocus
-              />
-            </div>
-
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Clinical Notepad — patient-level running notes */}
+      {/* Clinical Notepad — patient-level running notes (moved up) */}
       {patientId && clinicalNotes && notepadChains && (
         <ClinicalNotepad
           patientId={patientId}
@@ -1551,72 +1171,356 @@ export function ExaminationForm({
         />
       )}
 
-      {/* Work Done — between notes and treatment plan */}
-      {isDoctor && (
-        <div ref={workDoneRef}>
-        <WorkDoneCard
-          entries={workDoneEntries}
-          onAdd={handleAddWorkDone}
-          onRemove={handleRemoveWorkDone}
-          onEditTeeth={(teeth) => setTeethSelected(teeth)}
-          selectedTeeth={teethSelected}
-          allOperations={allOperations || []}
-          activePlanItems={activePlanItemsForWorkDone}
-          freeNotes={workDoneNotes}
-          onFreeNotesChange={setWorkDoneNotes}
-        />
-        </div>
-      )}
+      {/* Dental Chart — collapsible, starts collapsed */}
+      <Card>
+        <CardHeader className="cursor-pointer" onClick={() => setChartExpanded((v) => !v)}>
+          <CardTitle className="text-base flex items-center justify-between">
+            <span>Dental Chart {toothUpdates.size > 0 && <span className="text-xs font-normal text-muted-foreground ml-1">({toothUpdates.size} updated)</span>}</span>
+            {chartExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </CardTitle>
+        </CardHeader>
+        {chartExpanded && (
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Teeth</Label>
+              <ToothChart
+                selected={teethSelected}
+                onChange={!readOnly && !isLocked ? setTeethSelected : undefined}
+                toothStatuses={mergedToothStatuses}
+                onDoubleClick={!readOnly && !isLocked ? handleToothDoubleClick : undefined}
+                readOnly={readOnly || isLocked}
+                size="sm"
+              />
+              {!readOnly && !isLocked && <ToothApplyBar selected={teethSelected} onApply={handleBatchApply} onClear={() => setTeethSelected([])} onDetails={() => { if (teethSelected.length > 0) { setDetailTooth(teethSelected[0]); setDetailOpen(true); } }} findings={toothFindings} />}
+            </div>
 
-      {/* Treatment Plan — context-aware section */}
-      {/* Case A: Follow-up with matching plan item → show progress card */}
-      {isDoctor && matchingPlanItem && (
+            <div className="space-y-1.5">
+              <Label>Chart Notes</Label>
+              <Textarea
+                placeholder="Dental chart annotations..."
+                value={examination}
+                onChange={(e) => setExamination(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Clinical Notes fields are now in the notepad above — complaint/diagnosis/treatment stored via clinical notepad */}
+
+      {/* Active Treatments — merged chain progress + plan management */}
+      {isDoctor && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{matchingPlanItem.planTitle}</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Active Treatments
+              {selectedProgressItemIds.size > 0 && (
+                <span className="text-xs font-normal text-primary">
+                  ({selectedProgressItemIds.size} step{selectedProgressItemIds.size !== 1 ? "s" : ""} selected)
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              {matchingPlanItem.allItems.map((item) => {
-                const isCurrent = item.id === matchingPlanItem.itemId;
+          <CardContent className="space-y-5">
+            {activeChainsForProgress && activeChainsForProgress.length > 0 ? (
+              activeChainsForProgress.map((chain) => {
+                const isDraft = chain.chainStatus === "DRAFT";
+                const isRealChain = chain.chainId > 0;
                 return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-2.5 text-sm rounded-md px-3 py-2 ${
-                      isCurrent
-                        ? "bg-primary/8 border border-primary/20 font-medium"
-                        : item.isCompleted
-                          ? "text-muted-foreground"
-                          : ""
-                    }`}
-                  >
-                    {item.isCompleted ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                    ) : isCurrent ? (
-                      <div className="h-4 w-4 rounded-full border-2 border-primary bg-primary/20 shrink-0" />
-                    ) : (
-                      <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                    )}
-                    <span className={item.isCompleted ? "line-through" : ""}>
-                      {item.label}
-                    </span>
-                    {isCurrent && (
-                      <span className="ml-auto text-xs text-primary font-normal">
-                        Completes on save
-                      </span>
-                    )}
+                  <div key={chain.chainId} className={isDraft ? "rounded-lg border border-dashed border-amber-300 bg-amber-50/30 p-3" : ""}>
+                    {/* Chain header */}
+                    <div className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      {chain.chainTitle}
+                      {isDraft && (
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700">Draft</span>
+                      )}
+                      {chain.chainStatus === "COMPLETED" && (
+                        <span className="text-xs font-normal text-green-600">Complete</span>
+                      )}
+                      {isRealChain && (chain.chainStatus === "ACTIVE" || isDraft) && canCreateTreatmentPlans(permissionLevel || 3) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlanSheetMode("add-to-chain");
+                            setPlanSheetChainId(chain.chainId);
+                            setPlanSheetChainTitle(chain.chainTitle);
+                            setPlanSheetChainTeeth(chain.chainToothNumbers || null);
+                            setPlanSheetOpen(true);
+                          }}
+                          className={isDraft ? "text-xs text-primary hover:underline" : "ml-auto text-xs text-primary hover:underline"}
+                        >
+                          + Add
+                        </button>
+                      )}
+                      {isDraft && isRealChain && canCreateTreatmentPlans(permissionLevel || 3) && (
+                        <div className="ml-auto flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleActivateChain(chain.chainId)}
+                            className="text-xs text-green-700 hover:underline font-medium"
+                          >
+                            Activate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCancelChain(chain.chainId)}
+                            className="text-xs text-muted-foreground hover:text-destructive"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {chain.plans.map((plan) => {
+                      const isCompleted = plan.planStatus === "COMPLETED";
+                      const isActive = plan.planStatus === "ACTIVE" && plan.items.some((i) => !i.completedAt);
+                      const isEditing = editingPlanId === plan.planId;
+                      const hasCompletedItems = plan.items.some((i) => !!i.completedAt);
+                      const canEdit = canCreateTreatmentPlans(permissionLevel || 3) && !readOnly && !isLocked;
+
+                      return (
+                        <div key={plan.planId} className={`${chain.plans.length > 1 ? "ml-3 border-l-2 pl-3 pb-2" : ""} ${
+                          isCompleted ? "border-l-green-300" : isActive ? "border-l-primary" : "border-l-muted"
+                        }`}>
+                          <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                            {plan.planTitle}
+                            {isCompleted && (
+                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700">Done</span>
+                            )}
+                            {plan.planId > 0 && canEdit && !isCompleted && (
+                              <div className="ml-auto flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPlanId(isEditing ? null : plan.planId)}
+                                  className={`text-xs hover:underline ${isEditing ? "text-primary font-medium" : "text-muted-foreground hover:text-primary"}`}
+                                >
+                                  {isEditing ? "Done" : "Edit"}
+                                </button>
+                                {!hasCompletedItems ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePlan(plan.planId)}
+                                    className="text-muted-foreground hover:text-destructive p-0.5"
+                                    title="Delete plan"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelPlan(plan.planId)}
+                                    className="text-xs text-muted-foreground hover:text-destructive"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-0.5">
+                            {plan.items.map((item) => {
+                              const itemCompleted = !!item.completedAt;
+                              const isSelected = selectedProgressItemIds.has(item.id);
+                              const isClickable = !itemCompleted && !readOnly && !isLocked;
+                              const isRenamingThis = editingItemId === item.id;
+
+                              // Inline rename mode
+                              if (isRenamingThis && !itemCompleted) {
+                                return (
+                                  <div key={item.id} className="flex items-center gap-2 px-3 py-1">
+                                    <Input
+                                      value={editingItemLabel}
+                                      onChange={(e) => setEditingItemLabel(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleRenamePlanItem(item.id, editingItemLabel);
+                                        if (e.key === "Escape") setEditingItemId(null);
+                                      }}
+                                      className="h-7 text-sm flex-1"
+                                      autoFocus
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => handleRenamePlanItem(item.id, editingItemLabel)}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => setEditingItemId(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className={`w-full flex items-center gap-2.5 text-sm rounded-md px-3 py-1.5 text-left transition-colors ${
+                                    isSelected
+                                      ? "bg-primary/10 border border-primary/30 font-medium"
+                                      : itemCompleted
+                                        ? "text-muted-foreground"
+                                        : "hover:bg-accent"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    disabled={itemCompleted}
+                                    onClick={() => isClickable && toggleProgressItem(item.id)}
+                                    className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer disabled:cursor-default"
+                                  >
+                                    {itemCompleted ? (
+                                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                                    ) : isSelected ? (
+                                      <SquareCheck className="h-4 w-4 text-primary shrink-0" />
+                                    ) : (
+                                      <Square className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                                    )}
+                                    <span className={`truncate ${itemCompleted ? "line-through" : ""}`}>
+                                      {item.label}
+                                    </span>
+                                  </button>
+                                  {itemCompleted && item.completedAt && (
+                                    <span className="text-xs text-muted-foreground shrink-0">
+                                      {formatDateTime(item.completedAt)}
+                                    </span>
+                                  )}
+                                  {isSelected && (
+                                    <span className="text-xs text-primary font-normal shrink-0">
+                                      Completes on save
+                                    </span>
+                                  )}
+                                  {/* Edit mode actions */}
+                                  {isEditing && !itemCompleted && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingItemId(item.id);
+                                          setEditingItemLabel(item.label);
+                                        }}
+                                        className="p-1 text-muted-foreground hover:text-primary rounded"
+                                        title="Rename"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeletePlanItem(item.id);
+                                        }}
+                                        className="p-1 text-muted-foreground hover:text-destructive rounded"
+                                        title="Delete step"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              })}
-            </div>
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-2">No active treatments</p>
+            )}
+
+            {canCreateTreatmentPlans(permissionLevel || 3) && patientId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setPlanSheetMode("new-chain");
+                  setPlanSheetChainId(undefined);
+                  setPlanSheetChainTitle(undefined);
+                  setPlanSheetOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                New Chain
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Case B removed — treatment plans are created on the patient page, not during exam */}
-      {/* Case D removed — consultation plans are created on the patient page */}
-
-      {/* Case C: No templates, or follow-up without plan → section hidden entirely */}
+      {/* Schedule Follow-Up — for doctors when form is editable */}
+      {isDoctor && !readOnly && !isLocked && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Schedule Follow-Up
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {followUpScheduled ? (
+              <div className="text-sm text-green-700 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Follow-up scheduled
+                <button
+                  type="button"
+                  onClick={() => setFollowUpScheduled(false)}
+                  className="text-xs text-primary hover:underline ml-auto"
+                >
+                  Schedule another
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-3">
+                <div className="space-y-1.5 flex-1">
+                  <Label className="text-xs">Date</Label>
+                  <Input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Time</Label>
+                  <Select value={followUpTimeSlot} onValueChange={setFollowUpTimeSlot}>
+                    <SelectTrigger className="w-[130px] h-9 text-sm">
+                      <SelectValue placeholder="Any time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning">Morning</SelectItem>
+                      <SelectItem value="afternoon">Afternoon</SelectItem>
+                      <SelectItem value="evening">Evening</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleScheduleFollowUp}
+                  disabled={!followUpDate || isPending}
+                  className="h-9"
+                >
+                  Schedule
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Existing addendums */}
       {addendums.length > 0 && (
@@ -1639,87 +1543,8 @@ export function ExaminationForm({
 
       {/* Sticky bottom save bar */}
       <div className="sticky bottom-0 z-20 -mx-4 px-4 md:-mx-6 md:px-6 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
-        {quickNoteOpen && (
-          <div className="pt-3 pb-1 border-b">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Quick note... (auto-timestamped)"
-                value={quickNote}
-                onChange={(e) => setQuickNote(e.target.value)}
-                rows={2}
-                className="text-sm resize-none flex-1"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && quickNote.trim()) {
-                    const time = format(new Date(), "HH:mm");
-                    const stamped = `[${time}] ${quickNote.trim()}`;
-                    setTreatmentNotes((prev) => prev ? `${prev}\n${stamped}` : stamped);
-                    setQuickNote("");
-                    setQuickNoteOpen(false);
-                    toast.success("Note added");
-                  }
-                }}
-              />
-              <Button
-                size="sm"
-                disabled={!quickNote.trim()}
-                onClick={() => {
-                  const time = format(new Date(), "HH:mm");
-                  const stamped = `[${time}] ${quickNote.trim()}`;
-                  setTreatmentNotes((prev) => prev ? `${prev}\n${stamped}` : stamped);
-                  setQuickNote("");
-                  setQuickNoteOpen(false);
-                  toast.success("Note added");
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Press ⌘+Enter to add · Appends to treatment notes</p>
-          </div>
-        )}
         <div className="py-3 flex gap-2 justify-between items-center">
           <div className="flex gap-2">
-            {existingReport && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isPending}
-                    className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                  >
-                    <Lock className="mr-1 h-3.5 w-3.5" />
-                    Finalize
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Lock Clinical Notes?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Only an administrator can unlock them afterwards.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleFinalize}>
-                      Yes, Lock Notes
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            {!readOnly && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setQuickNoteOpen((v) => !v)}
-                className={quickNoteOpen ? "bg-accent" : ""}
-              >
-                <StickyNote className="mr-1 h-3.5 w-3.5" />
-                Note
-              </Button>
-            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -1743,30 +1568,12 @@ export function ExaminationForm({
               </Button>
             )}
             <Button
-              variant="outline"
-              size="sm"
               onClick={() => handleSave("stay")}
               disabled={isPending}
+              size="sm"
             >
               {isPending ? "Saving..." : "Save"}
             </Button>
-            <Button
-              variant={isDoctor ? "outline" : "default"}
-              size="sm"
-              onClick={() => handleSave("detail")}
-              disabled={isPending}
-            >
-              {isPending ? "Saving..." : "Save & Close"}
-            </Button>
-            {isDoctor && (
-              <Button
-                onClick={() => handleSave("next")}
-                disabled={isPending}
-                size="sm"
-              >
-                {isPending ? "Saving..." : "Save & Next Patient"}
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -1793,17 +1600,28 @@ export function ExaminationForm({
     />
   );
 
-  if (!hasPreviousNotes) return <>{editableContent}{toothPanel}{prescriptionSheet}</>;
-  return (
-    <>
-      {previousNotesMobile}
-      <div className="hidden lg:grid lg:grid-cols-[380px_1fr] gap-6">
-        {previousNotesDesktop}
-        <div className="max-w-3xl">{editableContent}</div>
-      </div>
-      <div className="lg:hidden">{editableContent}</div>
-      {toothPanel}
-      {prescriptionSheet}
-    </>
-  );
+  const inlinePlanSheet = patientId && allOperations && allDoctors ? (
+    <InlinePlanSheet
+      open={planSheetOpen}
+      onOpenChange={setPlanSheetOpen}
+      patientId={patientId}
+      mode={planSheetMode}
+      chainId={planSheetChainId}
+      chainTitle={planSheetChainTitle}
+      chainTeeth={planSheetChainTeeth}
+      selectedTeeth={teethSelected}
+      allOperations={allOperations.map((op) => ({
+        id: op.id,
+        name: op.name,
+        category: op.category,
+        stepCount: op.stepCount || 0,
+        defaultMinFee: op.defaultMinFee,
+      }))}
+      allDoctors={allDoctors}
+      defaultDoctorId={doctorId || currentDoctor.id}
+      onSuccess={() => router.refresh()}
+    />
+  ) : null;
+
+  return <>{editableContent}{toothPanel}{prescriptionSheet}{inlinePlanSheet}</>;
 }

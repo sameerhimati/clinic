@@ -17,6 +17,7 @@ import {
   Activity,
   Clock,
   LogOut,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toTitleCase } from "@/lib/format";
@@ -47,15 +48,16 @@ const navSections: NavSection[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/patients", label: "Patients", icon: Users, minPermission: 3 },
-      { href: "/appointments", label: "Appointments", icon: CalendarDays },
+      { href: "/appointments", label: "Appointments", icon: CalendarDays, minPermission: 2 },
     ],
   },
   {
     label: "Clinical",
     visible: (level) => level <= 2,
     items: [
-      { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 2 },
-      { href: "/receipts", label: "Payments", icon: Receipt, minPermission: 2 },
+      { href: "/visits", label: "Visits", icon: Stethoscope, minPermission: 1 },
+      { href: "/lab-orders", label: "Lab Orders", icon: FlaskConical, minPermission: 2 },
+      { href: "/receipts", label: "Receipts", icon: Receipt, minPermission: 2 },
     ],
   },
   {
@@ -64,7 +66,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/doctors", label: "Doctors", icon: UserCog, minPermission: 1 },
       { href: "/reports", label: "Reports", icon: BarChart3, minPermission: 2 },
-      { href: "/settings", label: "Settings", icon: Settings, minPermission: 1 },
+      { href: "/settings", label: "Settings", icon: Settings, minPermission: 2 },
     ],
   },
   {

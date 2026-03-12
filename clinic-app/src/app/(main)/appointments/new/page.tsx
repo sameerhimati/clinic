@@ -47,11 +47,8 @@ export default async function NewAppointmentPage({
       select: { id: true, code: true, name: true, salutation: true, diseases: { include: { disease: { select: { name: true } } } } },
     });
     if (defaultPatient) {
-      const [deposits, fulfilled] = await Promise.all([
-        prisma.patientPayment.aggregate({ where: { patientId }, _sum: { amount: true } }),
-        prisma.escrowFulfillment.aggregate({ where: { patientId }, _sum: { amount: true } }),
-      ]);
-      patientEscrowBalance = (deposits._sum.amount || 0) - (fulfilled._sum.amount || 0);
+      const deposits = await prisma.patientPayment.aggregate({ where: { patientId }, _sum: { amount: true } });
+      patientEscrowBalance = deposits._sum.amount || 0;
     }
   }
 

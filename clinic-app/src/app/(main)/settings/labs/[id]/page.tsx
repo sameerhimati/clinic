@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { canManageSystem } from "@/lib/permissions";
+import { canManageRates } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default async function LabDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
+  if (!canManageRates(currentUser.permissionLevel, currentUser.isSuperUser)) redirect("/dashboard");
 
   const { id } = await params;
   const lab = await prisma.lab.findUnique({

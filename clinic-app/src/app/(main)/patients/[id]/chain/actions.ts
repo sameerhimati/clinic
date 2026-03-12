@@ -182,6 +182,86 @@ export async function addPlanToChain(
   return { success: true };
 }
 
+export async function activateChain(chainId: number) {
+  const currentUser = await requireAuth();
+  // Only L3 (BDS doctors) can activate drafts
+  if (currentUser.permissionLevel !== 3) {
+    throw new Error("Only BDS doctors can activate treatment chains");
+  }
+
+  const chain = await prisma.treatmentChain.findUnique({
+    where: { id: chainId },
+    include: { plans: { select: { id: true } } },
+  });
+  if (!chain) throw new Error("Chain not found");
+  if (chain.status !== "DRAFT") throw new Error("Chain is not in draft status");
+
+  await prisma.$transaction(async (tx) => {
+    // Activate the chain
+    await tx.treatmentChain.update({
+      where: { id: chainId },
+      data: { status: "ACTIVE" },
+    });
+
+    // Activate all plans in the chain
+    await tx.treatmentPlan.updateMany({
+      where: { chainId, status: "DRAFT" },
+      data: { status: "ACTIVE" },
+    });
+  });
+
+  logFlaggedAction({
+    action: "CHAIN_ACTIVATED",
+    actorId: currentUser.id,
+    patientId: chain.patientId,
+    entityType: "TreatmentChain",
+    entityId: chainId,
+    reason: `Chain "${chain.title}" activated from draft`,
+    details: { title: chain.title, planCount: chain.plans.length },
+  });
+
+  revalidatePath(`/patients/${chain.patientId}`);
+  return { success: true };
+}
+
+export async function cancelChain(chainId: number, reason?: string) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 3) {
+    throw new Error("Unauthorized");
+  }
+
+  const chain = await prisma.treatmentChain.findUnique({
+    where: { id: chainId },
+    include: { plans: { select: { id: true } } },
+  });
+  if (!chain) throw new Error("Chain not found");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.treatmentChain.update({
+      where: { id: chainId },
+      data: { status: "CANCELLED" },
+    });
+
+    await tx.treatmentPlan.updateMany({
+      where: { chainId, status: { in: ["DRAFT", "ACTIVE"] } },
+      data: { status: "CANCELLED" },
+    });
+  });
+
+  logFlaggedAction({
+    action: "CHAIN_CANCELLED",
+    actorId: currentUser.id,
+    patientId: chain.patientId,
+    entityType: "TreatmentChain",
+    entityId: chainId,
+    reason: reason || `Chain "${chain.title}" cancelled`,
+    details: { title: chain.title },
+  });
+
+  revalidatePath(`/patients/${chain.patientId}`);
+  return { success: true };
+}
+
 export async function getLabRates() {
   // C2: Require authentication for read-only actions
   await requireAuth();

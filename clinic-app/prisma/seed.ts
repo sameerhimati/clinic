@@ -137,7 +137,7 @@ async function main() {
     { code: 0, name: "NONE", commissionPercent: 0, designationId: 1, permissionLevel: 2 },
     { code: 1, name: "KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 1, password: "admin" },
     { code: 150, name: "DR. KAZIM", commissionPercent: 0, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General", isSuperUser: true },
-    { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General" },
+    { code: 2, name: "SURENDER", commissionPercent: 50, tdsPercent: 5.1, designationId: 1, permissionLevel: 3, password: "doctor", specialty: "General", isSuperUser: true },
     { code: 3, name: "RAMANA REDDY", commissionPercent: 75, tdsPercent: 10.3, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Prosthodontist" },
     { code: 4, name: "RAVINDER", commissionPercent: 50, tdsPercent: 10.3, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Oral Surgeon" },
     { code: 5, name: "ANITHA", commissionPercent: 70, tdsPercent: 5.1, designationId: 1, permissionLevel: 4, password: "doctor", isConsultant: true, specialty: "Orthodontist" },
@@ -981,29 +981,29 @@ async function main() {
     // Completed morning patients
     { patientId: 1, doctorId: surender!.id, date: today, timeSlot: "9:00 AM", status: "COMPLETED", reason: "Regular checkup", createdById: kazim!.id, roomId: 3 },
     // In progress — mid-RCT chain
-    { patientId: 3, doctorId: surender!.id, date: today, timeSlot: "9:30 AM", status: "IN_PROGRESS", reason: "RCT Step 3 — BMP / Obturation", createdById: kazim!.id, roomId: 3 },
+    { patientId: 3, doctorId: surender!.id, date: today, timeSlot: "9:30 AM", status: "IN_PROGRESS", reason: "RCT Step 3 — BMP / Obturation", type: "TREATMENT", createdById: kazim!.id, roomId: 3 },
     // ARRIVED — new walk-in (consultation, no treatment planned yet) — DEMO: shows treatment picker
-    { patientId: 25, doctorId: surender!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Toothache — new patient", createdById: kazim!.id, roomId: 3, isWalkIn: true },
+    { patientId: 25, doctorId: surender!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Toothache — new patient", type: "CONSULTATION", createdById: kazim!.id, roomId: 3, isWalkIn: true },
     // ARRIVED — extraction (has operation linked via reason)
-    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "ARRIVED", reason: "Extraction of mobile tooth", createdById: kazim!.id, roomId: 3 },
+    { patientId: 5, doctorId: surender!.id, date: today, timeSlot: "11:00 AM", status: "ARRIVED", reason: "Extraction of mobile tooth", type: "TREATMENT", createdById: kazim!.id, roomId: 3 },
     // ARRIVED — filling
-    { patientId: 12, doctorId: surender!.id, date: today, timeSlot: "11:30 AM", status: "ARRIVED", reason: "GIC Filling — molar", createdById: kazim!.id, roomId: 3 },
+    { patientId: 12, doctorId: surender!.id, date: today, timeSlot: "11:30 AM", status: "ARRIVED", reason: "GIC Filling — molar", type: "TREATMENT", createdById: kazim!.id, roomId: 3 },
     // Afternoon scheduled
-    { patientId: 16, doctorId: surender!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "RCT — Access Opening", createdById: kazim!.id, roomId: 3 },
-    { patientId: 31, doctorId: surender!.id, date: today, timeSlot: "3:00 PM", status: "SCHEDULED", reason: "Scaling", createdById: kazim!.id, roomId: 3 },
-    { patientId: 35, doctorId: surender!.id, date: today, timeSlot: "4:00 PM", status: "SCHEDULED", reason: "Composite filling", createdById: kazim!.id, roomId: 4 },
+    { patientId: 16, doctorId: surender!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "RCT — Access Opening", type: "TREATMENT", createdById: kazim!.id, roomId: 3 },
+    { patientId: 31, doctorId: surender!.id, date: today, timeSlot: "3:00 PM", status: "SCHEDULED", reason: "Scaling", type: "TREATMENT", createdById: kazim!.id, roomId: 3 },
+    { patientId: 35, doctorId: surender!.id, date: today, timeSlot: "4:00 PM", status: "SCHEDULED", reason: "Composite filling", type: "TREATMENT", createdById: kazim!.id, roomId: 4 },
 
     // ═══ RAMANA REDDY (Consultant): Referred patients + plan-linked appointments ═══
     // Completed morning
     { patientId: 22, doctorId: ramana!.id, date: today, timeSlot: "10:00 AM", status: "COMPLETED", reason: "Implant review", createdById: kazim!.id, roomId: 2 },
     // ARRIVED — crown work (referred from BDS, plan-linked)
-    { patientId: 6, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Crown try-in (post-RCT)", createdById: kazim!.id, roomId: 2 },
+    { patientId: 6, doctorId: ramana!.id, date: today, timeSlot: "10:30 AM", status: "ARRIVED", reason: "Crown try-in (post-RCT)", type: "TREATMENT", createdById: kazim!.id, roomId: 2 },
     // ARRIVED — consultation for complex case
-    { patientId: 40, doctorId: ramana!.id, date: today, timeSlot: "11:00 AM", status: "ARRIVED", reason: "Implant consultation", createdById: kazim!.id, roomId: 2 },
+    { patientId: 40, doctorId: ramana!.id, date: today, timeSlot: "11:00 AM", status: "ARRIVED", reason: "Implant consultation", type: "CONSULTATION", createdById: kazim!.id, roomId: 2 },
     // Afternoon scheduled
-    { patientId: 28, doctorId: ramana!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Crown cementation", createdById: kazim!.id, roomId: 2 },
-    { patientId: 14, doctorId: ramana!.id, date: today, timeSlot: "3:30 PM", status: "SCHEDULED", reason: "Ortho consultation", createdById: kazim!.id, roomId: 2 },
-    { patientId: 46, doctorId: ramana!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Denture adjustment", createdById: kazim!.id, roomId: 2 },
+    { patientId: 28, doctorId: ramana!.id, date: today, timeSlot: "2:00 PM", status: "SCHEDULED", reason: "Crown cementation", type: "TREATMENT", createdById: kazim!.id, roomId: 2 },
+    { patientId: 14, doctorId: ramana!.id, date: today, timeSlot: "3:30 PM", status: "SCHEDULED", reason: "Ortho consultation", type: "CONSULTATION", createdById: kazim!.id, roomId: 2 },
+    { patientId: 46, doctorId: ramana!.id, date: today, timeSlot: "4:30 PM", status: "SCHEDULED", reason: "Denture adjustment", type: "TREATMENT", createdById: kazim!.id, roomId: 2 },
 
     // ═══ Other doctors ═══
     { patientId: 7, doctorId: anitha!.id, date: today, timeSlot: "11:00 AM", status: "SCHEDULED", reason: "Ortho adjustment", createdById: kazim!.id, roomId: 1 },
@@ -1410,21 +1410,6 @@ async function main() {
   }
 
   // ==========================================
-  // WORK DONE (sample procedure records)
-  // ==========================================
-  // RCT chain — work done for completed visits
-  await prisma.workDone.createMany({
-    data: [
-      { visitId: rctV1.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Access opening, pulp extirpation", performedById: surender!.id },
-      { visitId: rctV2.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Biomechanical preparation, irrigation", performedById: surender!.id },
-      { visitId: rctV3.id, operationId: rct!.id, toothNumber: 36, resultingStatus: "RCT", notes: "Obturation completed", performedById: surender!.id },
-      // Implant chain — surgical implant placement
-      { visitId: implantV3.id, operationId: implant!.id, toothNumber: 36, resultingStatus: "IMPLANT", notes: "Implant placed, torque 35Ncm", performedById: bhadra!.id },
-    ],
-  });
-  console.log("   - 4 work done entries");
-
-  // ==========================================
   // PRESCRIPTIONS (sample structured prescriptions)
   // ==========================================
   const rx1 = await prisma.prescription.create({
@@ -1504,25 +1489,97 @@ async function main() {
     },
   });
 
-  // Create fulfillments for completed work done entries
-  const workDoneEntries = await prisma.workDone.findMany({
-    include: { visit: { select: { patientId: true, operationRate: true, discount: true, quantity: true, doctorId: true } } },
+  console.log("   - 3 escrow deposits");
+
+  // ==========================================
+  // LAB ORDERS (sample orders for testing)
+  // ==========================================
+  const muraliId = muralidhar!.id;
+  await prisma.labOrder.createMany({
+    data: [
+      {
+        patientId: 1,
+        labId: 1, // First lab
+        labRateId: 1, // First lab rate
+        quantity: 1,
+        unitRate: 2500,
+        rateAdjustment: 0,
+        totalAmount: 2500,
+        status: "ORDERED",
+        orderedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        expectedDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
+        toothNumbers: "36",
+        createdById: muraliId,
+      },
+      {
+        patientId: 2,
+        labId: 1,
+        labRateId: 2, // Second lab rate
+        quantity: 2,
+        unitRate: 1800,
+        rateAdjustment: 200,
+        totalAmount: 4000, // (1800 + 200) * 2
+        adjustmentNote: "Rush order premium",
+        status: "ORDERED",
+        orderedDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago (overdue)
+        expectedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // Expected 3 days ago
+        toothNumbers: "14,15",
+        createdById: muraliId,
+      },
+      {
+        patientId: 3,
+        labId: 1,
+        labRateId: 1,
+        quantity: 1,
+        unitRate: 2500,
+        rateAdjustment: 0,
+        totalAmount: 2500,
+        status: "RECEIVED",
+        orderedDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+        receivedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        toothNumbers: "46",
+        createdById: muraliId,
+        receivedById: muraliId,
+      },
+    ],
   });
-  for (const wd of workDoneEntries) {
-    const amount = Math.max(0, ((wd.visit.operationRate || 0) - (wd.visit.discount || 0)) * (wd.visit.quantity ?? 1));
-    if (amount > 0) {
-      await prisma.escrowFulfillment.create({
-        data: {
-          patientId: wd.visit.patientId,
-          workDoneId: wd.id,
-          visitId: wd.visitId,
-          amount,
-          doctorId: wd.visit.doctorId,
-        },
-      });
-    }
-  }
-  console.log("   - 3 escrow deposits + fulfillments for work done");
+  console.log("   - 3 lab orders");
+
+  // ==========================================
+  // AUDIT LOG — Rate change entries (for L1 dashboard widget)
+  // ==========================================
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        action: "LAB_RATE_CHANGE",
+        severity: "FLAG",
+        actorId: muraliId,
+        entityType: "LabRate",
+        entityId: 1,
+        details: JSON.stringify({ itemName: "DC Zir Smile-Zirconia", oldRate: 2200, newRate: 2500, labName: "Dentcare Pvt Ltd" }),
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      },
+      {
+        action: "OPERATION_RATE_CHANGE",
+        severity: "FLAG",
+        actorId: muraliId,
+        entityType: "Operation",
+        entityId: 5,
+        details: JSON.stringify({ itemName: "Root Canal Treatment", oldFee: 4500, newFee: 5000, oldDoctorFee: 1800, newDoctorFee: 1800 }),
+        createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // 4 days ago
+      },
+      {
+        action: "LAB_RATE_CREATED",
+        severity: "INFO",
+        actorId: muraliId,
+        entityType: "LabRate",
+        entityId: 10,
+        details: JSON.stringify({ itemName: "Full Arch Zirconia Bridge", rate: 18000, labName: "Dento Crafts Digital" }),
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+      },
+    ],
+  });
+  console.log("   - 3 rate change audit entries");
 }
 
 main()

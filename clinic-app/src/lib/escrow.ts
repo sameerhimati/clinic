@@ -8,26 +8,13 @@ export async function calcEscrowDeposits(patientId: number): Promise<number> {
   return result._sum.amount || 0;
 }
 
-export async function calcEscrowFulfilled(patientId: number): Promise<number> {
-  const result = await prisma.escrowFulfillment.aggregate({
-    where: { patientId },
-    _sum: { amount: true },
-  });
-  return result._sum.amount || 0;
-}
-
 export async function calcEscrowBalance(patientId: number): Promise<number> {
-  const [deposits, fulfilled] = await Promise.all([
-    calcEscrowDeposits(patientId),
-    calcEscrowFulfilled(patientId),
-  ]);
-  return deposits - fulfilled;
+  return calcEscrowDeposits(patientId);
 }
 
 export async function getEscrowSummary(patientId: number) {
-  const [deposits, fulfilled, recentPayments, recentFulfillments] = await Promise.all([
+  const [deposits, recentPayments] = await Promise.all([
     calcEscrowDeposits(patientId),
-    calcEscrowFulfilled(patientId),
     prisma.patientPayment.findMany({
       where: { patientId },
       orderBy: { paymentDate: "desc" },
@@ -36,26 +23,12 @@ export async function getEscrowSummary(patientId: number) {
         createdBy: { select: { name: true } },
       },
     }),
-    prisma.escrowFulfillment.findMany({
-      where: { patientId },
-      orderBy: { fulfilledAt: "desc" },
-      take: 10,
-      include: {
-        workDone: {
-          include: { operation: { select: { name: true } } },
-        },
-        visit: { select: { caseNo: true } },
-        doctor: { select: { name: true } },
-      },
-    }),
   ]);
 
   return {
     deposits,
-    fulfilled,
-    balance: deposits - fulfilled,
+    balance: deposits,
     recentPayments,
-    recentFulfillments,
   };
 }
 

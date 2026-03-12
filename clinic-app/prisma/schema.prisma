@@ -39,7 +39,6 @@ model Operation {
   visits              Visit[]
   treatmentSteps      TreatmentStep[]
   planItems           TreatmentPlanItem[]
-  workDoneEntries     WorkDone[]
 
   @@map("operations")
 }
@@ -53,6 +52,7 @@ model TreatmentStep {
   description     String?
   noteTemplate    String?
   defaultDayGap   Int       @default(7)
+  requiresLabWork Boolean   @default(false)
   defaultDoctorId Int?
   defaultDoctor   Doctor?   @relation("DefaultTreatmentStepDoctor", fields: [defaultDoctorId], references: [id])
   createdAt       DateTime  @default(now())
@@ -72,6 +72,7 @@ model Lab {
   createdAt    DateTime  @default(now())
   rates        LabRate[]
   visits       Visit[]
+  labOrders    LabOrder[]
 
   @@map("labs")
 }
@@ -88,6 +89,7 @@ model LabRate {
   updatedAt DateTime @updatedAt
   visits    Visit[]
   planItems TreatmentPlanItem[]
+  labOrders LabOrder[]
 
   @@unique([labId, itemCode])
   @@map("lab_rates")
@@ -129,26 +131,42 @@ model DoctorAvailability {
 }
 
 // ============================================
+// CORPORATE PARTNERS
+// ============================================
+
+model CorporatePartner {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  notes     String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  patients  Patient[]
+
+  @@map("corporate_partners")
+}
+
+// ============================================
 // CORE TABLES
 // ============================================
 
 model ClinicSettings {
-  id           Int      @id @default(autoincrement())
-  name         String
-  addressLine1 String?
-  addressLine2 String?
-  addressLine3 String?
-  city         String?
-  state        String?
-  pincode      String?
-  phone        String?
-  fax          String?
-  email        String?
-  gstNumber    String?
-  scanFolder   String?
-  appVersion   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  name            String
+  addressLine1    String?
+  addressLine2    String?
+  addressLine3    String?
+  city            String?
+  state           String?
+  pincode         String?
+  phone           String?
+  fax             String?
+  email           String?
+  gstNumber       String?
+  scanFolder      String?
+  appVersion      String?
+  defaultAdvance  Float    @default(500)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("clinic_settings")
 }
@@ -192,14 +210,14 @@ model Doctor {
   defaultStepDoctors   TreatmentStep[]        @relation("DefaultTreatmentStepDoctor")
   auditLogs            AuditLog[]
   toothStatusHistory   ToothStatusHistory[]
-  workDoneEntries      WorkDone[]
   prescriptionsCreated Prescription[]  @relation("PrescriptionDoctor")
   prescriptionsPrinted Prescription[]  @relation("PrescriptionPrintedBy")
   payments             PatientPayment[]
-  escrowFulfillments   EscrowFulfillment[]
   modifiedPlanItems    TreatmentPlanItem[] @relation("ModifiedPlanItems")
   createdChains        TreatmentChain[]    @relation("CreatedChains")
   clinicalNotes        ClinicalNote[]      @relation("ClinicalNotesAuthored")
+  labOrdersCreated     LabOrder[]          @relation("LabOrdersCreated")
+  labOrdersReceived    LabOrder[]          @relation("LabOrdersReceived")
 
   @@map("doctors")
 }
@@ -239,6 +257,8 @@ model Patient {
   referringPhysician  String?
   physicianPhone      String?
   remarks             String?
+  corporatePartnerId  Int?
+  corporatePartner    CorporatePartner? @relation(fields: [corporatePartnerId], references: [id])
   isActive            Boolean          @default(true)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -251,9 +271,9 @@ model Patient {
   toothStatusHistory  ToothStatusHistory[]
   prescriptions       Prescription[]
   payments            PatientPayment[]
-  escrowFulfillments  EscrowFulfillment[]
   treatmentChains     TreatmentChain[]
   clinicalNotes       ClinicalNote[]
+  labOrders           LabOrder[]
 
   @@map("patients")
 }
@@ -312,9 +332,7 @@ model Visit {
   planItems               TreatmentPlanItem[]
   toothStatuses           ToothStatus[]
   toothStatusHistory      ToothStatusHistory[]
-  workDone                WorkDone[]
   prescriptions           Prescription[]
-  escrowFulfillments      EscrowFulfillment[]
   clinicalNotes           ClinicalNote[]
 
   @@map("visits")
@@ -388,6 +406,7 @@ model Appointment {
   room         Room?    @relation(fields: [roomId], references: [id])
   date         DateTime
   timeSlot     String?  // free text: "10:00 AM", "2:30 PM", "morning"
+  type         String   @default("CONSULTATION") // CONSULTATION, TREATMENT
   status       String   @default("SCHEDULED") // SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
   reason       String?
   notes        String?
@@ -434,7 +453,7 @@ model TreatmentChain {
   patient       Patient          @relation(fields: [patientId], references: [id])
   title         String           // "Tooth 36 Treatment"
   toothNumbers  String?          // comma-separated: "36" or "36,37"
-  status        String           @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  status        String           @default("DRAFT") // DRAFT, ACTIVE, COMPLETED, CANCELLED
   createdById   Int
   createdBy     Doctor           @relation("CreatedChains", fields: [createdById], references: [id])
   notes         String?
@@ -523,7 +542,7 @@ model TreatmentPlanItem {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   appointments     Appointment[]
-  workDoneEntries  WorkDone[]
+  labOrders        LabOrder[]
 
   @@index([planId])
   @@map("treatment_plan_items")
@@ -588,30 +607,6 @@ model ToothStatusHistory {
   @@map("tooth_status_history")
 }
 
-// ============================================
-// WORK DONE (per-tooth per-visit procedures)
-// ============================================
-
-model WorkDone {
-  id              Int                @id @default(autoincrement())
-  visitId         Int
-  visit           Visit              @relation(fields: [visitId], references: [id])
-  operationId     Int
-  operation       Operation          @relation(fields: [operationId], references: [id])
-  toothNumber     Int?
-  resultingStatus String?
-  planItemId      Int?
-  planItem        TreatmentPlanItem? @relation(fields: [planItemId], references: [id])
-  notes           String?
-  performedById   Int
-  performedBy     Doctor             @relation(fields: [performedById], references: [id])
-  createdAt       DateTime           @default(now())
-  fulfillment     EscrowFulfillment?
-
-  @@index([visitId])
-  @@index([planItemId])
-  @@map("work_done")
-}
 
 // ============================================
 // PRESCRIPTIONS
@@ -696,29 +691,44 @@ model PatientPayment {
   createdById   Int
   createdBy     Doctor              @relation(fields: [createdById], references: [id])
   createdAt     DateTime            @default(now())
-  fulfillments  EscrowFulfillment[]
 
   @@index([patientId])
   @@map("patient_payments")
 }
 
-model EscrowFulfillment {
-  id              Int              @id @default(autoincrement())
+// ============================================
+// LAB ORDERS
+// ============================================
+
+model LabOrder {
+  id              Int                @id @default(autoincrement())
   patientId       Int
-  patient         Patient          @relation(fields: [patientId], references: [id])
-  workDoneId      Int              @unique
-  workDone        WorkDone         @relation(fields: [workDoneId], references: [id])
-  visitId         Int
-  visit           Visit            @relation(fields: [visitId], references: [id])
-  amount          Float
-  doctorId        Int?
-  doctor          Doctor?          @relation(fields: [doctorId], references: [id])
-  paymentId       Int?
-  payment         PatientPayment?  @relation(fields: [paymentId], references: [id])
-  fulfilledAt     DateTime         @default(now())
+  patient         Patient            @relation(fields: [patientId], references: [id])
+  labId           Int
+  lab             Lab                @relation(fields: [labId], references: [id])
+  labRateId       Int
+  labRate         LabRate            @relation(fields: [labRateId], references: [id])
+  planItemId      Int?
+  planItem        TreatmentPlanItem? @relation(fields: [planItemId], references: [id])
+  quantity        Float              @default(1)
+  unitRate        Float              // snapshot from rate card
+  rateAdjustment  Float              @default(0)  // +/- override
+  totalAmount     Float              // (unitRate + rateAdjustment) * quantity
+  adjustmentNote  String?            // reason for rate deviation
+  status          String             @default("ORDERED") // ORDERED | RECEIVED
+  orderedDate     DateTime
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  notes           String?
+  toothNumbers    String?            // e.g., "36,37"
+  createdById     Int
+  createdBy       Doctor             @relation("LabOrdersCreated", fields: [createdById], references: [id])
+  receivedById    Int?
+  receivedBy      Doctor?            @relation("LabOrdersReceived", fields: [receivedById], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@index([patientId])
-  @@index([visitId])
-  @@index([workDoneId])
-  @@map("escrow_fulfillments")
+  @@index([status])
+  @@map("lab_orders")
 }

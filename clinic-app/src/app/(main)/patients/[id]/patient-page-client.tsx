@@ -39,7 +39,10 @@ import { QuickVisitSheet } from "@/components/quick-visit-sheet";
 import { TreatmentPlanCard, type TreatmentPlanData } from "@/components/treatment-plan-card";
 import { TreatmentChainCard, type TreatmentChainData } from "@/components/treatment-chain-card";
 import { ClinicalNotepad, type NoteEntry, type ChainOption } from "@/components/clinical-notepad";
+import { InlinePlanSheet } from "@/components/inline-plan-sheet";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { CollectPaymentDialog } from "@/components/collect-payment-dialog";
+import { ScheduleFollowUpDialog, type ScheduleDefaults } from "@/components/schedule-followup-dialog";
 import {
   Dialog,
   DialogContent,
@@ -130,6 +133,7 @@ export type PatientPageData = {
     referringPhysician: string | null;
     physicianPhone: string | null;
     remarks: string | null;
+    corporatePartnerName: string | null;
     createdAt: Date;
     diseases: { diseaseId: number; disease: { name: string } }[];
   };
@@ -138,6 +142,8 @@ export type PatientPageData = {
   totalPaid: number;
   totalBalance: number;
   escrowBalance: number;
+  totalCollected: number;
+  plannedCost: number;
   visitCount: number;
   firstVisit: Date | null;
   lastVisit: Date | null;
@@ -181,70 +187,83 @@ export type PatientPageData = {
     visitId: number | null;
     recordedAt: string;
   }[];
-  patientWorkDone: {
-    toothNumber: number | null;
-    operationName: string;
-    doctorName: string;
-    caseNo: number | null;
-    visitId: number;
-    visitDate: string;
+  labOrders: {
+    id: number;
+    labName: string;
+    materialName: string;
+    quantity: number;
+    unitRate: number;
+    rateAdjustment: number;
+    totalAmount: number;
+    adjustmentNote: string | null;
+    status: string;
+    orderedDate: string;
+    expectedDate: string | null;
+    receivedDate: string | null;
+    toothNumbers: string | null;
+    createdByName: string;
+    receivedByName: string | null;
+    planItemId: number | null;
+    planItemLabel: string | null;
     notes: string | null;
   }[];
 };
 
-function TreatmentPlansSection({ plans, patientId, isDoctor, permissionLevel }: { plans: TreatmentPlanData[]; patientId: number; isDoctor: boolean; permissionLevel: number }) {
+function ActiveTreatmentsSection({ chains, standalonePlans, patientId, isDoctor, permissionLevel, onScheduleFollowUp, onAddPlan }: {
+  chains: TreatmentChainData[];
+  standalonePlans: TreatmentPlanData[];
+  patientId: number;
+  isDoctor: boolean;
+  permissionLevel: number;
+  onScheduleFollowUp?: (defaults: ScheduleDefaults) => void;
+  onAddPlan?: (chainId: number, chainTitle: string, toothNumbers: string | null) => void;
+}) {
   const [showCompleted, setShowCompleted] = useState(false);
-  const activePlans = plans.filter((p) => p.status === "ACTIVE");
-  const completedPlans = plans.filter((p) => p.status !== "ACTIVE");
+  const activeStandalone = standalonePlans.filter((p) => p.status === "ACTIVE");
+  const completedStandalone = standalonePlans.filter((p) => p.status !== "ACTIVE");
+  const hasAnyActive = chains.length > 0 || activeStandalone.length > 0;
 
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Plans</h3>
-        <div className="flex gap-2">
-          {!isDoctor && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-              <Link href={`/patients/${patientId}/chain/new`}>
-                <ClipboardList className="h-3.5 w-3.5 mr-1" />
-                New Chain
-              </Link>
-            </Button>
-          )}
-          {permissionLevel === 3 && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-              <Link href={`/patients/${patientId}/plan/new`}>
-                <ClipboardList className="h-3.5 w-3.5 mr-1" />
-                New Plan
-              </Link>
-            </Button>
-          )}
-        </div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Active Treatments</h3>
       </div>
-      {activePlans.length > 0 ? (
-        <div className="space-y-4">
-          {activePlans.map((plan) => (
+      {hasAnyActive ? (
+        <div className="space-y-3">
+          {chains.map((chain, i) => (
+            <TreatmentChainCard
+              key={chain.id}
+              chain={chain}
+              isDoctor={isDoctor}
+              permissionLevel={permissionLevel}
+              defaultExpanded={i < 2}
+              onScheduleFollowUp={onScheduleFollowUp}
+              onAddPlan={onAddPlan}
+            />
+          ))}
+          {activeStandalone.map((plan) => (
             <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} permissionLevel={permissionLevel} />
           ))}
         </div>
       ) : (
         <Card>
           <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            No active treatment plans
+            No active treatments
           </CardContent>
         </Card>
       )}
-      {completedPlans.length > 0 && (
+      {completedStandalone.length > 0 && (
         <>
           <button
             type="button"
             onClick={() => setShowCompleted(!showCompleted)}
             className="text-xs text-muted-foreground hover:text-foreground mt-3 transition-colors"
           >
-            {showCompleted ? "Hide" : "Show"} completed ({completedPlans.length})
+            {showCompleted ? "Hide" : "Show"} completed ({completedStandalone.length})
           </button>
           {showCompleted && (
             <div className="space-y-4 mt-3 opacity-60">
-              {completedPlans.map((plan) => (
+              {completedStandalone.map((plan) => (
                 <TreatmentPlanCard key={plan.id} plan={plan} isDoctor={isDoctor} permissionLevel={permissionLevel} />
               ))}
             </div>
@@ -255,7 +274,7 @@ function TreatmentPlansSection({ plans, patientId, isDoctor, permissionLevel }: 
   );
 }
 
-function ScheduleNowBanner({ patientId }: { patientId: number }) {
+function ScheduleNowBanner({ onSchedule }: { onSchedule?: () => void }) {
   const [visible, setVisible] = useState(() => {
     if (typeof window === "undefined") return false;
     return new URLSearchParams(window.location.search).has("created");
@@ -271,12 +290,19 @@ function ScheduleNowBanner({ patientId }: { patientId: number }) {
           <span className="font-medium">Patient registered successfully</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" asChild>
-            <Link href={`/appointments/new?patientId=${patientId}`}>
+          {onSchedule ? (
+            <Button size="sm" onClick={onSchedule}>
               <CalendarDays className="mr-1 h-3.5 w-3.5" />
               Schedule Appointment
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button size="sm" asChild>
+              <Link href={`/appointments/new`}>
+                <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                Schedule Appointment
+              </Link>
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={() => setVisible(false)} className="h-7 w-7 p-0">
             <XCircle className="h-4 w-4" />
           </Button>
@@ -300,6 +326,39 @@ function getSmartScheduleUrl(patientId: number, plans: TreatmentPlanData[]): str
     }
   }
   return base;
+}
+
+function getSmartScheduleDefaults(plans: TreatmentPlanData[], chains?: TreatmentChainData[]): ScheduleDefaults | undefined {
+  // First check chains (most common for multi-step treatments)
+  if (chains) {
+    for (const chain of chains.filter((c) => c.status === "ACTIVE")) {
+      for (const plan of chain.plans.filter((p) => p.status === "ACTIVE")) {
+        const sorted = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
+        const next = sorted.find((i) => !i.visitId && !i.modifiedStatus && !i.appointment);
+        if (next) {
+          return {
+            reason: next.label,
+            doctorId: next.assignedDoctorId || undefined,
+            date: next.scheduledDate ? new Date(next.scheduledDate).toISOString().split("T")[0] : undefined,
+            planItemId: next.id,
+          };
+        }
+      }
+    }
+  }
+  // Then standalone plans
+  for (const plan of plans.filter((p) => p.status === "ACTIVE")) {
+    const sorted = [...plan.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const next = sorted.find((i) => !i.visitId && !i.modifiedStatus && !i.appointment);
+    if (next) {
+      return {
+        reason: next.label,
+        doctorId: next.assignedDoctorId || undefined,
+        planItemId: next.id,
+      };
+    }
+  }
+  return undefined;
 }
 
 export function PatientPageClient({ data }: { data: PatientPageData }) {
@@ -326,6 +385,32 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   // Visit notes popup
   const [selectedVisit, setSelectedVisit] = useState<VisitWithRelations | null>(null);
 
+  // Collect Payment + Schedule Follow-Up dialogs
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("collect");
+  });
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleDefaults, setScheduleDefaults] = useState<ScheduleDefaults | undefined>();
+
+  // InlinePlanSheet for adding plans to active chains
+  const [planSheetOpen, setPlanSheetOpen] = useState(false);
+  const [planSheetChainId, setPlanSheetChainId] = useState<number | undefined>();
+  const [planSheetChainTitle, setPlanSheetChainTitle] = useState<string | undefined>();
+  const [planSheetChainTeeth, setPlanSheetChainTeeth] = useState<string | null>(null);
+
+  function openPlanSheet(chainId: number, chainTitle: string, toothNumbers: string | null) {
+    setPlanSheetChainId(chainId);
+    setPlanSheetChainTitle(chainTitle);
+    setPlanSheetChainTeeth(toothNumbers);
+    setPlanSheetOpen(true);
+  }
+
+  function openScheduleDialog(defaults?: ScheduleDefaults) {
+    setScheduleDefaults(defaults);
+    setScheduleDialogOpen(true);
+  }
+
   // Build visitId → plan title mapping for timeline badges
   const visitPlanMap = new Map<number, string>();
   for (const plan of data.treatmentPlans) {
@@ -346,10 +431,6 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       const num = parseInt(m[1]);
       if (num >= 11 && num <= 48) planTeethSet.add(num);
     }
-  }
-  // Also include teeth from patientWorkDone
-  for (const wd of data.patientWorkDone) {
-    if (wd.toothNumber) planTeethSet.add(wd.toothNumber);
   }
   const planTeeth = Array.from(planTeethSet);
 
@@ -391,13 +472,15 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
 
   if (todayAppt) {
     if (todayAppt.status === "SCHEDULED") {
-      // SCHEDULED: Check In (primary), Reschedule + Cancel (secondary)
-      primaryCta = (
-        <Button size="sm" onClick={() => handleStatusChange(todayAppt.id, "ARRIVED")} disabled={isPending}>
-          <UserCheck className="mr-1 h-3.5 w-3.5" />
-          Check In
-        </Button>
-      );
+      // SCHEDULED: Check In (reception only), Reschedule + Cancel (secondary)
+      if (!isDoctor) {
+        primaryCta = (
+          <Button size="sm" onClick={() => handleStatusChange(todayAppt.id, "ARRIVED")} disabled={isPending}>
+            <UserCheck className="mr-1 h-3.5 w-3.5" />
+            Check In
+          </Button>
+        );
+      }
       appointmentActions = (
         <>
           <DropdownMenuItem asChild>
@@ -457,28 +540,20 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
   // No appointment-driven CTA — default actions
   if (!primaryCta) {
     const hasActiveAppointment = todayAppt && ["ARRIVED", "IN_PROGRESS"].includes(todayAppt.status);
-    if (data.canCollect && (data.totalBalance > 0 || data.escrowBalance < 0)) {
-      // Escrow deficit is the primary "owed" amount; fall back to legacy balance
-      const displayAmount = data.escrowBalance < 0
-        ? Math.abs(data.escrowBalance)
-        : data.totalBalance;
-      const collectAmount = Math.max(data.totalBalance, data.escrowBalance < 0 ? Math.abs(data.escrowBalance) : 0);
+    const outstanding = data.totalBilled - data.totalCollected;
+    if (data.canCollect && outstanding > 0) {
       primaryCta = (
-        <Button size="sm" asChild>
-          <Link href={`/patients/${patient.id}/checkout`}>
-            <IndianRupee className="mr-1 h-3.5 w-3.5" />
-            Collect {"\u20B9"}{(collectAmount || displayAmount).toLocaleString("en-IN")}
-          </Link>
+        <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
+          <IndianRupee className="mr-1 h-3.5 w-3.5" />
+          Collect {"\u20B9"}{outstanding.toLocaleString("en-IN")}
         </Button>
       );
     } else if (!isDoctor && !hasActiveAppointment) {
       // Only show "Schedule Appointment" if there's no active appointment today
       primaryCta = (
-        <Button size="sm" asChild>
-          <Link href={smartScheduleUrl}>
-            <CalendarDays className="mr-1 h-3.5 w-3.5" />
-            Schedule Appointment
-          </Link>
+        <Button size="sm" onClick={() => openScheduleDialog(getSmartScheduleDefaults(data.treatmentPlans, data.treatmentChains))}>
+          <CalendarDays className="mr-1 h-3.5 w-3.5" />
+          Schedule Appointment
         </Button>
       );
     }
@@ -526,20 +601,30 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {data.canCollect && data.escrowBalance !== 0 && (
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    data.escrowBalance > 0
-                      ? "bg-green-50 text-green-700 border border-green-200"
-                      : "bg-red-50 text-red-700 border border-red-200"
-                  }`}>
-                    {data.escrowBalance < 0 ? "Due" : "Credit"}: {"\u20B9"}{Math.abs(data.escrowBalance).toLocaleString("en-IN")}
+                {patient.corporatePartnerName && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    {patient.corporatePartnerName}
                   </span>
                 )}
-                {data.canCollect && data.escrowBalance === 0 && data.totalBalance > 0 && (
-                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                    Due: {"\u20B9"}{data.totalBalance.toLocaleString("en-IN")}
-                  </span>
-                )}
+                {data.canCollect && (() => {
+                  const outstanding = data.totalBilled - data.totalCollected;
+                  if (outstanding > 0) return (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                      Due: {"\u20B9"}{outstanding.toLocaleString("en-IN")}
+                    </span>
+                  );
+                  if (outstanding < 0) return (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                      Credit: {"\u20B9"}{Math.abs(outstanding).toLocaleString("en-IN")}
+                    </span>
+                  );
+                  if (data.totalBilled > 0) return (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                      Paid up
+                    </span>
+                  );
+                  return null;
+                })()}
                 <span className="text-xs text-muted-foreground">
                   {data.visitCount} visit{data.visitCount !== 1 ? "s" : ""}
                   {data.lastVisit && <span> · Last: {formatDate(data.lastVisit)}</span>}
@@ -568,7 +653,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   <SmilePlus className="mr-2 h-4 w-4" />
                   Dental Chart
                 </DropdownMenuItem>
-                {(appointmentActions || data.canEdit || (data.canCollect && data.totalBalance > 0)) && <DropdownMenuSeparator />}
+                {(appointmentActions || data.canEdit || data.canCollect) && <DropdownMenuSeparator />}
                 {appointmentActions}
                 {appointmentActions && data.canEdit && <DropdownMenuSeparator />}
                 {data.canEdit && (
@@ -579,12 +664,10 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  {data.canCollect && data.totalBalance > 0 && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/patients/${patient.id}/checkout`}>
-                        <IndianRupee className="mr-2 h-4 w-4" />
-                        Collect Payment
-                      </Link>
+                  {data.canCollect && (
+                    <DropdownMenuItem onClick={() => setPaymentDialogOpen(true)}>
+                      <IndianRupee className="mr-2 h-4 w-4" />
+                      Collect Payment
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -604,12 +687,12 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
             </span>
           );
         }
-        if (data.canCollect && data.totalBalance > 0) {
+        if (data.canCollect && data.totalBilled - data.totalCollected > 0) {
           alerts.push(
-            <Link key="balance" href={`/patients/${patient.id}/checkout`} className="flex items-center gap-1 hover:underline">
+            <button key="balance" type="button" onClick={() => setPaymentDialogOpen(true)} className="flex items-center gap-1 hover:underline">
               <IndianRupee className="h-3.5 w-3.5" />
-              ₹{data.totalBalance.toLocaleString("en-IN")} due
-            </Link>
+              ₹{(data.totalBilled - data.totalCollected).toLocaleString("en-IN")} due
+            </button>
           );
         }
         // Find next plan step
@@ -634,7 +717,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
       })()}
 
       {/* Post-Registration: Schedule Now banner */}
-      <ScheduleNowBanner patientId={patient.id} />
+      <ScheduleNowBanner onSchedule={!isDoctor ? () => openScheduleDialog() : undefined} />
 
       {/* Task 2A: Dental Chart Dialog (moved from inline hero) */}
       <Dialog open={chartOpen} onOpenChange={setChartOpen}>
@@ -673,7 +756,6 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           {selectedTooth && (() => {
             const currentStatus = data.toothStatuses.find((ts) => ts.toothNumber === selectedTooth);
             const history = data.toothHistory.filter((th) => th.toothNumber === selectedTooth);
-            const workDone = data.patientWorkDone.filter((wd) => wd.toothNumber === selectedTooth);
             const statusKey = (currentStatus?.status || "HEALTHY") as ToothStatusKey;
             const statusColor = getStatusColor(statusKey);
             const statusLabel = TOOTH_STATUSES[statusKey]?.label || statusKey;
@@ -749,37 +831,6 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                     </div>
                   )}
 
-                  {/* Procedures — card-style entries */}
-                  {workDone.length > 0 && (
-                    <div>
-                      <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-4">Procedures</div>
-                      <div className="space-y-3">
-                        {workDone.map((wd, i) => (
-                          <div key={i} className="rounded-xl border bg-card p-4 shadow-xs">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="font-semibold text-sm">{wd.operationName}</div>
-                              {wd.caseNo && (
-                                <Link href={`/visits/${wd.visitId}`} className="text-xs text-primary hover:underline shrink-0">
-                                  Case #{wd.caseNo}
-                                </Link>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1.5">
-                              <span>{formatDate(wd.visitDate)}</span>
-                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
-                              <span>Dr. {toTitleCase(wd.doctorName)}</span>
-                            </div>
-                            {wd.notes && (
-                              <div className="text-xs text-muted-foreground mt-2 bg-muted/50 rounded-lg px-2.5 py-1.5">
-                                {wd.notes}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* History Timeline */}
                   {history.length > 0 && (
                     <div>
@@ -824,7 +875,7 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                   )}
 
                   {/* Empty state */}
-                  {!currentStatus && history.length === 0 && workDone.length === 0 && (
+                  {!currentStatus && history.length === 0 && (
                     <div className="text-center py-8">
                       <div className="text-muted-foreground/30 text-4xl mb-3">&#129463;</div>
                       <div className="font-semibold text-sm">No clinical history</div>
@@ -909,31 +960,16 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         </DialogContent>
       </Dialog>
 
-      {/* 1. Treatment Chains (Task 2C: moved up — "what's the plan?") */}
-      {data.treatmentChains.length > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Treatment Chains</h3>
-          {data.treatmentChains.map((chain, i) => (
-            <TreatmentChainCard
-              key={chain.id}
-              chain={chain}
-              isDoctor={isDoctor}
-              permissionLevel={currentUser.permissionLevel}
-              defaultExpanded={i < 2}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* 2. Standalone Treatment Plans */}
-      {(data.treatmentPlans.length > 0 || !isDoctor) && (
-        <TreatmentPlansSection
-          plans={data.treatmentPlans}
-          patientId={patient.id}
-          isDoctor={isDoctor}
-          permissionLevel={currentUser.permissionLevel}
-        />
-      )}
+      {/* Active Treatments — unified chains + standalone plans */}
+      <ActiveTreatmentsSection
+        chains={data.treatmentChains}
+        standalonePlans={data.treatmentPlans}
+        patientId={patient.id}
+        isDoctor={isDoctor}
+        permissionLevel={currentUser.permissionLevel}
+        onScheduleFollowUp={!isDoctor ? openScheduleDialog : undefined}
+        onAddPlan={currentUser.permissionLevel === 3 ? openPlanSheet : undefined}
+      />
 
       {/* 3. Appointments (Task 2C: moved up — "what's happening today/next?") */}
       {/* Task 3B: Compact — show today + next 1 future only */}
@@ -941,11 +977,9 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appointments</h3>
           {!isDoctor && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-              <Link href={smartScheduleUrl}>
-                <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                Schedule
-              </Link>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openScheduleDialog(getSmartScheduleDefaults(data.treatmentPlans, data.treatmentChains))}>
+              <CalendarDays className="h-3.5 w-3.5 mr-1" />
+              Schedule
             </Button>
           )}
         </div>
@@ -1029,47 +1063,55 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Financial Summary</h3>
 
           {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-3 mb-3">
-            <div className="rounded-lg border bg-green-50 p-3">
-              <div className="text-xs text-green-700 font-medium uppercase tracking-wide">Total Paid</div>
-              <div className="text-lg font-semibold text-green-800 tabular-nums mt-0.5">
-                ₹{data.totalPaid.toLocaleString("en-IN")}
-              </div>
-            </div>
-            <div className="rounded-lg border bg-muted/50 p-3">
-              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Billed</div>
-              <div className="text-lg font-semibold tabular-nums mt-0.5">
-                ₹{data.totalBilled.toLocaleString("en-IN")}
-              </div>
-            </div>
-            <div className={`rounded-lg border p-3 ${data.totalBalance > 0 ? "bg-red-50" : "bg-muted/50"}`}>
-              <div className={`text-xs font-medium uppercase tracking-wide ${data.totalBalance > 0 ? "text-red-700" : "text-muted-foreground"}`}>Balance</div>
-              <div className={`text-lg font-semibold tabular-nums mt-0.5 ${data.totalBalance > 0 ? "text-red-800" : ""}`}>
-                ₹{data.totalBalance.toLocaleString("en-IN")}
-              </div>
-            </div>
-          </div>
+          {(() => {
+            const unifiedOutstanding = data.totalBilled - data.totalCollected;
+            return (
+              <>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="rounded-lg border bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Billed</div>
+                    <div className="text-lg font-semibold tabular-nums mt-0.5">
+                      ₹{data.totalBilled.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-green-50 p-3">
+                    <div className="text-xs text-green-700 font-medium uppercase tracking-wide">Total Collected</div>
+                    <div className="text-lg font-semibold text-green-800 tabular-nums mt-0.5">
+                      ₹{data.totalCollected.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                  <div className={`rounded-lg border p-3 ${unifiedOutstanding > 0 ? "bg-red-50" : unifiedOutstanding < 0 ? "bg-green-50" : "bg-muted/50"}`}>
+                    <div className={`text-xs font-medium uppercase tracking-wide ${unifiedOutstanding > 0 ? "text-red-700" : unifiedOutstanding < 0 ? "text-green-700" : "text-muted-foreground"}`}>
+                      {unifiedOutstanding > 0 ? "Outstanding" : unifiedOutstanding < 0 ? "Credit" : "Balance"}
+                    </div>
+                    <div className={`text-lg font-semibold tabular-nums mt-0.5 ${unifiedOutstanding > 0 ? "text-red-800" : unifiedOutstanding < 0 ? "text-green-800" : ""}`}>
+                      {unifiedOutstanding < 0 ? "+" : ""}₹{Math.abs(unifiedOutstanding).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                </div>
 
-          {/* Escrow balance if non-zero */}
-          {data.escrowBalance !== 0 && (
-            <div className={`rounded-lg border px-3 py-2 mb-3 text-sm flex items-center justify-between ${data.escrowBalance > 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-              <span className={data.escrowBalance > 0 ? "text-green-700" : "text-red-700"}>
-                Escrow Balance: {data.escrowBalance > 0 ? "+" : ""}₹{Math.abs(data.escrowBalance).toLocaleString("en-IN")}
-              </span>
-            </div>
-          )}
+                {/* Planned treatment cost — informational */}
+                {data.plannedCost > 0 && (
+                  <div className="rounded-lg border px-3 py-2 mb-3 text-sm flex items-center gap-2 bg-blue-50/50 border-blue-200">
+                    <ClipboardList className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <span className="text-blue-700">
+                      Planned treatments: ₹{data.plannedCost.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                )}
 
-          {/* Collect Payment link */}
-          {data.canCollect && data.totalBalance > 0 && (
-            <div className="mb-3">
-              <Button size="sm" asChild>
-                <Link href={`/patients/${patient.id}/checkout`}>
-                  <IndianRupee className="mr-1 h-3.5 w-3.5" />
-                  Collect Payment
-                </Link>
-              </Button>
-            </div>
-          )}
+                {/* Collect Payment button */}
+                {data.canCollect && unifiedOutstanding > 0 && (
+                  <div className="mb-3">
+                    <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
+                      <IndianRupee className="mr-1 h-3.5 w-3.5" />
+                      Collect Payment
+                    </Button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Receipt list */}
           <Card>
@@ -1096,6 +1138,51 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
                 {data.receipts.length === 0 && (
                   <div className="p-4 text-center text-sm text-muted-foreground">No receipts yet</div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Lab Orders (L1/L2 only) */}
+      {data.canCollect && data.labOrders.length > 0 && (
+        <section>
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">Lab Orders</h3>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="divide-y">
+                {data.labOrders.map((lo) => (
+                  <div key={lo.id} className="flex items-center justify-between py-2.5 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        {lo.materialName}
+                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${
+                          lo.status === "ORDERED" ? "text-amber-700 border-amber-200 bg-amber-50" : "text-green-700 border-green-200 bg-green-50"
+                        }`}>
+                          {lo.status === "ORDERED" ? "Ordered" : "Received"}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {lo.labName}
+                        {lo.quantity > 1 && ` · Qty ${lo.quantity}`}
+                        {lo.toothNumbers && ` · Teeth ${lo.toothNumbers}`}
+                        {lo.planItemLabel && ` · ${lo.planItemLabel}`}
+                        {" · "}Ordered {formatDate(lo.orderedDate)}
+                        {lo.receivedDate && ` · Received ${formatDate(lo.receivedDate)}`}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-semibold tabular-nums">
+                        ₹{lo.totalAmount.toLocaleString("en-IN")}
+                      </span>
+                      {lo.rateAdjustment !== 0 && (
+                        <div className="text-xs text-amber-600">
+                          {lo.rateAdjustment > 0 ? "+" : ""}₹{lo.rateAdjustment.toLocaleString("en-IN")} adj.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -1252,6 +1339,59 @@ export function PatientPageClient({ data }: { data: PatientPageData }) {
           followUpContext={followUpContext}
           appointmentId={todayAppt?.status === "ARRIVED" ? todayAppt.id : undefined}
           totalPaid={data.totalPaid}
+        />
+      )}
+
+      {/* Collect Payment Dialog */}
+      {data.canCollect && (
+        <CollectPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          patientId={patient.id}
+          patientName={toTitleCase(patient.name)}
+          patientCode={patient.code}
+          totalCollected={data.totalCollected}
+          totalBilled={data.totalBilled}
+          suggestedAmount={data.totalBilled - data.totalCollected > 0 ? data.totalBilled - data.totalCollected : undefined}
+        />
+      )}
+
+      {/* Schedule Follow-Up Dialog */}
+      {!isDoctor && (
+        <ScheduleFollowUpDialog
+          key={scheduleDefaults?.planItemId || "default"}
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          patientId={patient.id}
+          patientName={toTitleCase(patient.name)}
+          patientCode={patient.code}
+          doctors={data.doctors}
+          defaults={scheduleDefaults}
+          onCollectAdvance={data.canCollect ? () => setPaymentDialogOpen(true) : undefined}
+        />
+      )}
+
+      {/* InlinePlanSheet for adding plans to active chains */}
+      {currentUser.permissionLevel === 3 && planSheetChainId && (
+        <InlinePlanSheet
+          key={planSheetChainId}
+          open={planSheetOpen}
+          onOpenChange={setPlanSheetOpen}
+          patientId={patient.id}
+          mode="add-to-chain"
+          chainId={planSheetChainId}
+          chainTitle={planSheetChainTitle}
+          chainTeeth={planSheetChainTeeth}
+          allOperations={data.operations.map((o) => ({
+            id: o.id,
+            name: o.name,
+            category: o.category,
+            stepCount: 0,
+            defaultMinFee: o.defaultMinFee,
+          }))}
+          allDoctors={data.doctors.map((d) => ({ id: d.id, name: d.name }))}
+          defaultDoctorId={currentUser.id}
+          onSuccess={() => router.refresh()}
         />
       )}
     </div>

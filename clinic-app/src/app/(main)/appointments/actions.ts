@@ -33,6 +33,7 @@ export async function createAppointment(formData: FormData) {
       planItemId: parsed.planItemId || null,
       date: appointmentDate,
       timeSlot: parsed.timeSlot,
+      type: parsed.type,
       reason: parsed.reason,
       notes: parsed.notes,
       isWalkIn: parsed.isWalkIn || false,
@@ -247,6 +248,43 @@ export async function reassignRoom(appointmentId: number, roomId: number | null)
   if (appointment.patientId) {
     revalidatePath(`/patients/${appointment.patientId}`);
   }
+}
+
+export async function createAppointmentDirect(data: {
+  patientId: number;
+  doctorId?: number;
+  date: string;
+  timeSlot?: string;
+  reason?: string;
+  planItemId?: number;
+}): Promise<{ appointmentId: number }> {
+  const currentUser = await requireAuth();
+  if (!canSchedule(currentUser.permissionLevel)) throw new Error("Only admin/reception can schedule appointments");
+
+  const appointmentDate = new Date(data.date);
+  appointmentDate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (appointmentDate < today) throw new Error("Cannot schedule appointments in the past");
+
+  const appointment = await prisma.appointment.create({
+    data: {
+      patientId: data.patientId,
+      doctorId: data.doctorId || null,
+      planItemId: data.planItemId || null,
+      date: appointmentDate,
+      timeSlot: data.timeSlot || null,
+      reason: data.reason || null,
+      status: "SCHEDULED",
+      createdById: currentUser.id,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath("/dashboard");
+  revalidatePath(`/patients/${data.patientId}`);
+
+  return { appointmentId: appointment.id };
 }
 
 export async function deleteAppointment(appointmentId: number) {

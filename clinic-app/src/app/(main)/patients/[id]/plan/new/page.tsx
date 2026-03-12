@@ -18,7 +18,7 @@ export default async function NewPlanPage({
   const currentUser = await requireAuth();
   if (!canCreateTreatmentPlans(currentUser.permissionLevel)) redirect("/dashboard");
 
-  const [patient, operations, doctors] = await Promise.all([
+  const [patient, operations, doctors, chains] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       select: { id: true, name: true, code: true },
@@ -33,6 +33,11 @@ export default async function NewPlanPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.treatmentChain.findMany({
+      where: { patientId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, toothNumbers: true },
+    }),
   ]);
 
   if (!patient) notFound();
@@ -46,18 +51,14 @@ export default async function NewPlanPage({
           { label: "New Treatment Plan" },
         ]}
       />
-      <h2 className="text-2xl font-bold">New Treatment Plan</h2>
-      <p className="text-muted-foreground">
-        for{" "}
-        <span className="font-medium text-foreground">
-          #{patient.code} {toTitleCase(patient.name)}
-        </span>
-      </p>
       <NewPlanForm
         patientId={patient.id}
+        patientName={toTitleCase(patient.name)}
+        patientCode={patient.code}
         operations={operations}
         doctors={doctors}
         currentDoctorId={currentUser.id}
+        chains={chains}
       />
     </div>
   );

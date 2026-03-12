@@ -217,24 +217,27 @@ export function ToothChart({
     const statusKey = toothStatus?.status || "HEALTHY";
     const indicator = TOOTH_STATUS_INDICATORS[statusKey];
     const isMissing = statusKey === "MISSING" || statusKey === "EXTRACTED";
-    const showIndicator = resolvedSize !== "sm" && indicator && !isSelected;
 
-    // Determine background
+    // Determine background — status color takes priority over selection
     let bgClass: string;
     let bgStyle: React.CSSProperties | undefined;
+    let ringClass = "";
 
-    if (isSelected) {
-      bgClass = "bg-primary text-primary-foreground";
-    } else if (toothStatus && statusKey !== "HEALTHY") {
+    if (toothStatus && statusKey !== "HEALTHY") {
       const color = toothStatus.color || getStatusColor(statusKey);
       bgStyle = { backgroundColor: color, color: "#fff" };
       bgClass = readOnly ? "" : "hover:brightness-110 cursor-pointer";
+      if (isSelected) ringClass = "ring-2 ring-primary ring-offset-1";
+    } else if (isSelected) {
+      bgClass = "bg-primary text-primary-foreground";
     } else {
       // Healthy tooth — white outlined
       bgClass = readOnly
         ? `bg-background border ${isMissing ? "border-dashed" : ""} border-border/50 text-muted-foreground`
         : `bg-background border ${isMissing ? "border-dashed" : ""} border-border/50 text-muted-foreground hover:bg-accent cursor-pointer`;
     }
+
+    const showIndicator = resolvedSize !== "sm" && indicator && !isSelected && !ringClass;
 
     const toothName = getToothName(tooth);
     const tooltipText = toothStatus && statusKey !== "HEALTHY"
@@ -252,9 +255,9 @@ export function ToothChart({
         onTouchEnd={() => handleTouchEnd(tooth)}
         disabled={readOnly && !onDoubleClick}
         className={`${config.cell} shrink-0 appearance-none rounded font-mono font-medium transition-colors relative select-none flex items-center justify-center ${bgClass} ${
-          isHighlighted && !isSelected ? "ring-2 ring-amber-400" : ""
+          ringClass || (isHighlighted && !isSelected ? "ring-2 ring-amber-400" : "")
         }`}
-        style={!isSelected ? bgStyle : undefined}
+        style={bgStyle}
         title={tooltipText}
       >
         <span className={isMissing && !isSelected ? "line-through opacity-60" : ""}>

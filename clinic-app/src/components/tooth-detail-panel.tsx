@@ -162,7 +162,7 @@ export function ToothDetailPanel({
           {/* Finding selector — Combobox */}
           <div className="space-y-2">
             <Label>Finding (optional)</Label>
-            <Popover open={findingOpen} onOpenChange={setFindingOpen}>
+            <Popover open={findingOpen} onOpenChange={setFindingOpen} modal={false}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -186,10 +186,10 @@ export function ToothDetailPanel({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" disablePortal>
                 <Command>
                   <CommandInput placeholder="Search findings..." />
-                  <CommandList>
+                  <CommandList className="max-h-[200px] overscroll-contain">
                     <CommandEmpty>No findings found.</CommandEmpty>
                     <CommandGroup>
                       <CommandItem

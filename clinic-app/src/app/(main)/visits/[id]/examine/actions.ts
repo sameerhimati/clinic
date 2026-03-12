@@ -4,28 +4,17 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { isReportLocked, isAdmin, canExamine } from "@/lib/permissions";
+import { isReportLocked, isAdmin, canExamine, canScheduleFollowUp } from "@/lib/permissions";
 
 export async function saveExamination(
   visitId: number,
   data: {
     doctorId: number;
     reportDate: string;
-    complaint: string | null;
     examination: string | null;
-    diagnosis: string | null;
-    treatmentNotes: string | null;
-    estimate: string | null;
-    medication: string | null;
     teethSelected?: string | null;
     toothUpdates?: { toothNumber: number; status: string; findingId?: number; notes?: string }[];
-    workDone?: {
-      operationId: number;
-      toothNumber?: number;
-      resultingStatus?: string;
-      planItemId?: number;
-      notes?: string;
-    }[];
+    progressItemIds?: number[];
   }
 ) {
   const currentUser = await requireAuth();
@@ -49,12 +38,7 @@ export async function saveExamination(
       data: {
         doctorId: data.doctorId,
         reportDate: new Date(data.reportDate),
-        complaint: data.complaint || null,
         examination: data.examination || null,
-        diagnosis: data.diagnosis || null,
-        treatmentNotes: data.treatmentNotes || null,
-        estimate: data.estimate || null,
-        medication: data.medication || null,
         teethSelected: data.teethSelected || null,
       },
     });
@@ -64,12 +48,7 @@ export async function saveExamination(
         visitId,
         doctorId: data.doctorId,
         reportDate: new Date(data.reportDate),
-        complaint: data.complaint || null,
         examination: data.examination || null,
-        diagnosis: data.diagnosis || null,
-        treatmentNotes: data.treatmentNotes || null,
-        estimate: data.estimate || null,
-        medication: data.medication || null,
         teethSelected: data.teethSelected || null,
       },
     });
@@ -138,135 +117,67 @@ export async function saveExamination(
     }
   }
 
-  // Escrow warning flag — set during WorkDone processing
-  let escrowDeficitWarning = false;
-  let escrowNewBalance = 0;
-
-  // Process WorkDone entries
-  if (data.workDone && data.workDone.length > 0) {
-    const visit = await prisma.visit.findUnique({
-      where: { id: visitId },
-      select: { patientId: true, operationRate: true, discount: true, quantity: true },
+  // Process treatment progress (mark plan items as completed)
+  let progressCompleted: { itemLabels: string[]; planCompleted: boolean; chainCompleted: boolean } | null = null;
+  if (data.progressItemIds && data.progressItemIds.length > 0) {
+    const items = await prisma.treatmentPlanItem.findMany({
+      where: { id: { in: data.progressItemIds }, completedAt: null },
+      include: { plan: { include: { chain: true, items: { select: { id: true, completedAt: true } } } } },
     });
-    if (visit) {
-      const visitBilled = Math.max(0, ((visit.operationRate || 0) - (visit.discount || 0)) * (visit.quantity ?? 1));
 
-      // Per-operation rate-based fulfillment: look up each operation's fee
-      const opIds = [...new Set(data.workDone.map((wd) => wd.operationId))];
-      const operations = await prisma.operation.findMany({
-        where: { id: { in: opIds } },
-        select: { id: true, defaultMinFee: true, defaultMaxFee: true },
+    const itemLabels: string[] = [];
+    let anyPlanCompleted = false;
+    let anyChainCompleted = false;
+
+    for (const item of items) {
+      await prisma.treatmentPlanItem.update({
+        where: { id: item.id },
+        data: { completedAt: new Date(), visitId },
       });
-      const opFeeMap = new Map(operations.map((o) => [o.id, o.defaultMinFee || o.defaultMaxFee || 0]));
+      itemLabels.push(item.label);
 
-      // Calculate proportional fulfillment amounts
-      const entryRates = data.workDone.map((wd) => opFeeMap.get(wd.operationId) || 0);
-      const totalRates = entryRates.reduce((sum, r) => sum + r, 0);
-      const fulfillmentAmounts = totalRates > 0
-        ? entryRates.map((rate) => (rate / totalRates) * visitBilled)
-        : entryRates.map(() => visitBilled / data.workDone!.length); // fallback: equal split
+      // Check if all items in plan are now complete
+      const allItems = item.plan.items;
+      const otherIncomplete = allItems.filter(
+        (i) => i.id !== item.id && i.completedAt === null
+      );
+      // Also exclude other items being completed in this batch
+      const batchIds = new Set(data.progressItemIds);
+      const stillIncomplete = otherIncomplete.filter((i) => !batchIds.has(i.id));
 
-      // Check current escrow balance for warning
-      const [depositAgg, fulfillAgg] = await Promise.all([
-        prisma.patientPayment.aggregate({ where: { patientId: visit.patientId }, _sum: { amount: true } }),
-        prisma.escrowFulfillment.aggregate({ where: { patientId: visit.patientId }, _sum: { amount: true } }),
-      ]);
-      const currentEscrow = (depositAgg._sum.amount || 0) - (fulfillAgg._sum.amount || 0);
-      const totalFulfillment = fulfillmentAmounts.reduce((s, a) => s + a, 0);
-      if ((currentEscrow - totalFulfillment) < 0) {
-        escrowDeficitWarning = true;
-        escrowNewBalance = currentEscrow - totalFulfillment;
-      }
-
-      for (let i = 0; i < data.workDone.length; i++) {
-        const wd = data.workDone[i];
-        const fulfillmentAmountForEntry = fulfillmentAmounts[i];
-
-        // Create WorkDone record
-        const workDoneRecord = await prisma.workDone.create({
-          data: {
-            visitId,
-            operationId: wd.operationId,
-            toothNumber: wd.toothNumber || null,
-            resultingStatus: wd.resultingStatus || null,
-            planItemId: wd.planItemId || null,
-            notes: wd.notes || null,
-            performedById: data.doctorId,
-          },
+      if (stillIncomplete.length === 0) {
+        await prisma.treatmentPlan.update({
+          where: { id: item.planId },
+          data: { status: "COMPLETED" },
         });
+        anyPlanCompleted = true;
 
-        // Auto-create EscrowFulfillment
-        if (fulfillmentAmountForEntry > 0) {
-          await prisma.escrowFulfillment.create({
-            data: {
-              patientId: visit.patientId,
-              workDoneId: workDoneRecord.id,
-              visitId,
-              amount: fulfillmentAmountForEntry,
-              doctorId: data.doctorId,
-            },
+        // Check if all plans in chain are complete
+        if (item.plan.chainId) {
+          const chainPlans = await prisma.treatmentPlan.findMany({
+            where: { chainId: item.plan.chainId },
+            select: { id: true, status: true },
           });
-        }
-
-        // Update tooth status if resultingStatus + toothNumber provided
-        if (wd.resultingStatus && wd.toothNumber) {
-          await prisma.toothStatus.upsert({
-            where: {
-              patientId_toothNumber: {
-                patientId: visit.patientId,
-                toothNumber: wd.toothNumber,
-              },
-            },
-            update: {
-              status: wd.resultingStatus,
-              reportedById: data.doctorId,
-              reportedAt: new Date(),
-              visitId,
-            },
-            create: {
-              patientId: visit.patientId,
-              toothNumber: wd.toothNumber,
-              status: wd.resultingStatus,
-              reportedById: data.doctorId,
-              reportedAt: new Date(),
-              visitId,
-            },
-          });
-          await prisma.toothStatusHistory.create({
-            data: {
-              patientId: visit.patientId,
-              toothNumber: wd.toothNumber,
-              status: wd.resultingStatus,
-              visitId,
-              recordedById: data.doctorId,
-            },
-          });
-        }
-
-        // Complete linked plan item
-        if (wd.planItemId) {
-          await prisma.treatmentPlanItem.update({
-            where: { id: wd.planItemId },
-            data: { visitId, completedAt: new Date() },
-          });
-          // Check if all items in the plan are complete
-          const planItem = await prisma.treatmentPlanItem.findUnique({
-            where: { id: wd.planItemId },
-            select: { planId: true },
-          });
-          if (planItem) {
-            const incompleteCount = await prisma.treatmentPlanItem.count({
-              where: { planId: planItem.planId, completedAt: null },
+          const allDone = chainPlans.every(
+            (p) => p.status === "COMPLETED" || p.id === item.planId
+          );
+          if (allDone) {
+            await prisma.treatmentChain.update({
+              where: { id: item.plan.chainId },
+              data: { status: "COMPLETED" },
             });
-            if (incompleteCount === 0) {
-              await prisma.treatmentPlan.update({
-                where: { id: planItem.planId },
-                data: { status: "COMPLETED" },
-              });
-            }
+            anyChainCompleted = true;
           }
         }
       }
+    }
+
+    if (itemLabels.length > 0) {
+      progressCompleted = {
+        itemLabels,
+        planCompleted: anyPlanCompleted,
+        chainCompleted: anyChainCompleted,
+      };
     }
   }
 
@@ -288,8 +199,14 @@ export async function saveExamination(
     revalidatePath("/appointments");
   }
 
+  // Get the report ID (may have been just created)
+  const savedReport = await prisma.clinicalReport.findFirst({
+    where: { visitId },
+    select: { id: true },
+  });
+
   revalidateVisitPaths(visitId);
-  return { appointmentAutoCompleted, completedAppointmentId, escrowDeficitWarning, escrowNewBalance };
+  return { appointmentAutoCompleted, completedAppointmentId, progressCompleted, reportId: savedReport?.id ?? null };
 }
 
 export async function finalizeReport(reportId: number) {
@@ -357,57 +274,6 @@ export async function addAddendum(reportId: number, content: string) {
   });
 
   revalidateVisitPaths(report.visitId);
-}
-
-export async function saveQuickNote(visitId: number, content: string) {
-  const currentUser = await requireAuth();
-  if (!canExamine(currentUser.permissionLevel)) {
-    throw new Error("Only doctors can add clinical notes");
-  }
-  if (!content.trim()) throw new Error("Note content is required");
-
-  const existing = await prisma.clinicalReport.findFirst({
-    where: { visitId },
-  });
-
-  if (existing) {
-    if (isReportLocked(existing)) {
-      // Locked — create addendum instead
-      await prisma.clinicalAddendum.create({
-        data: {
-          clinicalReportId: existing.id,
-          doctorId: currentUser.id,
-          content: content.trim(),
-        },
-      });
-    } else {
-      // Unlocked — append to treatmentNotes
-      const existingNotes = existing.treatmentNotes || "";
-      const newNotes = existingNotes
-        ? `${existingNotes}\n\n${content.trim()}`
-        : content.trim();
-      await prisma.clinicalReport.update({
-        where: { id: existing.id },
-        data: { treatmentNotes: newNotes },
-      });
-    }
-  } else {
-    // Create new report with just treatmentNotes
-    const visit = await prisma.visit.findUnique({
-      where: { id: visitId },
-      select: { doctorId: true },
-    });
-    await prisma.clinicalReport.create({
-      data: {
-        visitId,
-        doctorId: visit?.doctorId || currentUser.id,
-        reportDate: new Date(),
-        treatmentNotes: content.trim(),
-      },
-    });
-  }
-
-  revalidateVisitPaths(visitId);
 }
 
 export async function assignTreatmentToVisit(
@@ -571,6 +437,48 @@ export async function saveAndRedirect(visitId: number, target: "detail" | "print
   } else {
     redirect(`/visits/${visitId}`);
   }
+}
+
+export async function createFollowUpAppointment(
+  visitId: number,
+  data: {
+    date: string;
+    timeSlot?: string;
+    reason?: string;
+    planItemId?: number;
+  }
+) {
+  const currentUser = await requireAuth();
+  if (!canScheduleFollowUp(currentUser.permissionLevel)) {
+    throw new Error("Only doctors can schedule follow-up appointments");
+  }
+
+  const visit = await prisma.visit.findUnique({
+    where: { id: visitId },
+    select: { patientId: true, operation: { select: { name: true } } },
+  });
+  if (!visit) throw new Error("Visit not found");
+
+  const reason = data.reason || (visit.operation ? `Follow-up: ${visit.operation.name}` : "Follow-up");
+
+  await prisma.appointment.create({
+    data: {
+      patientId: visit.patientId,
+      doctorId: currentUser.id,
+      date: new Date(data.date),
+      timeSlot: data.timeSlot || null,
+      reason,
+      status: "SCHEDULED",
+      type: "TREATMENT",
+      planItemId: data.planItemId && data.planItemId > 0 ? data.planItemId : null,
+      createdById: currentUser.id,
+    },
+  });
+
+  revalidatePath("/appointments");
+  revalidatePath(`/patients/${visit.patientId}`);
+  revalidatePath("/dashboard");
+  return { success: true };
 }
 
 async function revalidateVisitPaths(visitId: number) {

@@ -122,6 +122,7 @@ export default async function AppointmentsPage({
     roomId: a.room?.id || null,
     roomName: a.room?.name || null,
     timeSlot: a.timeSlot,
+    type: a.type || "CONSULTATION",
     status: a.status,
     reason: a.reason,
     notes: a.notes,

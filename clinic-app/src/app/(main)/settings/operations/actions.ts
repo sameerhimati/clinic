@@ -1,12 +1,18 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireAuth } from "@/lib/auth";
+import { canManageRates } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { logFlaggedAction } from "@/lib/audit";
 
 export async function createOperation(formData: FormData) {
-  await requireAdmin();
+  const currentUser = await requireAuth();
+  const isAdmin = canManageRates(currentUser.permissionLevel, currentUser.isSuperUser) || currentUser.permissionLevel <= 1;
+  const isL3Super = currentUser.permissionLevel === 3 && currentUser.isSuperUser;
+  if (!isAdmin && !isL3Super) {
+    throw new Error("Permission denied");
+  }
 
   const maxCode = await prisma.operation.aggregate({ _max: { code: true } });
   const nextCode = (maxCode._max.code || 0) + 1;
@@ -16,10 +22,11 @@ export async function createOperation(formData: FormData) {
       code: nextCode,
       name: (formData.get("name") as string).trim(),
       category: (formData.get("category") as string)?.trim() || null,
-      defaultMinFee: formData.get("defaultMinFee") ? parseFloat(formData.get("defaultMinFee") as string) : null,
-      defaultMaxFee: formData.get("defaultMaxFee") ? parseFloat(formData.get("defaultMaxFee") as string) : null,
-      doctorFee: formData.get("doctorFee") ? parseFloat(formData.get("doctorFee") as string) : null,
-      labCostEstimate: formData.get("labCostEstimate") ? parseFloat(formData.get("labCostEstimate") as string) : null,
+      // L3 super can only set name/category — fees are admin-only
+      defaultMinFee: isAdmin && formData.get("defaultMinFee") ? parseFloat(formData.get("defaultMinFee") as string) : null,
+      defaultMaxFee: isAdmin && formData.get("defaultMaxFee") ? parseFloat(formData.get("defaultMaxFee") as string) : null,
+      doctorFee: isAdmin && formData.get("doctorFee") ? parseFloat(formData.get("doctorFee") as string) : null,
+      labCostEstimate: isAdmin && formData.get("labCostEstimate") ? parseFloat(formData.get("labCostEstimate") as string) : null,
       isActive: true,
     },
   });
@@ -28,7 +35,10 @@ export async function createOperation(formData: FormData) {
 }
 
 export async function updateOperation(formData: FormData) {
-  const currentUser = await requireAdmin();
+  const currentUser = await requireAuth();
+  if (!canManageRates(currentUser.permissionLevel, currentUser.isSuperUser)) {
+    throw new Error("Permission denied");
+  }
 
   const id = parseInt(formData.get("id") as string);
   const data: Record<string, unknown> = {};
@@ -103,9 +113,14 @@ export async function toggleOperationActive(formData: FormData) {
 
 export async function saveTreatmentSteps(
   operationId: number,
-  steps: { name: string; description?: string; noteTemplate?: string; defaultDayGap: number; defaultDoctorId?: number | null }[]
+  steps: { name: string; description?: string; noteTemplate?: string; defaultDayGap: number; requiresLabWork?: boolean; defaultDoctorId?: number | null }[]
 ) {
-  await requireAdmin();
+  const currentUser = await requireAuth();
+  const isAdmin = currentUser.permissionLevel <= 1;
+  const isL3Super = currentUser.permissionLevel === 3 && currentUser.isSuperUser;
+  if (!isAdmin && !isL3Super) {
+    throw new Error("Permission denied");
+  }
 
   // Delete all existing steps for this operation, then recreate
   await prisma.treatmentStep.deleteMany({ where: { operationId } });
@@ -119,6 +134,7 @@ export async function saveTreatmentSteps(
         description: s.description?.trim() || null,
         defaultDayGap: Math.max(0, Math.round(s.defaultDayGap)),
         noteTemplate: s.noteTemplate?.trim() || null,
+        requiresLabWork: s.requiresLabWork ?? false,
         defaultDoctorId: s.defaultDoctorId || null,
       })),
     });

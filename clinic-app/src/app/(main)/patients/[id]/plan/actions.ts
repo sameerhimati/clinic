@@ -32,6 +32,10 @@ export async function createTreatmentPlan(
   items: PlanItemInput[],
   notes?: string | null,
   firstItemVisitId?: number | null,
+  toothNumbers?: string | null,
+  overrideEstimatedTotal?: number | null,
+  chainId?: number | null,
+  newChainTitle?: string | null,
 ) {
   const currentUser = await requireAuth();
   if (!canCreateTreatmentPlans(currentUser.permissionLevel)) {
@@ -41,9 +45,33 @@ export async function createTreatmentPlan(
   if (!title.trim()) throw new Error("Plan title is required");
   if (items.length === 0) throw new Error("Plan must have at least one item");
 
-  const estimatedTotal = items.reduce((sum, item) => {
+  const itemTotal = items.reduce((sum, item) => {
     return sum + (item.estimatedCost || 0) + (item.estimatedLabCost || 0);
   }, 0);
+  const estimatedTotal = overrideEstimatedTotal ?? (itemTotal || null);
+
+  // Create or resolve chain
+  let resolvedChainId: number | null = chainId || null;
+  if (newChainTitle && newChainTitle.trim()) {
+    const chain = await prisma.treatmentChain.create({
+      data: {
+        patientId,
+        title: newChainTitle.trim(),
+        toothNumbers: toothNumbers || null,
+        createdById: currentUser.id,
+      },
+    });
+    resolvedChainId = chain.id;
+  }
+
+  // Determine chain order if linking to an existing chain
+  let chainOrder: number | null = null;
+  if (resolvedChainId) {
+    const existingPlans = await prisma.treatmentPlan.count({
+      where: { chainId: resolvedChainId },
+    });
+    chainOrder = existingPlans + 1;
+  }
 
   const plan = await prisma.treatmentPlan.create({
     data: {
@@ -52,6 +80,8 @@ export async function createTreatmentPlan(
       createdById: currentUser.id,
       notes: notes || null,
       estimatedTotal: estimatedTotal || null,
+      chainId: resolvedChainId,
+      chainOrder,
       items: {
         create: items.map((item, index) => ({
           sortOrder: index + 1,
@@ -80,7 +110,13 @@ export async function createTreatmentPlan(
     patientId,
     entityType: "TreatmentPlan",
     entityId: plan.id,
-    details: { title, itemCount: items.length, estimatedTotal },
+    details: {
+      title,
+      itemCount: items.length,
+      estimatedTotal,
+      toothNumbers: toothNumbers || null,
+      chainId: resolvedChainId,
+    },
   });
 
   revalidatePath(`/patients/${patientId}`);
@@ -359,6 +395,100 @@ export async function modifyPlanItem(
   });
 
   revalidatePath(`/patients/${item.plan.patientId}`);
+  return { success: true };
+}
+
+export async function deletePlanItem(itemId: number) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 3) {
+    throw new Error("Unauthorized");
+  }
+
+  const item = await prisma.treatmentPlanItem.findUnique({
+    where: { id: itemId },
+    include: { plan: { select: { id: true, patientId: true, title: true }, include: { items: true } } },
+  });
+  if (!item) throw new Error("Plan item not found");
+  if (item.visitId) throw new Error("Cannot delete a completed step");
+
+  // If this is the last item in the plan, delete the whole plan
+  const remainingItems = item.plan.items.filter((i) => i.id !== itemId);
+  if (remainingItems.length === 0) {
+    await prisma.treatmentPlanItem.delete({ where: { id: itemId } });
+    await prisma.treatmentPlan.delete({ where: { id: item.plan.id } });
+  } else {
+    await prisma.treatmentPlanItem.delete({ where: { id: itemId } });
+  }
+
+  logAudit({
+    action: "PLAN_MODIFIED",
+    actorId: currentUser.id,
+    patientId: item.plan.patientId,
+    entityType: "TreatmentPlanItem",
+    entityId: itemId,
+    details: { planTitle: item.plan.title, deletedStep: item.label },
+  });
+
+  revalidatePath(`/patients/${item.plan.patientId}`);
+  return { success: true };
+}
+
+export async function renamePlanItem(itemId: number, newLabel: string) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 3) {
+    throw new Error("Unauthorized");
+  }
+
+  if (!newLabel.trim()) throw new Error("Step name is required");
+
+  const item = await prisma.treatmentPlanItem.findUnique({
+    where: { id: itemId },
+    include: { plan: { select: { patientId: true } } },
+  });
+  if (!item) throw new Error("Plan item not found");
+  if (item.visitId) throw new Error("Cannot modify a completed step");
+
+  await prisma.treatmentPlanItem.update({
+    where: { id: itemId },
+    data: { label: newLabel.trim() },
+  });
+
+  revalidatePath(`/patients/${item.plan.patientId}`);
+  return { success: true };
+}
+
+export async function deletePlan(planId: number) {
+  const currentUser = await requireAuth();
+  if (currentUser.permissionLevel > 3) {
+    throw new Error("Unauthorized");
+  }
+
+  const plan = await prisma.treatmentPlan.findUnique({
+    where: { id: planId },
+    include: { items: true },
+  });
+  if (!plan) throw new Error("Plan not found");
+
+  const hasCompletedItems = plan.items.some((i) => i.visitId !== null);
+  if (hasCompletedItems) {
+    throw new Error("Cannot delete a plan with completed steps — cancel it instead");
+  }
+
+  // Delete all items then the plan (cascade should handle this but be explicit)
+  await prisma.treatmentPlanItem.deleteMany({ where: { planId } });
+  await prisma.treatmentPlan.delete({ where: { id: planId } });
+
+  logFlaggedAction({
+    action: "PLAN_CANCELLED",
+    actorId: currentUser.id,
+    patientId: plan.patientId,
+    entityType: "TreatmentPlan",
+    entityId: planId,
+    reason: "Plan deleted",
+    details: { planTitle: plan.title, itemCount: plan.items.length },
+  });
+
+  revalidatePath(`/patients/${plan.patientId}`);
   return { success: true };
 }
 

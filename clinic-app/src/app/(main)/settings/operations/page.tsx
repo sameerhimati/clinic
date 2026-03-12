@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { canManageSystem } from "@/lib/permissions";
+import { canManageSystem, canManageRates } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -21,10 +21,11 @@ export default async function OperationsPage({
   searchParams: Promise<{ showAll?: string; search?: string }>;
 }) {
   const currentUser = await requireAuth();
-  // L1 admins + L3 super-users can access this page
+  // L1 admins, L2 super-users (rate management), L3 super-users (step templates)
   const isFullAdmin = canManageSystem(currentUser.permissionLevel);
+  const isRateManager = canManageRates(currentUser.permissionLevel, currentUser.isSuperUser);
   const isL3Super = currentUser.permissionLevel === 3 && currentUser.isSuperUser;
-  if (!isFullAdmin && !isL3Super) redirect("/dashboard");
+  if (!isFullAdmin && !isRateManager && !isL3Super) redirect("/dashboard");
   const { showAll, search } = await searchParams;
   const showingAll = showAll === "1";
   const searchTerm = search || "";
@@ -95,8 +96,8 @@ export default async function OperationsPage({
         )}
       </form>
 
-      {/* Add new operation — L1 only */}
-      {isFullAdmin && <OperationCreateForm categories={Array.from(grouped.keys())} />}
+      {/* Add new operation — L1 admin or L3 super */}
+      {(isFullAdmin || isL3Super) && <OperationCreateForm categories={Array.from(grouped.keys())} hideFees={isL3Super} />}
 
       {/* Operations by category */}
       {Array.from(grouped.entries()).map(([category, ops]) => (
@@ -146,6 +147,7 @@ export default async function OperationsPage({
                         description: s.description || "",
                         noteTemplate: s.noteTemplate || "",
                         defaultDayGap: s.defaultDayGap,
+                        requiresLabWork: s.requiresLabWork,
                         defaultDoctorId: s.defaultDoctorId,
                       }))}
                       doctors={l3Doctors}

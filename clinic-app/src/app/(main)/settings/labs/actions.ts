@@ -1,13 +1,22 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { canManageRates } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAudit, logFlaggedAction } from "@/lib/audit";
 
+async function requireRateManager() {
+  const user = await requireAuth();
+  if (!canManageRates(user.permissionLevel, user.isSuperUser)) {
+    throw new Error("Permission denied");
+  }
+  return user;
+}
+
 export async function createLab(formData: FormData) {
-  await requireAdmin();
+  await requireRateManager();
 
   const maxCode = await prisma.lab.aggregate({ _max: { code: true } });
   const nextCode = (maxCode._max.code || 0) + 1;
@@ -27,7 +36,7 @@ export async function createLab(formData: FormData) {
 }
 
 export async function updateLab(formData: FormData) {
-  await requireAdmin();
+  await requireRateManager();
 
   const id = parseInt(formData.get("id") as string);
 
@@ -45,7 +54,7 @@ export async function updateLab(formData: FormData) {
 }
 
 export async function toggleLabActive(formData: FormData) {
-  await requireAdmin();
+  await requireRateManager();
 
   const id = parseInt(formData.get("id") as string);
   const lab = await prisma.lab.findUnique({ where: { id } });
@@ -60,8 +69,7 @@ export async function toggleLabActive(formData: FormData) {
 }
 
 export async function createLabRate(formData: FormData) {
-  const currentUser = await requireAdmin();
-
+  const currentUser = await requireRateManager();
   const labId = parseInt(formData.get("labId") as string);
   const itemName = (formData.get("itemName") as string).trim();
   const rate = parseFloat(formData.get("rate") as string) || 0;
@@ -94,8 +102,7 @@ export async function createLabRate(formData: FormData) {
 }
 
 export async function updateLabRate(formData: FormData) {
-  const currentUser = await requireAdmin();
-
+  const currentUser = await requireRateManager();
   const id = parseInt(formData.get("id") as string);
   const labId = parseInt(formData.get("labId") as string);
   const newItemName = (formData.get("itemName") as string).trim();
@@ -128,7 +135,7 @@ export async function updateLabRate(formData: FormData) {
 }
 
 export async function toggleLabRateActive(formData: FormData) {
-  await requireAdmin();
+  await requireRateManager();
 
   const id = parseInt(formData.get("id") as string);
   const labId = parseInt(formData.get("labId") as string);

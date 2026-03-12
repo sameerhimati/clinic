@@ -20,6 +20,7 @@ type ScheduleAppointment = {
   patientName: string;
   visitId: number | null;
   timeSlot: string | null;
+  type?: string;
   status: string;
   reason: string | null;
   medicalAlerts?: string[];
@@ -196,7 +197,12 @@ export function DoctorScheduleWidget({
                       <MedicalAlertPills alerts={appt.medicalAlerts} />
                     </div>
                   )}
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className={`inline-flex items-center rounded px-1 py-0 text-[9px] font-medium leading-3 ${
+                      appt.type === "TREATMENT" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {appt.type === "TREATMENT" ? "Tx" : "C"}
+                    </span>
                     {appt.timeSlot && <span>{appt.timeSlot} · </span>}
                     {appt.reason || "Appointment"}
                   </div>

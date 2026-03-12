@@ -9,7 +9,7 @@ import { createOperation } from "./actions";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-export function OperationCreateForm({ categories }: { categories: string[] }) {
+export function OperationCreateForm({ categories, hideFees }: { categories: string[]; hideFees?: boolean }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -51,20 +51,24 @@ export function OperationCreateForm({ categories }: { categories: string[] }) {
             </datalist>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="defaultMinFee">Tariff Rate (₹)</Label>
-            <Input name="defaultMinFee" type="number" step="1" min="0" />
-          </div>
+          {!hideFees && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="defaultMinFee">Tariff Rate (₹)</Label>
+                <Input name="defaultMinFee" type="number" step="1" min="0" />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="doctorFee">Doctor Fee (₹)</Label>
-            <Input name="doctorFee" type="number" step="1" min="0" placeholder="Fixed fee per procedure" />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="doctorFee">Doctor Fee (₹)</Label>
+                <Input name="doctorFee" type="number" step="1" min="0" placeholder="Fixed fee per procedure" />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="labCostEstimate">Lab Cost Estimate (₹)</Label>
-            <Input name="labCostEstimate" type="number" step="1" min="0" placeholder="If applicable" />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="labCostEstimate">Lab Cost Estimate (₹)</Label>
+                <Input name="labCostEstimate" type="number" step="1" min="0" placeholder="If applicable" />
+              </div>
+            </>
+          )}
 
           <div className="sm:col-span-2 flex gap-2">
             <Button type="submit" disabled={isPending}>{isPending ? "Creating..." : "Create"}</Button>

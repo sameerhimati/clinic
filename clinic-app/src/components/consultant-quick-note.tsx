@@ -6,10 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageSquarePlus } from "lucide-react";
 import { toast } from "sonner";
-import { saveQuickNote } from "@/app/(main)/visits/[id]/examine/actions";
+import { addClinicalNote } from "@/app/(main)/patients/[id]/notes/actions";
 import { useRouter } from "next/navigation";
 
-export function ConsultantQuickNote({ visitId }: { visitId: number }) {
+export function ConsultantQuickNote({ visitId, patientId }: { visitId: number; patientId: number }) {
   const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -18,7 +18,7 @@ export function ConsultantQuickNote({ visitId }: { visitId: number }) {
     if (!note.trim()) return;
     startTransition(async () => {
       try {
-        await saveQuickNote(visitId, note);
+        await addClinicalNote(patientId, note, null, visitId);
         toast.success("Note added");
         setNote("");
         router.refresh();

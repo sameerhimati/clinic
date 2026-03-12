@@ -21,12 +21,26 @@ import {
   ChevronUp,
 } from "lucide-react";
 
+/** YYYY-MM-DD string for today in local timezone */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Format YYYY-MM-DD to short display like "13 Mar" */
+function formatDateShort(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${d} ${date.toLocaleString("default", { month: "short" })}`;
+}
+
 export type PlanItemDraft = {
   id: string; // temp client ID
   label: string;
   operationId: number | null;
   assignedDoctorId: number | null;
   estimatedDayGap: number;
+  scheduledDate: string; // YYYY-MM-DD
   notes: string | null;
   isCompleted?: boolean; // for editing existing plans
 };
@@ -66,12 +80,15 @@ export function TreatmentPlanEditor({
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const addItem = useCallback(() => {
+    // New step defaults to the last step's date, or today
+    const lastDate = items.length > 0 ? items[items.length - 1].scheduledDate : todayStr();
     const newItem: PlanItemDraft = {
       id: crypto.randomUUID(),
       label: "",
       operationId: null,
       assignedDoctorId: defaultDoctorId || null,
-      estimatedDayGap: 7,
+      estimatedDayGap: 0,
+      scheduledDate: lastDate || todayStr(),
       notes: null,
     };
     onChange([...items, newItem]);
@@ -109,19 +126,44 @@ export function TreatmentPlanEditor({
       const steps = await onLoadTemplateSteps(operationId);
       if (steps.length === 0) return;
 
-      const op = operations.find((o) => o.id === operationId);
-      const newItems: PlanItemDraft[] = steps.map((step) => ({
-        id: crypto.randomUUID(),
-        label: step.name,
-        operationId,
-        assignedDoctorId: defaultDoctorId || null,
-        estimatedDayGap: step.defaultDayGap,
-        notes: step.description,
-      }));
+      // Start from the last existing item's date, or today
+      const baseDate = items.length > 0 ? items[items.length - 1].scheduledDate : todayStr();
+      let cumulativeDays = 0;
+
+      const newItems: PlanItemDraft[] = steps.map((step, i) => {
+        cumulativeDays += step.defaultDayGap;
+        const d = new Date(baseDate + "T00:00:00");
+        d.setDate(d.getDate() + cumulativeDays);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return {
+          id: crypto.randomUUID(),
+          label: step.name,
+          operationId,
+          assignedDoctorId: defaultDoctorId || null,
+          estimatedDayGap: step.defaultDayGap,
+          scheduledDate: dateStr,
+          notes: step.description,
+        };
+      });
 
       onChange([...items, ...newItems]);
     },
-    [items, onChange, operations, defaultDoctorId, onLoadTemplateSteps],
+    [items, onChange, defaultDoctorId, onLoadTemplateSteps],
+  );
+
+  /** When a step's date changes, bump any subsequent steps whose dates are earlier */
+  const updateItemDate = useCallback(
+    (id: string, newDate: string) => {
+      const idx = items.findIndex((i) => i.id === id);
+      if (idx === -1) return;
+      const updated = items.map((item, i) => {
+        if (i === idx) return { ...item, scheduledDate: newDate };
+        if (i > idx && item.scheduledDate < newDate) return { ...item, scheduledDate: newDate };
+        return item;
+      });
+      onChange(updated);
+    },
+    [items, onChange],
   );
 
   // Operations that have treatment steps
@@ -162,9 +204,9 @@ export function TreatmentPlanEditor({
                     Dr. {doctors.find((d) => d.id === item.assignedDoctorId)?.name || ""}
                   </span>
                 )}
-                {/* Day gap */}
-                <span className="text-xs text-muted-foreground shrink-0">
-                  +{item.estimatedDayGap}d
+                {/* Scheduled date */}
+                <span className="text-xs text-muted-foreground shrink-0 font-mono">
+                  {formatDateShort(item.scheduledDate)}
                 </span>
                 {!item.isCompleted && (
                   <>
@@ -263,17 +305,15 @@ export function TreatmentPlanEditor({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Day gap from previous step</Label>
+                    <Label className="text-xs text-muted-foreground">Scheduled Date</Label>
                     <Input
-                      type="number"
-                      min={0}
-                      value={item.estimatedDayGap}
-                      onChange={(e) =>
-                        updateItem(item.id, {
-                          estimatedDayGap: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="h-8 text-sm w-24"
+                      type="date"
+                      min={index === 0 ? todayStr() : (items[index - 1]?.scheduledDate ?? todayStr())}
+                      value={item.scheduledDate}
+                      onChange={(e) => {
+                        if (e.target.value) updateItemDate(item.id, e.target.value);
+                      }}
+                      className="h-8 text-sm w-40"
                     />
                   </div>
                 </div>

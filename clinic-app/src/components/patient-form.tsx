@@ -14,6 +14,7 @@ import { dateToString } from "@/lib/validations";
 import { AlertTriangle, ChevronDown } from "lucide-react";
 
 type Disease = { id: number; name: string };
+type CorporatePartner = { id: number; name: string };
 type Patient = {
   id: number;
   salutation: string | null;
@@ -35,6 +36,7 @@ type Patient = {
   referringPhysician: string | null;
   physicianPhone: string | null;
   remarks: string | null;
+  corporatePartnerId: number | null;
   diseases?: { diseaseId: number }[];
 };
 
@@ -42,10 +44,12 @@ export function PatientForm({
   diseases,
   patient,
   action,
+  corporatePartners = [],
 }: {
   diseases: Disease[];
   patient?: Patient;
   action: (formData: FormData) => Promise<void>;
+  corporatePartners?: CorporatePartner[];
 }) {
   const patientDiseaseIds = patient?.diseases?.map((d) => d.diseaseId) || [];
   const [isPending, startTransition] = useTransition();
@@ -211,6 +215,22 @@ export function PatientForm({
                 </select>
               </div>
             </div>
+
+              {corporatePartners.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Corporate Partner</Label>
+                  <select
+                    name="corporatePartnerId"
+                    defaultValue={patient?.corporatePartnerId?.toString() || ""}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:border-ring"
+                  >
+                    <option value="">— None —</option>
+                    {corporatePartners.map((cp) => (
+                      <option key={cp.id} value={cp.id.toString()}>{cp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
           </div>
 
           {/* Expand button — only for new patients */}
@@ -272,6 +292,7 @@ export function PatientForm({
                 <Label>Phone</Label>
                 <Input name="phone" type="tel" defaultValue={patient?.phone || ""} />
               </div>
+
             </div>
           )}
         </CardContent>

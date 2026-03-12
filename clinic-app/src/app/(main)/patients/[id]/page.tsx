@@ -30,10 +30,11 @@ export default async function PatientDetailPage({
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, toothStatuses, toothHistory, patientWorkDone, treatmentPlans, treatmentChains, clinicalNotes] = await Promise.all([
+  const [patient, todayAppointments, futureAppointments, pastAppointments, operations, doctors, labs, allDiseases, toothStatuses, toothHistory, treatmentPlans, treatmentChains, clinicalNotes, labOrders] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: {
+        corporatePartner: { select: { name: true } },
         diseases: { include: { disease: true } },
         visits: {
           orderBy: { visitDate: "desc" },
@@ -130,9 +131,9 @@ export default async function PatientDetailPage({
       orderBy: [{ category: "asc" }, { name: "asc" }],
       select: { id: true, name: true, category: true, defaultMinFee: true, labCostEstimate: true, doctorFee: true },
     }),
-    // Doctors for Quick Visit
+    // Doctors for Quick Visit + Scheduling (L3 BDS + L4 Consultants)
     prisma.doctor.findMany({
-      where: { permissionLevel: 3 },
+      where: { permissionLevel: { gte: 3 }, isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, commissionPercent: true },
     }),
@@ -160,16 +161,6 @@ export default async function PatientDetailPage({
         recordedBy: { select: { name: true } },
         visit: { select: { caseNo: true } },
       },
-    }),
-    // Work done entries per patient for tooth history
-    prisma.workDone.findMany({
-      where: { visit: { patientId } },
-      include: {
-        operation: { select: { name: true } },
-        performedBy: { select: { name: true } },
-        visit: { select: { caseNo: true, visitDate: true } },
-      },
-      orderBy: { createdAt: "desc" },
     }),
     // Treatment plans
     prisma.treatmentPlan.findMany({
@@ -234,6 +225,18 @@ export default async function PatientDetailPage({
         chain: { select: { id: true, title: true } },
       },
     }),
+    // Lab orders for this patient (L1/L2 only, but query always — filter in client)
+    canCollect ? prisma.labOrder.findMany({
+      where: { patientId },
+      orderBy: { orderedDate: "desc" },
+      include: {
+        lab: { select: { name: true } },
+        labRate: { select: { itemName: true } },
+        createdBy: { select: { name: true } },
+        receivedBy: { select: { name: true } },
+        planItem: { select: { id: true, label: true } },
+      },
+    }) : Promise.resolve([]),
   ]);
 
   if (!patient) notFound();
@@ -250,8 +253,11 @@ export default async function PatientDetailPage({
   }
   const totalBalance = totalBilled - totalPaid;
 
-  // Escrow balance
+  // Escrow balance (deposits)
   const escrowBalance = await calcEscrowBalance(patientId);
+
+  // Unified: totalCollected = receipts + deposits
+  const totalCollected = totalPaid + escrowBalance;
 
   // Visit stats
   const visitCount = patient.visits.length;
@@ -311,6 +317,131 @@ export default async function PatientDetailPage({
     }))
   );
 
+  // Synthesize implicit treatment progress from visits with multi-step operations
+  // that have no explicit TreatmentChain/TreatmentPlan records
+  const existingPlanVisitIds = new Set(
+    treatmentPlans.flatMap((p) => p.items.map((i) => i.visitId).filter(Boolean))
+  );
+  type MappedChain = {
+    id: number;
+    title: string;
+    toothNumbers: string | null;
+    status: string;
+    createdByName: string;
+    patientId: number;
+    plans: {
+      id: number;
+      title: string;
+      status: string;
+      notes: string | null;
+      createdAt: Date;
+      createdByName: string;
+      patientId: number;
+      chainOrder: number | null;
+      estimatedTotal: number | null;
+      items: {
+        id: number;
+        sortOrder: number;
+        label: string;
+        operationId: number | null;
+        operationName: string | null;
+        assignedDoctorId: number | null;
+        assignedDoctorName: string | null;
+        estimatedDayGap: number;
+        estimatedCost: number | null;
+        estimatedLabCost: number | null;
+        labRateName: string | null;
+        scheduledDate: Date | null;
+        visitId: number | null;
+        visitDate: Date | null;
+        visitDoctorName: string | null;
+        completedAt: Date | null;
+        notes: string | null;
+        modifiedStatus: string | null;
+        modifiedReason: string | null;
+        modifiedByName: string | null;
+        appointment: { id: number; date: Date; status: string; doctorName: string | null } | null;
+      }[];
+    }[];
+  };
+  const implicitChainsMapped: MappedChain[] = [];
+
+  // Find root visits with multi-step operations not already covered by plans
+  const rootVisitsWithSteps = topLevelVisits.filter(
+    (v) => v.operationId && !existingPlanVisitIds.has(v.id)
+  );
+  if (rootVisitsWithSteps.length > 0) {
+    const operationIds = [...new Set(rootVisitsWithSteps.map((v) => v.operationId!))];
+    const stepsForOps = await prisma.treatmentStep.findMany({
+      where: { operationId: { in: operationIds } },
+      orderBy: { stepNumber: "asc" },
+    });
+    const stepsByOp = stepsForOps.reduce((acc, s) => {
+      if (!acc[s.operationId]) acc[s.operationId] = [];
+      acc[s.operationId].push(s);
+      return acc;
+    }, {} as Record<number, typeof stepsForOps>);
+
+    for (const rootVisit of rootVisitsWithSteps) {
+      const opSteps = stepsByOp[rootVisit.operationId!];
+      if (!opSteps || opSteps.length < 2) continue; // Only multi-step operations
+
+      // Get all visits in this treatment chain (root + follow-ups)
+      const chainVisits = [
+        rootVisit,
+        ...patient!.visits.filter((v) => v.parentVisitId === rootVisit.id),
+      ].sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+
+      const allComplete = chainVisits.length >= opSteps.length;
+
+      implicitChainsMapped.push({
+        id: -rootVisit.id,
+        title: rootVisit.operation?.name || "Treatment",
+        toothNumbers: null,
+        status: allComplete ? "COMPLETED" : "ACTIVE",
+        createdByName: rootVisit.doctor?.name || "Unknown",
+        patientId: patientId,
+        plans: [{
+          id: -rootVisit.id,
+          title: rootVisit.operation?.name || "Treatment",
+          status: allComplete ? "COMPLETED" : "ACTIVE",
+          notes: null,
+          createdAt: rootVisit.visitDate,
+          createdByName: rootVisit.doctor?.name || "Unknown",
+          patientId: patientId,
+          chainOrder: 0,
+          estimatedTotal: rootVisit.operationRate || null,
+          items: opSteps.map((step, idx) => {
+            const matchedVisit = chainVisits[idx] || null;
+            return {
+              id: -(rootVisit.id * 100 + idx),
+              sortOrder: idx,
+              label: step.name,
+              operationId: rootVisit.operationId,
+              operationName: rootVisit.operation?.name || null,
+              assignedDoctorId: rootVisit.doctorId,
+              assignedDoctorName: rootVisit.doctor?.name || null,
+              estimatedDayGap: step.defaultDayGap,
+              estimatedCost: idx === 0 ? (rootVisit.operationRate || null) : null,
+              estimatedLabCost: null,
+              labRateName: null,
+              scheduledDate: null,
+              visitId: matchedVisit?.id || null,
+              visitDate: matchedVisit?.visitDate || null,
+              visitDoctorName: matchedVisit?.doctor?.name || null,
+              completedAt: matchedVisit ? matchedVisit.visitDate : null,
+              notes: null,
+              modifiedStatus: null,
+              modifiedReason: null,
+              modifiedByName: null,
+              appointment: null,
+            };
+          }),
+        }],
+      });
+    }
+  }
+
   const pageData: PatientPageData = {
     patient: {
       id: patient.id,
@@ -334,6 +465,7 @@ export default async function PatientDetailPage({
       referringPhysician: patient.referringPhysician,
       physicianPhone: patient.physicianPhone,
       remarks: patient.remarks,
+      corporatePartnerName: patient.corporatePartner?.name || null,
       createdAt: patient.createdAt,
       diseases: patient.diseases,
     },
@@ -342,6 +474,10 @@ export default async function PatientDetailPage({
     totalPaid,
     totalBalance,
     escrowBalance,
+    totalCollected,
+    plannedCost: treatmentPlans
+      .filter(p => p.status === "ACTIVE")
+      .reduce((sum, p) => sum + (p.estimatedTotal || 0), 0),
     visitCount,
     firstVisit,
     lastVisit,
@@ -428,56 +564,59 @@ export default async function PatientDetailPage({
         };
       }),
     })),
-    treatmentChains: treatmentChains.map((chain) => ({
-      id: chain.id,
-      title: chain.title,
-      toothNumbers: chain.toothNumbers,
-      status: chain.status,
-      createdByName: chain.createdBy.name,
-      patientId: chain.patientId,
-      plans: chain.plans.map((plan) => ({
-        id: plan.id,
-        title: plan.title,
-        status: plan.status,
-        notes: plan.notes,
-        createdAt: plan.createdAt,
-        createdByName: plan.createdBy.name,
-        patientId: plan.patientId,
-        chainOrder: plan.chainOrder,
-        estimatedTotal: plan.estimatedTotal,
-        items: plan.items.map((item) => {
-          const appt = item.appointments[0] || null;
-          return {
-            id: item.id,
-            sortOrder: item.sortOrder,
-            label: item.label,
-            operationId: item.operationId,
-            operationName: item.operation?.name || null,
-            assignedDoctorId: item.assignedDoctorId,
-            assignedDoctorName: item.assignedDoctor?.name || null,
-            estimatedDayGap: item.estimatedDayGap,
-            estimatedCost: item.estimatedCost,
-            estimatedLabCost: item.estimatedLabCost,
-            labRateName: item.labRate?.itemName || null,
-            scheduledDate: item.scheduledDate,
-            visitId: item.visitId,
-            visitDate: item.visit?.visitDate || null,
-            visitDoctorName: item.visit?.doctor?.name || null,
-            completedAt: item.completedAt,
-            notes: item.notes,
-            modifiedStatus: item.modifiedStatus || null,
-            modifiedReason: item.modifiedReason || null,
-            modifiedByName: item.modifiedBy?.name || null,
-            appointment: appt ? {
-              id: appt.id,
-              date: appt.date,
-              status: appt.status,
-              doctorName: appt.doctor?.name || null,
-            } : null,
-          };
-        }),
+    treatmentChains: [
+      ...treatmentChains.map((chain) => ({
+        id: chain.id,
+        title: chain.title,
+        toothNumbers: chain.toothNumbers,
+        status: chain.status,
+        createdByName: chain.createdBy.name,
+        patientId: chain.patientId,
+        plans: chain.plans.map((plan) => ({
+          id: plan.id,
+          title: plan.title,
+          status: plan.status,
+          notes: plan.notes,
+          createdAt: plan.createdAt,
+          createdByName: plan.createdBy.name,
+          patientId: plan.patientId,
+          chainOrder: plan.chainOrder,
+          estimatedTotal: plan.estimatedTotal,
+          items: plan.items.map((item) => {
+            const appt = item.appointments[0] || null;
+            return {
+              id: item.id,
+              sortOrder: item.sortOrder,
+              label: item.label,
+              operationId: item.operationId,
+              operationName: item.operation?.name || null,
+              assignedDoctorId: item.assignedDoctorId,
+              assignedDoctorName: item.assignedDoctor?.name || null,
+              estimatedDayGap: item.estimatedDayGap,
+              estimatedCost: item.estimatedCost,
+              estimatedLabCost: item.estimatedLabCost,
+              labRateName: item.labRate?.itemName || null,
+              scheduledDate: item.scheduledDate,
+              visitId: item.visitId,
+              visitDate: item.visit?.visitDate || null,
+              visitDoctorName: item.visit?.doctor?.name || null,
+              completedAt: item.completedAt,
+              notes: item.notes,
+              modifiedStatus: item.modifiedStatus || null,
+              modifiedReason: item.modifiedReason || null,
+              modifiedByName: item.modifiedBy?.name || null,
+              appointment: appt ? {
+                id: appt.id,
+                date: appt.date,
+                status: appt.status,
+                doctorName: appt.doctor?.name || null,
+              } : null,
+            };
+          }),
+        })),
       })),
-    })),
+      ...implicitChainsMapped,
+    ],
     clinicalNotes: clinicalNotes.map((n) => ({
       id: n.id,
       content: n.content,
@@ -501,14 +640,25 @@ export default async function PatientDetailPage({
       visitId: th.visitId || null,
       recordedAt: th.recordedAt.toISOString(),
     })),
-    patientWorkDone: patientWorkDone.map((wd) => ({
-      toothNumber: wd.toothNumber,
-      operationName: wd.operation.name,
-      doctorName: wd.performedBy.name,
-      caseNo: wd.visit.caseNo,
-      visitId: wd.visitId,
-      visitDate: wd.visit.visitDate.toISOString(),
-      notes: wd.notes,
+    labOrders: labOrders.map((lo) => ({
+      id: lo.id,
+      labName: lo.lab.name,
+      materialName: lo.labRate.itemName,
+      quantity: lo.quantity,
+      unitRate: lo.unitRate,
+      rateAdjustment: lo.rateAdjustment,
+      totalAmount: lo.totalAmount,
+      adjustmentNote: lo.adjustmentNote,
+      status: lo.status,
+      orderedDate: lo.orderedDate.toISOString(),
+      expectedDate: lo.expectedDate?.toISOString() || null,
+      receivedDate: lo.receivedDate?.toISOString() || null,
+      toothNumbers: lo.toothNumbers,
+      createdByName: lo.createdBy.name,
+      receivedByName: lo.receivedBy?.name || null,
+      planItemId: lo.planItem?.id || null,
+      planItemLabel: lo.planItem?.label || null,
+      notes: lo.notes,
     })),
   };
 

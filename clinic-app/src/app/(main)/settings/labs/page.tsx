@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
-import { canManageSystem } from "@/lib/permissions";
+import { canManageRates } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -18,7 +18,7 @@ export default async function LabsPage({
   searchParams: Promise<{ showAll?: string }>;
 }) {
   const currentUser = await requireAuth();
-  if (!canManageSystem(currentUser.permissionLevel)) redirect("/dashboard");
+  if (!canManageRates(currentUser.permissionLevel, currentUser.isSuperUser)) redirect("/dashboard");
   const { showAll } = await searchParams;
   const showingAll = showAll === "1";
 

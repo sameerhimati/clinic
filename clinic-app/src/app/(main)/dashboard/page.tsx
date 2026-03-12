@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,16 +10,19 @@ import {
   Phone,
   CheckCircle2,
   Shield,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
-import { toTitleCase, formatDate, formatFullDate } from "@/lib/format";
+import { toTitleCase, formatDate, formatFullDate, formatRelativeDate } from "@/lib/format";
 import { requireAuth } from "@/lib/auth";
 import { canCollectPayments, isAdmin } from "@/lib/permissions";
 import { calcBilled, calcPaid, calcBalance } from "@/lib/billing";
+import { getDefaultAdvance } from "@/lib/clinic-settings";
 import { DoctorScheduleWidget } from "@/components/doctor-schedule-widget";
 import { MultiDaySchedule } from "@/components/multi-day-schedule";
 import { DashboardAppointmentList } from "./dashboard-appointments";
 import { PrescriptionQueue } from "@/components/prescription-queue";
+import { ReceptionDashboard } from "./reception-dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -101,60 +105,48 @@ async function getAdminDashboardData() {
     .filter((v) => calcBalance(v, v.receipts) > 0)
     .slice(0, 5);
 
-  // Batch-query escrow balances for today's appointment patients
+  // Batch-query financials for today's appointment patients
   const appointmentPatientIds = [...new Set(todayAppointments.map((a) => a.patientId))];
-  let escrowBalanceMap = new Map<number, number>();
+  let totalBilledMap = new Map<number, number>();
+  let totalCollectedMap = new Map<number, number>();
   if (appointmentPatientIds.length > 0) {
-    const [apptDeposits, apptFulfillments] = await Promise.all([
+    const [apptDeposits, apptBilled, apptReceipts] = await Promise.all([
       prisma.patientPayment.groupBy({
         by: ["patientId"],
         where: { patientId: { in: appointmentPatientIds } },
         _sum: { amount: true },
       }),
-      prisma.escrowFulfillment.groupBy({
+      prisma.visit.groupBy({
         by: ["patientId"],
-        where: { patientId: { in: appointmentPatientIds } },
-        _sum: { amount: true },
+        where: { patientId: { in: appointmentPatientIds }, operationRate: { gt: 0 } },
+        _sum: { operationRate: true, discount: true },
       }),
+      prisma.$queryRaw<{ patientId: number; total: number }[]>`
+        SELECT v.patientId, COALESCE(SUM(r.amount), 0) as total
+        FROM receipts r JOIN visits v ON r.visitId = v.id
+        WHERE v.patientId IN (${Prisma.join(appointmentPatientIds)})
+        GROUP BY v.patientId
+      `,
     ]);
-    const apptFulMap = new Map(apptFulfillments.map((f) => [f.patientId, f._sum.amount || 0]));
+    const depositsMap = new Map<number, number>();
+    const receiptsMap = new Map<number, number>();
     for (const d of apptDeposits) {
-      const dep = d._sum.amount || 0;
-      const ful = apptFulMap.get(d.patientId) || 0;
-      escrowBalanceMap.set(d.patientId, dep - ful);
+      depositsMap.set(d.patientId, d._sum.amount || 0);
+    }
+    for (const r of apptReceipts) {
+      receiptsMap.set(r.patientId, Number(r.total) || 0);
+    }
+    for (const b of apptBilled) {
+      totalBilledMap.set(b.patientId, (b._sum.operationRate || 0) - (b._sum.discount || 0));
+    }
+    // totalCollected = deposits + receipts
+    for (const pid of appointmentPatientIds) {
+      totalCollectedMap.set(pid, (depositsMap.get(pid) || 0) + (receiptsMap.get(pid) || 0));
     }
   }
 
-  // Negative escrow patients
-  const allPatientPayments = await prisma.patientPayment.groupBy({
-    by: ["patientId"],
-    _sum: { amount: true },
-  });
-  const allFulfillments = await prisma.escrowFulfillment.groupBy({
-    by: ["patientId"],
-    _sum: { amount: true },
-  });
-  const fulfillmentMap = new Map(allFulfillments.map((f) => [f.patientId, f._sum.amount || 0]));
-  const negativeEscrowPatientIds = allPatientPayments
-    .filter((p) => {
-      const deposits = p._sum.amount || 0;
-      const fulfilled = fulfillmentMap.get(p.patientId) || 0;
-      return deposits - fulfilled < 0;
-    })
-    .map((p) => p.patientId);
-
-  let negativeEscrowPatients: { id: number; code: number | null; name: string; balance: number }[] = [];
-  if (negativeEscrowPatientIds.length > 0) {
-    const patients = await prisma.patient.findMany({
-      where: { id: { in: negativeEscrowPatientIds } },
-      select: { id: true, code: true, name: true },
-    });
-    negativeEscrowPatients = patients.map((p) => {
-      const dep = allPatientPayments.find((pp) => pp.patientId === p.id)?._sum.amount || 0;
-      const ful = fulfillmentMap.get(p.id) || 0;
-      return { id: p.id, code: p.code, name: toTitleCase(p.name), balance: dep - ful };
-    });
-  }
+  // No more negative escrow from fulfillments — skip this section
+  const negativeEscrowPatients: { id: number; code: number | null; name: string; balance: number }[] = [];
 
   // Follow-up queue: patients with active plans where next item has no appointment and is overdue
   const activePlans = await prisma.treatmentPlan.findMany({
@@ -232,7 +224,6 @@ async function getAdminDashboardData() {
           operationRate: true,
           discount: true,
           operation: { select: { name: true } },
-          workDone: { select: { id: true, toothNumber: true, operation: { select: { name: true } } } },
           clinicalReports: { select: { id: true }, take: 1 },
         },
       },
@@ -249,33 +240,53 @@ async function getAdminDashboardData() {
     doctorName: string | null;
     operationName: string | null;
     visitId: number | null;
-    workDoneSummary: string;
-    escrowBalance: number;
+    totalCollected: number;
+    totalBilled: number;
   }[] = [];
+
+  // Batch-query financials for completed patients
+  const completedPatientIds = [...new Set(completedToday.filter(a => a.visit && a.visit.clinicalReports.length > 0).map(a => a.patientId))];
+  const checkoutFinancials = new Map<number, { collected: number; billed: number }>();
+  if (completedPatientIds.length > 0) {
+    const [checkoutDeposits, checkoutBilled, checkoutReceipts] = await Promise.all([
+      prisma.patientPayment.groupBy({
+        by: ["patientId"],
+        where: { patientId: { in: completedPatientIds } },
+        _sum: { amount: true },
+      }),
+      prisma.visit.groupBy({
+        by: ["patientId"],
+        where: { patientId: { in: completedPatientIds }, operationRate: { gt: 0 } },
+        _sum: { operationRate: true, discount: true },
+      }),
+      prisma.$queryRaw<{ patientId: number; total: number }[]>`
+        SELECT v.patientId, COALESCE(SUM(r.amount), 0) as total
+        FROM receipts r JOIN visits v ON r.visitId = v.id
+        WHERE v.patientId IN (${Prisma.join(completedPatientIds)})
+        GROUP BY v.patientId
+      `,
+    ]);
+    const chkDepositsMap = new Map<number, number>();
+    const chkReceiptsMap = new Map<number, number>();
+    for (const d of checkoutDeposits) {
+      chkDepositsMap.set(d.patientId, d._sum.amount || 0);
+    }
+    for (const r of checkoutReceipts) {
+      chkReceiptsMap.set(r.patientId, Number(r.total) || 0);
+    }
+    for (const b of checkoutBilled) {
+      const billed = (b._sum.operationRate || 0) - (b._sum.discount || 0);
+      const collected = (chkDepositsMap.get(b.patientId) || 0) + (chkReceiptsMap.get(b.patientId) || 0);
+      checkoutFinancials.set(b.patientId, { collected, billed });
+    }
+  }
 
   for (const appt of completedToday) {
     if (!appt.visit || appt.visit.clinicalReports.length === 0) continue;
 
-    // Calculate escrow balance for this patient
-    const [deposits, fulfilled] = await Promise.all([
-      prisma.patientPayment.aggregate({
-        where: { patientId: appt.patientId },
-        _sum: { amount: true },
-      }),
-      prisma.escrowFulfillment.aggregate({
-        where: { patientId: appt.patientId },
-        _sum: { amount: true },
-      }),
-    ]);
-    const escrowBalance = (deposits._sum.amount || 0) - (fulfilled._sum.amount || 0);
-
-    const workDone = appt.visit.workDone;
-    const workSummary = workDone.length > 0
-      ? workDone.map((w) => {
-          const tooth = w.toothNumber ? ` (#${w.toothNumber})` : "";
-          return `${w.operation.name}${tooth}`;
-        }).join(", ")
-      : "";
+    const financials = checkoutFinancials.get(appt.patientId) || { collected: 0, billed: 0 };
+    // Skip patients with nothing billed — nothing to check out
+    if (financials.billed <= 0) continue;
 
     readyForCheckout.push({
       appointmentId: appt.id,
@@ -285,8 +296,8 @@ async function getAdminDashboardData() {
       doctorName: appt.doctor?.name ? toTitleCase(appt.doctor.name) : null,
       operationName: appt.visit.operation?.name || null,
       visitId: appt.visit.id,
-      workDoneSummary: workSummary,
-      escrowBalance,
+      totalCollected: financials.collected,
+      totalBilled: financials.billed,
     });
   }
 
@@ -303,6 +314,124 @@ async function getAdminDashboardData() {
     take: 10,
   });
 
+  // Treatment progress completed today
+  const todayProgress = await prisma.treatmentPlanItem.findMany({
+    where: {
+      completedAt: { gte: today, lt: tomorrow },
+    },
+    include: {
+      plan: { select: { title: true, patientId: true, patient: { select: { id: true, code: true, name: true } } } },
+      assignedDoctor: { select: { name: true } },
+    },
+    orderBy: { completedAt: "desc" },
+    take: 20,
+  });
+
+  // Count of today's patients with outstanding balance
+  const patientsWithLowBalance = todayAppointments.filter((a) => {
+    const billed = totalBilledMap.get(a.patientId) || 0;
+    const collected = totalCollectedMap.get(a.patientId) || 0;
+    return billed > 0 && collected < billed;
+  }).length;
+
+  // Lab order nudges: plan items needing lab work but no order placed
+  const labNudgeItems = await prisma.treatmentPlanItem.findMany({
+    where: {
+      completedAt: null,
+      plan: { status: "ACTIVE" },
+      labOrders: { none: {} },
+      OR: [
+        { estimatedLabCost: { gt: 0 } },
+        { operation: { labCostEstimate: { gt: 0 } } },
+        { operation: { treatmentSteps: { some: { requiresLabWork: true } } } },
+      ],
+    },
+    include: {
+      plan: {
+        select: {
+          title: true,
+          patient: { select: { id: true, code: true, name: true } },
+          items: {
+            where: { completedAt: { not: null } },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
+      operation: { select: { name: true } },
+    },
+    take: 20,
+  });
+  // Filter to items where work has started (at least one sibling completed)
+  // Then group by patient+plan to avoid duplicate alerts
+  const filteredLabItems = labNudgeItems.filter((item) => item.plan.items.length > 0);
+  const labNudgeGrouped = new Map<string, {
+    planItemId: number;
+    patientId: number;
+    patientCode: number | null;
+    patientName: string;
+    planTitle: string;
+    stepLabel: string;
+    toothNumbers: string | null;
+    stepCount: number;
+  }>();
+  for (const item of filteredLabItems) {
+    const key = `${item.plan.patient.id}-${item.planId}`;
+    const existing = labNudgeGrouped.get(key);
+    if (existing) {
+      existing.stepCount += 1;
+    } else {
+      labNudgeGrouped.set(key, {
+        planItemId: item.id,
+        patientId: item.plan.patient.id,
+        patientCode: item.plan.patient.code,
+        patientName: toTitleCase(item.plan.patient.name),
+        planTitle: item.plan.title,
+        stepLabel: item.label,
+        toothNumbers: null,
+        stepCount: 1,
+      });
+    }
+  }
+  const labNudges = Array.from(labNudgeGrouped.values());
+
+  // Pending lab orders (ORDERED status)
+  const pendingLabOrders = await prisma.labOrder.findMany({
+    where: { status: "ORDERED" },
+    orderBy: { orderedDate: "asc" },
+    include: {
+      patient: { select: { id: true, code: true, name: true } },
+      lab: { select: { name: true } },
+      labRate: { select: { itemName: true } },
+    },
+    take: 20,
+  });
+
+  const pendingLabOrdersMapped = pendingLabOrders.map((o) => ({
+    id: o.id,
+    patientId: o.patient.id,
+    patientCode: o.patient.code,
+    patientName: toTitleCase(o.patient.name),
+    labName: o.lab.name,
+    materialName: o.labRate.itemName,
+    daysSinceOrdered: Math.floor((now.getTime() - new Date(o.orderedDate).getTime()) / (1000 * 60 * 60 * 24)),
+    expectedDate: o.expectedDate ? o.expectedDate.toISOString() : null,
+    totalAmount: o.totalAmount,
+  }));
+
+  // Rate changes (last 7 days) for L1 dashboard widget
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const rateChanges = await prisma.auditLog.findMany({
+    where: {
+      action: { in: ["LAB_RATE_CHANGE", "OPERATION_RATE_CHANGE", "LAB_RATE_CREATED"] },
+      createdAt: { gte: sevenDaysAgo },
+    },
+    include: { actor: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
   return {
     todayVisits,
     todayCollections: todayReceipts._sum.amount || 0,
@@ -313,9 +442,15 @@ async function getAdminDashboardData() {
     negativeEscrowPatients,
     followUpQueue,
     readyForCheckout,
-    escrowBalanceMap,
+    totalCollectedMap,
+    totalBilledMap,
     auditFlagCount,
     visitsByDoctor,
+    todayProgress,
+    patientsWithLowBalance,
+    labNudges,
+    pendingLabOrders: pendingLabOrdersMapped,
+    rateChanges,
   };
 }
 
@@ -415,6 +550,7 @@ export default async function DashboardPage() {
             patientName: toTitleCase(appt.patient.name),
             visitId: appt.visit?.id || null,
             timeSlot: appt.timeSlot,
+            type: appt.type || "CONSULTATION",
             status: appt.status,
             reason: appt.reason,
             medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
@@ -454,6 +590,66 @@ export default async function DashboardPage() {
 
   // Admin/Reception dashboard
   const data = await getAdminDashboardData();
+
+  // L2 Reception: new two-column dashboard with inline dialogs
+  if (doctor.permissionLevel === 2) {
+    const [doctorsList, labsList] = await Promise.all([
+      prisma.doctor.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.lab.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        include: { rates: { where: { isActive: true }, orderBy: { itemName: "asc" }, select: { id: true, itemName: true, rate: true } } },
+      }),
+    ]);
+
+    // Build checkout list from completed appointments
+    const readyForCheckout = data.readyForCheckout.map((item) => ({
+      patientId: item.patientId,
+      patientCode: item.patientCode,
+      patientName: item.patientName,
+      totalCollected: item.totalCollected,
+      totalBilled: item.totalBilled,
+      operationName: item.operationName,
+      doctorName: item.doctorName,
+    }));
+
+    return (
+      <ReceptionDashboard
+        greeting={greeting}
+        userName={toTitleCase(doctor.name)}
+        dateDisplay={formatFullDate(new Date())}
+        todayVisits={data.todayVisits}
+        todayCollections={data.todayCollections}
+        totalOutstanding={data.totalOutstanding}
+        appointments={data.todayAppointments.map((appt) => ({
+          id: appt.id,
+          patientId: appt.patient.id,
+          patientCode: appt.patient.code,
+          patientName: toTitleCase(appt.patient.name),
+          doctorName: appt.doctor?.name ? toTitleCase(appt.doctor.name) : null,
+          visitId: appt.visit?.id || null,
+          timeSlot: appt.timeSlot,
+          status: appt.status,
+          reason: appt.reason,
+          medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
+          totalCollected: data.totalCollectedMap.get(appt.patientId) ?? null,
+          totalBilled: data.totalBilledMap.get(appt.patientId) ?? null,
+        }))}
+        followUpQueue={data.followUpQueue}
+        readyForCheckout={readyForCheckout}
+        prescriptions={data.pendingPrescriptions.filter((p): p is typeof p & { doctor: { name: string }; visit: { id: number; caseNo: number | null } } => p.doctor !== null && p.visit !== null)}
+        doctors={doctorsList}
+        labNudges={data.labNudges}
+        pendingLabOrders={data.pendingLabOrders}
+        labs={labsList}
+        defaultAdvance={await getDefaultAdvance()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -527,6 +723,56 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* L1 Admin: Rate Changes This Week */}
+      {doctor.permissionLevel <= 1 && data.rateChanges.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Rate Changes This Week
+              <Badge variant="secondary" className="text-xs">{data.rateChanges.length}</Badge>
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/reports/audit?action=RATE_CHANGE">View All →</Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-amber-100">
+              {data.rateChanges.map((entry) => {
+                const details = entry.details ? JSON.parse(entry.details) : {};
+                const isLabRate = entry.action === "LAB_RATE_CHANGE" || entry.action === "LAB_RATE_CREATED";
+                return (
+                  <div key={entry.id} className="flex items-center justify-between py-2 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">
+                        {details.itemName || details.name || "Unknown"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {entry.action === "LAB_RATE_CREATED" ? (
+                          <span>New lab rate: ₹{(details.rate || 0).toLocaleString("en-IN")}</span>
+                        ) : isLabRate ? (
+                          <span>₹{(details.oldRate || 0).toLocaleString("en-IN")} → ₹{(details.newRate || 0).toLocaleString("en-IN")}</span>
+                        ) : (
+                          <span>
+                            {details.oldFee !== undefined && <>Fee: ₹{(details.oldFee || 0).toLocaleString("en-IN")} → ₹{(details.newFee || 0).toLocaleString("en-IN")}</>}
+                            {details.oldDoctorFee !== undefined && <>{details.oldFee !== undefined ? " · " : ""}Dr fee: ₹{(details.oldDoctorFee || 0).toLocaleString("en-IN")} → ₹{(details.newDoctorFee || 0).toLocaleString("en-IN")}</>}
+                          </span>
+                        )}
+                        {" · "}{toTitleCase(entry.actor.name)}
+                        {" · "}{formatRelativeDate(entry.createdAt)}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={`text-xs shrink-0 ${isLabRate ? "border-violet-200 text-violet-700" : "border-blue-200 text-blue-700"}`}>
+                      {isLabRate ? "Lab" : "Tariff"}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2 items-center">
         <Button asChild>
@@ -541,6 +787,62 @@ export default async function DashboardPage() {
           </Button>
         )}
       </div>
+
+      {/* Balance alerts — above the fold */}
+      {(data.patientsWithLowBalance > 0 || data.pendingPayments.length > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {data.patientsWithLowBalance > 0 && (
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm text-amber-700">
+              {data.patientsWithLowBalance} today{"\u2019"}s patient{data.patientsWithLowBalance !== 1 ? "s" : ""} with no prepaid balance
+            </div>
+          )}
+          {data.pendingPayments.length > 0 && (
+            <Link
+              href="/reports/outstanding"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 hover:bg-red-100 transition-colors"
+            >
+              {data.pendingPayments.length}+ pending payments {"\u2014"} View All
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Treatment Progress Today */}
+      {data.todayProgress.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              Treatment Progress Today
+              <Badge variant="secondary" className="text-xs">{data.todayProgress.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-blue-100">
+              {data.todayProgress.map((item) => (
+                <div key={item.id} className="flex items-center justify-between py-2 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/patients/${item.plan.patientId}`} className="font-medium hover:underline flex items-center gap-2">
+                      <span className="font-mono text-sm text-muted-foreground">#{item.plan.patient.code}</span>
+                      <span className="truncate">{toTitleCase(item.plan.patient.name)}</span>
+                    </Link>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      <span className="font-medium text-foreground">{item.label}</span>
+                      {" \u00b7 "}{item.plan.title}
+                      {item.assignedDoctor && ` \u00b7 Dr. ${toTitleCase(item.assignedDoctor.name)}`}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/patients/${item.plan.patientId}/checkout`}>
+                      Collect
+                    </Link>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ready for Checkout — patients done today, need payment/scheduling */}
       {data.readyForCheckout.length > 0 && (
@@ -564,22 +866,21 @@ export default async function DashboardPage() {
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {item.operationName || "Visit"}
                       {item.doctorName && ` · Dr. ${item.doctorName}`}
-                      {item.workDoneSummary && (
-                        <span className="text-foreground font-medium"> · {item.workDoneSummary}</span>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {item.escrowBalance < 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        {"\u20B9"}{Math.abs(item.escrowBalance).toLocaleString("en-IN")} due
-                      </Badge>
-                    )}
-                    {item.escrowBalance >= 0 && (
-                      <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">
-                        {"\u20B9"}{item.escrowBalance.toLocaleString("en-IN")} bal
-                      </Badge>
-                    )}
+                    {(() => {
+                      const outstanding = item.totalBilled - item.totalCollected;
+                      return outstanding > 0 ? (
+                        <Badge variant="destructive" className="text-xs">
+                          {"\u20B9"}{outstanding.toLocaleString("en-IN")} due
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50">
+                          Paid up
+                        </Badge>
+                      );
+                    })()}
                     <Button size="sm" variant="outline" asChild>
                       <Link href={`/patients/${item.patientId}/checkout`}>
                         Checkout {"\u2192"}
@@ -606,7 +907,7 @@ export default async function DashboardPage() {
           status: appt.status,
           reason: appt.reason,
           medicalAlerts: appt.patient.diseases.map((d) => d.disease.name),
-          escrowBalance: data.escrowBalanceMap.get(appt.patientId) ?? null,
+          totalCollected: data.totalCollectedMap.get(appt.patientId) ?? null,
         }))}
       />
 

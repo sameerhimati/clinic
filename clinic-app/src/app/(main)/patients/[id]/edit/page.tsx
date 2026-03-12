@@ -17,12 +17,13 @@ export default async function EditPatientPage({
   const { id } = await params;
   const patientId = parseInt(id);
 
-  const [patient, diseases] = await Promise.all([
+  const [patient, diseases, corporatePartners] = await Promise.all([
     prisma.patient.findUnique({
       where: { id: patientId },
       include: { diseases: { select: { diseaseId: true } } },
     }),
     prisma.disease.findMany({ orderBy: { id: "asc" } }),
+    prisma.corporatePartner.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   if (!patient) notFound();
@@ -37,7 +38,7 @@ export default async function EditPatientPage({
         { label: "Edit" },
       ]} />
       <h2 className="text-2xl font-bold">Edit Patient: {toTitleCase(patient.name)}</h2>
-      <PatientForm diseases={diseases} patient={patient} action={boundAction} />
+      <PatientForm diseases={diseases} patient={patient} action={boundAction} corporatePartners={corporatePartners} />
     </div>
   );
 }

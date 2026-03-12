@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { toUserError } from "@/lib/action-utils";
-import { maxDiscountPercent, canExamine } from "@/lib/permissions";
+import { maxDiscountPercent, canExamine, canOverrideMinFee } from "@/lib/permissions";
 import { logFlaggedAction } from "@/lib/audit";
 
 // --- Quick Visit (returns visitId instead of redirecting) ---
@@ -42,9 +42,10 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
   const doctorId = currentUser.id;
 
   // Rate: always use tariff
-  const rawRate = data.operationId
-    ? (await prisma.operation.findUnique({ where: { id: data.operationId }, select: { defaultMinFee: true } }))?.defaultMinFee || 0
-    : 0;
+  const operation = data.operationId
+    ? await prisma.operation.findUnique({ where: { id: data.operationId }, select: { defaultMinFee: true, defaultMaxFee: true, name: true } })
+    : null;
+  const rawRate = operation?.defaultMinFee || 0;
 
   // Discount validation using role-based limits
   let validatedDiscount = data.discount;
@@ -55,6 +56,24 @@ export async function createQuickVisit(data: QuickVisitInput): Promise<{ visitId
       throw new Error(`Discount exceeds your authorized limit (${maxPct}%)`);
     }
     validatedDiscount = Math.min(validatedDiscount, rawRate);
+  }
+
+  // Min fee enforcement: net amount must not go below operation's defaultMinFee
+  const qty = data.quantity || 1;
+  const netAmount = (rawRate - validatedDiscount) * qty;
+  if (operation?.defaultMinFee && operation.defaultMinFee > 0 && netAmount < operation.defaultMinFee * qty) {
+    if (!canOverrideMinFee(currentUser.permissionLevel, currentUser.isSuperUser)) {
+      throw new Error(`Rate ₹${netAmount.toLocaleString("en-IN")} is below minimum tariff ₹${(operation.defaultMinFee * qty).toLocaleString("en-IN")} for ${operation.name}. L1/L2 super authorization required.`);
+    }
+    // Allowed but flagged
+    logFlaggedAction({
+      action: "BELOW_MINIMUM_FEE",
+      actorId: currentUser.id,
+      patientId: data.patientId,
+      entityType: "Visit",
+      reason: `Net amount ₹${netAmount} below minimum ₹${operation.defaultMinFee * qty} for ${operation.name}`,
+      details: { rate: rawRate, discount: validatedDiscount, netAmount, minFee: operation.defaultMinFee, operationName: operation.name },
+    });
   }
 
   const maxCase = await prisma.visit.aggregate({ _max: { caseNo: true } });

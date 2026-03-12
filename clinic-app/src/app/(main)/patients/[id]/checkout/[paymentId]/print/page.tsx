@@ -40,7 +40,7 @@ export default async function EscrowDepositPrintPage({
         <Breadcrumbs items={[
           { label: "Patients", href: "/patients" },
           { label: toTitleCase(payment.patient.name), href: `/patients/${payment.patientId}` },
-          { label: "Checkout", href: `/patients/${payment.patientId}/checkout` },
+          { label: "Payments", href: `/patients/${payment.patientId}?collect=1` },
           { label: `Advance Receipt #${payment.receiptNo || payment.id}` },
         ]} />
       </div>

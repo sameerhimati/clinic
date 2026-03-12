@@ -9,7 +9,11 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 export default async function NewPatientPage() {
   const currentUser = await requireAuth();
   if (!canEditPatients(currentUser.permissionLevel)) redirect("/dashboard");
-  const diseases = await prisma.disease.findMany({ orderBy: { id: "asc" } });
+
+  const [diseases, corporatePartners] = await Promise.all([
+    prisma.disease.findMany({ orderBy: { id: "asc" } }),
+    prisma.corporatePartner.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -18,7 +22,7 @@ export default async function NewPatientPage() {
         { label: "Register" },
       ]} />
       <h2 className="text-2xl font-bold">Register New Patient</h2>
-      <PatientForm diseases={diseases} action={createPatient} />
+      <PatientForm diseases={diseases} action={createPatient} corporatePartners={corporatePartners} />
     </div>
   );
 }

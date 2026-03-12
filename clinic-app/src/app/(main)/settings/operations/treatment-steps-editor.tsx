@@ -15,6 +15,7 @@ type Step = {
   description: string;
   noteTemplate: string;
   defaultDayGap: number;
+  requiresLabWork: boolean;
   defaultDoctorId: number | null;
 };
 
@@ -51,14 +52,14 @@ export function TreatmentStepsEditor({
   }
 
   function addStep() {
-    setSteps([...steps, { name: "", description: "", noteTemplate: "", defaultDayGap: 7, defaultDoctorId: null }]);
+    setSteps([...steps, { name: "", description: "", noteTemplate: "", defaultDayGap: 7, requiresLabWork: false, defaultDoctorId: null }]);
   }
 
   function removeStep(index: number) {
     setSteps(steps.filter((_, i) => i !== index));
   }
 
-  function updateStep(index: number, field: keyof Step, value: string | number | null) {
+  function updateStep(index: number, field: keyof Step, value: string | number | boolean | null) {
     setSteps(
       steps.map((s, i) =>
         i === index ? { ...s, [field]: value } : s
@@ -148,6 +149,15 @@ export function TreatmentStepsEditor({
                 />
                 <span className="text-muted-foreground">days</span>
               </div>
+              <label className="flex items-center gap-1 shrink-0 cursor-pointer" title="Requires lab work">
+                <input
+                  type="checkbox"
+                  checked={step.requiresLabWork}
+                  onChange={(e) => updateStep(i, "requiresLabWork", e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-input"
+                />
+                <span className="text-muted-foreground text-[11px]">Lab</span>
+              </label>
               {doctors && doctors.length > 0 && (
                 <select
                   value={step.defaultDoctorId || ""}

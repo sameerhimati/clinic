@@ -86,6 +86,7 @@ export const patientSchema = z.object({
   referringPhysician: optionalString,
   physicianPhone: optionalString,
   remarks: optionalString,
+  corporatePartnerId: optionalInt,
 });
 
 export type PatientInput = z.output<typeof patientSchema>;
@@ -117,6 +118,7 @@ export const appointmentSchema = z.object({
   planItemId: optionalInt,
   date: z.string().min(1, "Date is required"),
   timeSlot: optionalString,
+  type: z.enum(["CONSULTATION", "TREATMENT"]).default("CONSULTATION"),
   reason: optionalString,
   notes: optionalString,
   isWalkIn: z.string().optional().transform((s) => s === "true"),
